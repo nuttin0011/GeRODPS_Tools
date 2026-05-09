@@ -1,0 +1,11 @@
+## Interface: 120000, 120001
+## Title: GeRODPS Tools
+## Notes: Development & inspection tools for GeRODPS (Dump Var, ...)
+## Author: HeeMenDum
+## Version: 1.0.0
+## Dependencies: GeRODPS
+## SavedVariables: GeRODPS_ToolsDB
+## IconTexture: Interface/Icons/inv_engineering_blueprint
+
+Core.lua
+DumpVar.lua
