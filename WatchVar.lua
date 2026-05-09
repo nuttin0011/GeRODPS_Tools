@@ -65,16 +65,19 @@ end
 
 local function FormatSecret(v)
     -- "<secret>" .. tostring(v) — concat is allowed on secret values
-    -- per WoW's secret guard. pcall as belt-and-braces.
+    -- per WoW's secret guard. pcall as belt-and-braces. ok is a Lua
+    -- boolean from pcall (not secret); explicit if/else avoids any
+    -- truthiness shortcut against a value that bears the secret.
     local ok, s = pcall(function() return "<secret>" .. tostring(v) end)
-    return ok and s or "<secret>"
+    if ok then return s end
+    return "<secret>"
 end
 
 local function VarToText(v)
     if IsSecret(v) then return FormatSecret(v) end
     local t = type(v)
     if     t == "nil"      then return "nil"
-    elseif t == "boolean"  then return v and "true" or "false"
+    elseif t == "boolean"  then return tostring(v)
     elseif t == "number"   then return tostring(v)
     elseif t == "string"   then return '"' .. v .. '"'
     elseif t == "table"    then return "[table]"
@@ -268,6 +271,16 @@ end
 -- Tick: re-evaluate every input expression
 -- ============================================================
 
+-- Convert any value (including secret) to a display string using ONLY
+-- concat / tostring / string.format. No comparison, no truthiness check,
+-- no `and/or` against the value itself. pcall isolates the rare exotic
+-- case where tostring would raise.
+local function SafeToString(v)
+    local ok, s = pcall(string.format, "%s", tostring(v))
+    if ok then return s end
+    return "<opaque>"
+end
+
 local function EvalAndDisplay(w)
     local expr = w.expr or ""
     if expr == "" then
@@ -276,23 +289,28 @@ local function EvalAndDisplay(w)
     end
     local fn, parseErr = loadstring("return " .. expr)
     if not fn then
-        w.output:SetText("|cffff8888parse error:|r " .. tostring(parseErr or ""))
+        w.output:SetText("|cffff8888parse error:|r " .. SafeToString(parseErr))
         return
     end
     local packed = { pcall(fn) }
-    local ok = packed[1]
+    local ok = packed[1]   -- always a Lua boolean (not secret)
     if not ok then
-        w.output:SetText("|cffff8888error:|r " .. tostring(packed[2] or ""))
+        w.output:SetText("|cffff8888error:|r " .. SafeToString(packed[2]))
         return
     end
     local n = #packed - 1
     local results = {}
     for ri = 2, #packed do results[ri - 1] = packed[ri] end
     -- pcall the formatter too — secret-aware paths can still raise on
-    -- exotic inputs. Falling back to "<error>" prevents the watch from
-    -- silently freezing.
+    -- exotic inputs. Explicit if/else on the boolean ok flag (NOT on the
+    -- formatter's secret-bearing return) so we never short-circuit on a
+    -- value that could itself be secret.
     local okFmt, display = pcall(MultiReturnToText, results, n)
-    w.output:SetText(okFmt and display or "<format error>")
+    if okFmt then
+        w.output:SetText(display)
+    else
+        w.output:SetText("|cffff8888format error:|r " .. SafeToString(display))
+    end
 end
 
 local function Tick(_, dt)
