@@ -416,15 +416,59 @@ local function SaveSize(self)
     db.w, db.h = self:GetWidth(), self:GetHeight()
 end
 
+-- Minimum gap between every frame edge and the nearest screen edge
+-- when restoring saved geometry. Saved size larger than the safe area
+-- gets clamped; saved position that pushes any edge past the margin
+-- gets shifted inward (preserving user position whenever possible).
+local SCREEN_MARGIN = 100
+
 local function ApplySavedGeometry(self)
     local db = GetDB()
+    local screenW = UIParent:GetWidth()
+    local screenH = UIParent:GetHeight()
+
+    -- 1. Clamp size to fit within (screen - 2 * margin).
+    local w = db.w or DEFAULT_W
+    local h = db.h or DEFAULT_H
+    local maxW = screenW - 2 * SCREEN_MARGIN
+    local maxH = screenH - 2 * SCREEN_MARGIN
+    if w > maxW then w = maxW end
+    if h > maxH then h = maxH end
+    if w < MIN_W then w = MIN_W end
+    if h < MIN_H then h = MIN_H end
+
+    -- 2. Apply saved anchor (or default to CENTER) and size.
     self:ClearAllPoints()
     if db.point and db.relPoint and db.x and db.y then
         self:SetPoint(db.point, UIParent, db.relPoint, db.x, db.y)
     else
         self:SetPoint("CENTER")
     end
-    self:SetSize(db.w or DEFAULT_W, db.h or DEFAULT_H)
+    self:SetSize(w, h)
+
+    -- 3. If any edge violates the margin, shift the frame inward.
+    --    Offsets translate the frame regardless of which anchor pair was
+    --    used, so we can re-apply the original point with adjusted x/y.
+    local left, right = self:GetLeft(), self:GetRight()
+    local bottom, top = self:GetBottom(), self:GetTop()
+    if left and right and bottom and top then
+        local dx, dy = 0, 0
+        if left < SCREEN_MARGIN then
+            dx = SCREEN_MARGIN - left
+        elseif right > (screenW - SCREEN_MARGIN) then
+            dx = (screenW - SCREEN_MARGIN) - right
+        end
+        if bottom < SCREEN_MARGIN then
+            dy = SCREEN_MARGIN - bottom
+        elseif top > (screenH - SCREEN_MARGIN) then
+            dy = (screenH - SCREEN_MARGIN) - top
+        end
+        if dx ~= 0 or dy ~= 0 then
+            local point, relTo, relPoint, x, y = self:GetPoint(1)
+            self:ClearAllPoints()
+            self:SetPoint(point, relTo or UIParent, relPoint, x + dx, y + dy)
+        end
+    end
 end
 
 -- ============================================================
