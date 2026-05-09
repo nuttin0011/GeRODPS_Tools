@@ -10,3 +10,4 @@
 Core.lua
 DumpVar.lua
 WatchVar.lua
+AuraListHelper.lua
