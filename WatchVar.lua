@@ -36,13 +36,10 @@ local DEFAULT_W, DEFAULT_H = 720, 560
 local MIN_W,     MIN_H     = 480, 380
 local MAX_W,     MAX_H     = 1600, 1200
 
--- Layout constants for resize math.
-local LINE_HEIGHT      = 14    -- approx pixel height of one line in ChatFontNormal
-local MIN_OUTPUT_LINES = 6     -- minimum visible lines per output box
-local FIXED_PER_SECTION = 14   -- label (12) + input (20) + 2 gaps (~6+6) ≈ 44.
-                               -- That's the height OUTSIDE the output box;
-                               -- captured separately as INPUT_BLOCK_H below.
-local INPUT_BLOCK_H    = 14 + 22 + 6   -- label + input + gap before output
+-- Layout constants — heights are user-driven via frame resize, not auto-
+-- computed from text (we can't measure secret-tainted strings).
+local LINE_HEIGHT   = 14                    -- approx 1 line of ChatFontNormal
+local INPUT_BLOCK_H = 14 + 22 + 6           -- label + input + gap before output
 
 -- ============================================================
 -- DB
@@ -185,15 +182,13 @@ local function ApplySavedGeometry(self)
 end
 
 -- ============================================================
--- Resize: redistribute output box heights
+-- Layout: equal-split sections by user-controlled frame height
 -- ============================================================
-
-local function CountTextLines(text)
-    if not text or text == "" then return 1 end
-    local n = 1
-    for _ in text:gmatch("\n") do n = n + 1 end
-    return n
-end
+-- We can't measure text length / height because reading FontString
+-- text or rendered metrics on a secret-tainted string would trip
+-- WoW's secret guard. So heights are static — driven entirely by the
+-- frame size the user has set. Resize the frame larger to see more
+-- content per box; smaller to compact.
 
 local function LayoutSections()
     if not frame then return end
@@ -201,65 +196,15 @@ local function LayoutSections()
     local availW = content:GetWidth() - 16
     local availH = content:GetHeight() - 12
 
-    -- Each section consumes INPUT_BLOCK_H plus its dynamic output area.
-    -- Gap between sections = 6.
     local sectionGap = 6
-    local fixedPerSection = INPUT_BLOCK_H
-    local totalFixed = NUM_WATCHES * fixedPerSection + (NUM_WATCHES - 1) * sectionGap
-    local outputPool = math.max(NUM_WATCHES * MIN_OUTPUT_LINES * LINE_HEIGHT,
-        availH - totalFixed)
-
-    -- Compute per-box "needs" (lines of text, clamped to a sane upper bound
-    -- so a runaway output doesn't starve the others).
-    local NEED_CAP = 60
-    local needs = {}
-    local totalNeed = 0
-    for i, w in ipairs(watches) do
-        local lines = CountTextLines(w.output and w.output:GetText() or "")
-        if lines < MIN_OUTPUT_LINES then lines = MIN_OUTPUT_LINES end
-        if lines > NEED_CAP        then lines = NEED_CAP        end
-        needs[i] = lines
-        totalNeed = totalNeed + lines
+    local totalGap   = (NUM_WATCHES - 1) * sectionGap
+    local sectionH   = math.floor((availH - totalGap) / NUM_WATCHES)
+    if sectionH < INPUT_BLOCK_H + LINE_HEIGHT then
+        sectionH = INPUT_BLOCK_H + LINE_HEIGHT
     end
 
-    -- Distribute pool proportionally to need; never below MIN_OUTPUT_LINES.
-    local poolLines = math.floor(outputPool / LINE_HEIGHT)
-    local heights = {}
-    if totalNeed <= poolLines then
-        -- Every box fits — give each its exact need, idle space goes to the
-        -- last box so the layout fully fills the frame.
-        local used = 0
-        for i = 1, NUM_WATCHES do
-            heights[i] = needs[i] * LINE_HEIGHT
-            used = used + heights[i]
-        end
-        if used < outputPool then
-            heights[NUM_WATCHES] = heights[NUM_WATCHES] + (outputPool - used)
-        end
-    else
-        -- Proportional shrink — every box still gets MIN_OUTPUT_LINES first,
-        -- then the remaining pool is split by need above min.
-        local minLines = MIN_OUTPUT_LINES * NUM_WATCHES
-        local extraPool = poolLines - minLines
-        local extraNeedTotal = 0
-        local extraNeeds = {}
-        for i = 1, NUM_WATCHES do
-            local extra = math.max(0, needs[i] - MIN_OUTPUT_LINES)
-            extraNeeds[i] = extra
-            extraNeedTotal = extraNeedTotal + extra
-        end
-        for i = 1, NUM_WATCHES do
-            local extra = (extraNeedTotal > 0)
-                and math.floor(extraPool * (extraNeeds[i] / extraNeedTotal))
-                or 0
-            heights[i] = (MIN_OUTPUT_LINES + extra) * LINE_HEIGHT
-        end
-    end
-
-    -- Apply per-section anchors and sizes.
     local y = -6
-    for i, w in ipairs(watches) do
-        local sectionH = fixedPerSection + heights[i]
+    for _, w in ipairs(watches) do
         w.section:ClearAllPoints()
         w.section:SetPoint("TOPLEFT", content, "TOPLEFT", 8, y)
         w.section:SetSize(availW, sectionH)
@@ -321,7 +266,8 @@ local function Tick(_, dt)
     for _, w in ipairs(watches) do
         EvalAndDisplay(w)
     end
-    LayoutSections()  -- text grew/shrunk → redistribute heights
+    -- No layout call here — heights are user-controlled via frame
+    -- resize, not text-driven.
 end
 
 local function EnsureTicker()
@@ -353,13 +299,14 @@ local function CreateWatchSection(parent, idx)
     scroll:SetPoint("TOPLEFT", input, "BOTTOMLEFT", -6, -4)
     scroll:SetPoint("BOTTOMRIGHT", section, "BOTTOMRIGHT", -22, 4)
 
-    -- Output: read-only FontString inside a content Frame.
-    -- EditBox rejects strings produced by `"<secret>" .. tostring(v)`
-    -- (the secret taint propagates into the SetText path and raises),
-    -- but FontString accepts them — display layer only, no input.
-    -- Trade-off: lose drag-select / Ctrl+C copy. Acceptable per spec.
+    -- Output: read-only FontString inside a content Frame matching the
+    -- ScrollFrame viewport size. We never measure GetStringHeight or
+    -- GetText (would trip secret guard on tainted strings), so the
+    -- content frame size = viewport size; long output is clipped at the
+    -- bottom of the section. User resizes the parent frame larger to
+    -- see more.
     local content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(1, 1)   -- size adjusted on every SetOutput / resize
+    content:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
     local output = content:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
     output:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
     output:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, 0)
@@ -369,19 +316,15 @@ local function CreateWatchSection(parent, idx)
     output:SetNonSpaceWrap(true)
     output:SetText("")
     scroll:SetScrollChild(content)
+    content:SetSize(math.max(1, scroll:GetWidth()), math.max(1, scroll:GetHeight()))
 
-    -- Refresh content frame size so the scrollbar reflects total text
-    -- height. Called after SetText (text changed) and OnSizeChanged
-    -- (width changed → wrap recomputes).
-    local function SizeContent()
-        local w = scroll:GetWidth()
-        if w <= 0 then return end
-        content:SetWidth(w)
-        local h = output:GetStringHeight()
-        if h < 1 then h = 1 end
-        content:SetHeight(h)
-    end
-    scroll:SetScript("OnSizeChanged", SizeContent)
+    -- Sync content size to viewport whenever ScrollFrame resizes. No
+    -- text-driven resizing — user controls heights via parent frame
+    -- resize → LayoutSections → section size → ScrollFrame size → here.
+    scroll:SetScript("OnSizeChanged", function(_, w, h)
+        if w <= 0 or h <= 0 then return end
+        content:SetSize(w, h)
+    end)
 
     -- Mild background for the output area so it visually reads as a panel
     local bg = section:CreateTexture(nil, "BACKGROUND")
@@ -395,12 +338,10 @@ local function CreateWatchSection(parent, idx)
         expr = "",
     }
 
-    -- Helper: set output text + recompute content frame height so the
-    -- scrollbar reflects the new total. Use this everywhere instead of
-    -- output:SetText directly.
+    -- Helper: set output text. Pure SetText — no measurement of the
+    -- result (would trip secret guard for tainted strings).
     function entry.SetOutput(text)
         output:SetText(text or "")
-        SizeContent()
     end
 
     -- Input wiring: text changes update the expression; tick loop picks
