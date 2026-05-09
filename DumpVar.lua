@@ -105,7 +105,7 @@ local function CreateDumpVarFrame()
 
     -- Title text (TitleBg/TitleText come from BasicFrameTemplateWithInset)
     if frame.TitleText then
-        frame.TitleText:SetText("GeRODPS Tools — Dump Var")
+        frame.TitleText:SetText("GeRODPS Tools — Dump Var (Secret Read)")
     end
 
     -- Empty content area placeholder. Future phases will fill the
@@ -135,4 +135,9 @@ end
 function TOOL.ToggleDumpVar()
     local f = CreateDumpVarFrame()
     if f:IsShown() then f:Hide() else f:Show() end
+end
+
+-- Register into the minimap drop-down menu (from Core.lua).
+if TOOL.RegisterTool then
+    TOOL.RegisterTool("Dump Var (Secret Read)", TOOL.ToggleDumpVar)
 end

@@ -5,11 +5,10 @@
     Hosts development / inspection tools that we don't want polluting the
     main GeRODPS load order.
 
-    Phase 1: a single Minimap button "GeRODPS Tools" that opens an
-    empty Dump Var frame (native WoW UI, no AceGUI). Future tools will
-    register via GeRODPS_Tools.RegisterTool(name, openFn) and surface
-    in a dropdown, but for now left-click → toggles the Dump Var frame
-    directly so the user can verify the empty-frame plumbing first.
+    Minimap button "GeRODPS Tools". Left-click opens a Blizzard
+    UIDropDown menu listing every registered tool. Each tool owns an
+    open / toggle function the menu calls. New tools register via
+    GeRODPS_Tools.RegisterTool(label, fn).
 
     Reuses the LibDataBroker / LibDBIcon stubs that GeRODPS already
     loads (cheaper than re-vendoring; we're a hard dependency anyway).
@@ -17,6 +16,57 @@
 
 GeRODPS_Tools = GeRODPS_Tools or {}
 local TOOL = GeRODPS_Tools
+
+-- ============================================================
+-- Tool registry — populated by each tool file at load time.
+-- Order is preserved (registration order = display order in the menu).
+-- ============================================================
+TOOL._tools = TOOL._tools or {}
+
+function TOOL.RegisterTool(label, fn)
+    if type(label) ~= "string" or label == "" then return end
+    if type(fn) ~= "function" then return end
+    -- Replace if a tool with the same label re-registers (after /reload).
+    for i, t in ipairs(TOOL._tools) do
+        if t.label == label then
+            TOOL._tools[i] = { label = label, fn = fn }
+            return
+        end
+    end
+    TOOL._tools[#TOOL._tools + 1] = { label = label, fn = fn }
+end
+
+-- ============================================================
+-- Drop-down menu shown on minimap left-click
+-- ============================================================
+
+local menuAnchor   -- hidden frame used as the EasyMenu anchor (one per session)
+
+local function ShowToolMenu()
+    if not menuAnchor then
+        menuAnchor = CreateFrame(
+            "Frame", "GeRODPS_Tools_MenuAnchor", UIParent, "UIDropDownMenuTemplate")
+    end
+
+    local menuList = {}
+    if #TOOL._tools == 0 then
+        menuList[#menuList + 1] = {
+            text         = "(no tools registered)",
+            isTitle      = true,
+            notCheckable = true,
+        }
+    else
+        for _, t in ipairs(TOOL._tools) do
+            menuList[#menuList + 1] = {
+                text         = t.label,
+                notCheckable = true,
+                func         = t.fn,
+            }
+        end
+    end
+
+    EasyMenu(menuList, menuAnchor, "cursor", 0, 0, "MENU")
+end
 
 -- ============================================================
 -- SavedVariables + LibDBIcon registration on PLAYER_LOGIN
@@ -45,12 +95,12 @@ f:SetScript("OnEvent", function(_, event)
         icon  = "Interface/Icons/inv_engineering_blueprint",
         OnClick = function(_, button)
             if button == "LeftButton" then
-                if TOOL.ToggleDumpVar then TOOL.ToggleDumpVar() end
+                ShowToolMenu()
             end
         end,
         OnTooltipShow = function(tt)
             tt:AddLine("|cffaaffaaGeRODPS Tools|r")
-            tt:AddLine("|cffcccccc Left-click:|r toggle Dump Var")
+            tt:AddLine("|cffcccccc Left-click:|r open tool menu")
         end,
     })
 
