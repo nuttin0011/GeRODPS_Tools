@@ -284,18 +284,18 @@ end
 local function EvalAndDisplay(w)
     local expr = w.expr or ""
     if expr == "" then
-        if w.output then w.output:SetText("") end
+        if w.SetOutput then w.SetOutput("") end
         return
     end
     local fn, parseErr = loadstring("return " .. expr)
     if not fn then
-        w.output:SetText("|cffff8888parse error:|r " .. SafeToString(parseErr))
+        w.SetOutput("|cffff8888parse error:|r " .. SafeToString(parseErr))
         return
     end
     local packed = { pcall(fn) }
     local ok = packed[1]   -- always a Lua boolean (not secret)
     if not ok then
-        w.output:SetText("|cffff8888error:|r " .. SafeToString(packed[2]))
+        w.SetOutput("|cffff8888error:|r " .. SafeToString(packed[2]))
         return
     end
     local n = #packed - 1
@@ -307,9 +307,9 @@ local function EvalAndDisplay(w)
     -- value that could itself be secret.
     local okFmt, display = pcall(MultiReturnToText, results, n)
     if okFmt then
-        w.output:SetText(display)
+        w.SetOutput(display)
     else
-        w.output:SetText("|cffff8888format error:|r " .. SafeToString(display))
+        w.SetOutput("|cffff8888format error:|r " .. SafeToString(display))
     end
 end
 
@@ -353,21 +353,35 @@ local function CreateWatchSection(parent, idx)
     scroll:SetPoint("TOPLEFT", input, "BOTTOMLEFT", -6, -4)
     scroll:SetPoint("BOTTOMRIGHT", section, "BOTTOMRIGHT", -22, 4)
 
-    -- Output: editable EditBox with multi-line so user can drag-select
-    -- and Ctrl+C. We don't need true read-only — the tick loop overwrites
-    -- text every TICK_INTERVAL anyway.
-    local output = CreateFrame("EditBox", nil, scroll)
-    output:SetMultiLine(true)
-    output:SetAutoFocus(false)
-    output:SetFontObject("ChatFontNormal")
-    output:SetWidth(scroll:GetWidth())
+    -- Output: read-only FontString inside a content Frame.
+    -- EditBox rejects strings produced by `"<secret>" .. tostring(v)`
+    -- (the secret taint propagates into the SetText path and raises),
+    -- but FontString accepts them — display layer only, no input.
+    -- Trade-off: lose drag-select / Ctrl+C copy. Acceptable per spec.
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(1, 1)   -- size adjusted on every SetOutput / resize
+    local output = content:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+    output:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+    output:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, 0)
+    output:SetJustifyH("LEFT")
+    output:SetJustifyV("TOP")
+    output:SetWordWrap(true)
+    output:SetNonSpaceWrap(true)
     output:SetText("")
-    output:SetScript("OnEscapePressed", output.ClearFocus)
-    -- Resize content width with parent so word-wrap follows resize
-    scroll:SetScript("OnSizeChanged", function(s, w)
-        output:SetWidth(w)
-    end)
-    scroll:SetScrollChild(output)
+    scroll:SetScrollChild(content)
+
+    -- Refresh content frame size so the scrollbar reflects total text
+    -- height. Called after SetText (text changed) and OnSizeChanged
+    -- (width changed → wrap recomputes).
+    local function SizeContent()
+        local w = scroll:GetWidth()
+        if w <= 0 then return end
+        content:SetWidth(w)
+        local h = output:GetStringHeight()
+        if h < 1 then h = 1 end
+        content:SetHeight(h)
+    end
+    scroll:SetScript("OnSizeChanged", SizeContent)
 
     -- Mild background for the output area so it visually reads as a panel
     local bg = section:CreateTexture(nil, "BACKGROUND")
@@ -376,9 +390,18 @@ local function CreateWatchSection(parent, idx)
     bg:SetColorTexture(0, 0, 0, 0.45)
 
     local entry = {
-        section = section, input = input, output = output, scroll = scroll,
+        section = section, input = input, output = output,
+        scroll = scroll, content = content,
         expr = "",
     }
+
+    -- Helper: set output text + recompute content frame height so the
+    -- scrollbar reflects the new total. Use this everywhere instead of
+    -- output:SetText directly.
+    function entry.SetOutput(text)
+        output:SetText(text or "")
+        SizeContent()
+    end
 
     -- Input wiring: text changes update the expression; tick loop picks
     -- up the new value on the next interval. Enter just clears focus.
@@ -390,7 +413,7 @@ local function CreateWatchSection(parent, idx)
         local db = GetDB()
         db.exprs[idx] = txt
         if txt == "" then
-            output:SetText("")
+            entry.SetOutput("")
         end
     end)
 
