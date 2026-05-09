@@ -1,16 +1,17 @@
 --[[
-    GeRODPS_Tools / AuraListHelper.lua
+    AuraListHelper.lua
 
-    Native WoW UI port of GeRODPS/AuraListHelper.lua. Lists every aura
-    on a single unit (target / focus / mouseover / partyN / nameplateN
-    / ...) with a checkbox grid letting the user pick which AuraData
-    fields to display.
+    Lists every aura on a single unit (target / focus / mouseover /
+    partyN / nameplateN / ...) with a checkbox grid letting the user
+    pick which AuraData fields to display.
 
-    Differences from the AceGUI original:
-      * Output is a FontString in a ScrollFrame, NOT a MultiLineEditBox.
-        EditBox would reject strings whose secret taint propagates from
-        the formatter — see SECRETS.md for the rules.
-      * Interval is 4 toggle buttons instead of an AceGUI dropdown.
+    UI notes:
+      * Output is a FontString in a ScrollFrame, NOT an EditBox.
+        EditBox would reject strings whose secret taint propagates
+        from the formatter — see SECRETS.md for the rules.
+      * Interval is 4 toggle buttons.
+      * Field selection is split across three button-tabs:
+        Display / Native Fields / Custom Fields.
       * Geometry persisted in GeRODPS_ToolsDB.auraListHelper.
 
     Public:
@@ -195,14 +196,15 @@ end
 -- ============================================================
 -- Synthetic-field formatters
 -- ============================================================
--- These rely on the optional GeRODPS sister addon for AuraCache helpers
--- (filter probes, dispel-type curve, IsPlayerDispellable, ...). Without
--- GeRODPS we still load and run, but every synthetic field reports
--- "(AuraCache unavailable)". Native AuraData fields (name, spellId,
--- duration, ...) work standalone.
+-- A few "Custom Fields" (filter probes, dispel-type curve,
+-- IsPlayerDispellable, IsOnBlizzardNameplate, ...) lean on an external
+-- AuraCache helper if one happens to be available in the global table.
+-- When it isn't, those fields read "(AuraCache unavailable)" — every
+-- native AuraData field continues to work either way.
 
 local function GetAuraCache()
-    return _G.GeRODPS and _G.GeRODPS.AuraCache or nil
+    local g = _G.GeRODPS
+    return g and g.AuraCache or nil
 end
 
 local function FormatDispelByCurve(unit, info)

@@ -1,7 +1,7 @@
 # GeRODPS Tools
 
 > Personal-use World of Warcraft 12.0 addon for poking at the API at
-> runtime. This repository is **public for convenience** — fork it,
+> runtime. The repository is **public for convenience** — fork it,
 > modify it, ship it, do whatever. No warranty, no support promised.
 
 ---
@@ -23,9 +23,9 @@
 
 ## What it does
 
-A standalone addon that adds a minimap launcher with three runtime
-inspection tools. All UI is native WoW frames (no AceGUI), so it
-gracefully accepts WoW 12.0 secret-tagged values into FontString
+A self-contained addon that adds a minimap launcher with three
+runtime inspection tools. All UI uses native WoW frames so the tools
+gracefully accept WoW 12.0 secret-tagged values into FontString
 output (see `SECRETS.md` for the full ruleset learned the hard way).
 
 | Tool | Status | What it shows |
@@ -37,27 +37,6 @@ output (see `SECRETS.md` for the full ruleset learned the hard way).
 Geometry is persisted per-account; opening any tool re-snaps the
 frame to fit within a 100 px screen-edge margin so saved positions
 never push the frame off-screen.
-
----
-
-## Standalone vs paired with GeRODPS
-
-The TOC lists `## OptionalDeps: GeRODPS`. The addon runs fine without
-it; with GeRODPS loaded, the **Aura List Helper** also surfaces a few
-synthetic fields that delegate to its `AuraCache` (filter probes,
-dispel-type curve, raid-frame dispellable flags). Without GeRODPS
-those fields read `(AuraCache unavailable)`; native AuraData fields
-work either way.
-
-Bundled libraries (under `Libs/`):
-
-* `LibStub`
-* `CallbackHandler-1.0`
-* `LibDataBroker-1.1`
-* `LibDBIcon-1.0`
-
-LibStub deduplicates across loaded addons, so if another addon already
-brought a newer copy, that one wins.
 
 ---
 
@@ -79,11 +58,18 @@ World of Warcraft/_retail_/Interface/AddOns/
         └── LibDBIcon-1.0/
 ```
 
-`/reload` after editing any Lua file.
+Drop the folder into your `Interface/AddOns/` directory. `/reload`
+in chat after editing any Lua file.
+
+Bundled libraries are loaded automatically. If a newer copy is
+already provided by another addon on your account, LibStub will
+prefer that one — nothing breaks either way.
 
 ---
 
-## SavedVariables shape
+## SavedVariables
+
+Per account at `GeRODPS_ToolsDB`:
 
 ```
 GeRODPS_ToolsDB = {

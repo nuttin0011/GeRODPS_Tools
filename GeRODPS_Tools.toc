@@ -1,15 +1,13 @@
 ## Interface: 120000, 120001
 ## Title: GeRODPS Tools
-## Notes: Stand-alone development & inspection tools (Dump Var, Watch Var, Aura List Helper).
+## Notes: Runtime inspection tools — Dump Var, Watch Var, Aura List Helper.
 ## Author: HeeMenDum
 ## Version: 1.0.0
 ## SavedVariables: GeRODPS_ToolsDB
-## OptionalDeps: GeRODPS
 ## IconTexture: Interface/Icons/inv_engineering_blueprint
 
-# Bundled libraries — addon now stands alone (LibStub, CallbackHandler,
-# LibDataBroker-1.1, LibDBIcon-1.0). LibStub deduplicates across addons,
-# so if another addon already loaded a newer copy that one wins.
+# Bundled libraries. LibStub deduplicates across addons, so if another
+# addon already loaded a newer copy that one wins.
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua

@@ -1,17 +1,11 @@
 --[[
-    GeRODPS_Tools / Core.lua
+    Core.lua
 
-    Sister addon to GeRODPS (declared via TOC `## Dependencies: GeRODPS`).
-    Hosts development / inspection tools that we don't want polluting the
-    main GeRODPS load order.
-
-    Minimap button "GeRODPS Tools". Left-click opens a Blizzard
-    UIDropDown menu listing every registered tool. Each tool owns an
-    open / toggle function the menu calls. New tools register via
-    GeRODPS_Tools.RegisterTool(label, fn).
-
-    Reuses the LibDataBroker / LibDBIcon stubs that GeRODPS already
-    loads (cheaper than re-vendoring; we're a hard dependency anyway).
+    Top-level addon entry. Sets up SavedVariables and the minimap
+    button "GeRODPS Tools" via LibDBIcon. Left-click on the button
+    opens a drop-down menu listing every registered tool. Each tool
+    owns an open / toggle function the menu calls. Additional tools
+    register via GeRODPS_Tools.RegisterTool(label, fn) at file load.
 ]]
 
 GeRODPS_Tools = GeRODPS_Tools or {}
