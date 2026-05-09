@@ -193,17 +193,27 @@ local function VarToText(v)
 end
 
 -- ============================================================
--- Synthetic-field formatters (delegate to GeRODPS.AuraCache helpers)
+-- Synthetic-field formatters
 -- ============================================================
+-- These rely on the optional GeRODPS sister addon for AuraCache helpers
+-- (filter probes, dispel-type curve, IsPlayerDispellable, ...). Without
+-- GeRODPS we still load and run, but every synthetic field reports
+-- "(AuraCache unavailable)". Native AuraData fields (name, spellId,
+-- duration, ...) work standalone.
+
+local function GetAuraCache()
+    return _G.GeRODPS and _G.GeRODPS.AuraCache or nil
+end
 
 local function FormatDispelByCurve(unit, info)
-    if not (GeRODPS.AuraCache and GeRODPS.AuraCache.GetDispelTypeName) then
+    local ac = GetAuraCache()
+    if not (ac and ac.GetDispelTypeName) then
         return "(AuraCache.GetDispelTypeName unavailable)"
     end
     local id = info.auraInstanceID
     if id == nil then return "nil |cFF888888(no auraInstanceID)|r" end
     if IsSecret(id) then return "nil |cFF888888(auraInstanceID is <secret>)|r" end
-    local name = GeRODPS.AuraCache.GetDispelTypeName(unit, id)
+    local name = ac.GetDispelTypeName(unit, id)
     -- Strict logic rule: only `==nil` and `IsSecret` allowed BEFORE we
     -- decide what to do with `name` (no truthiness check on a possibly
     -- tainted string). Once we know it's a real (non-secret) string,
@@ -214,7 +224,8 @@ local function FormatDispelByCurve(unit, info)
 end
 
 local function FormatBoolWithDiag(probeFn, unit, info, label)
-    if not (GeRODPS.AuraCache and probeFn) then
+    local ac = GetAuraCache()
+    if not (ac and probeFn) then
         return "(AuraCache unavailable)"
     end
     local id = info.auraInstanceID
@@ -232,13 +243,15 @@ local function FormatBoolWithDiag(probeFn, unit, info, label)
 end
 
 local function FormatPlayerDispellable(unit, info)
+    local ac = GetAuraCache()
     return FormatBoolWithDiag(
-        GeRODPS.AuraCache and GeRODPS.AuraCache.IsPlayerDispellable,
+        ac and ac.IsPlayerDispellable,
         unit, info, "IsAuraFilteredOutByInstanceID")
 end
 
 local function FormatPlayerDispellableHELPFUL(unit, info)
-    local fn = GeRODPS.AuraCache and GeRODPS.AuraCache.MatchesFilter
+    local ac = GetAuraCache()
+    local fn = ac and ac.MatchesFilter
     if not fn then return "(MatchesFilter unavailable)" end
     return FormatBoolWithDiag(
         function(u, id) return fn(u, id, "HELPFUL|RAID_PLAYER_DISPELLABLE") end,
@@ -246,7 +259,8 @@ local function FormatPlayerDispellableHELPFUL(unit, info)
 end
 
 local function FormatPlayerDispellableHARMFUL(unit, info)
-    local fn = GeRODPS.AuraCache and GeRODPS.AuraCache.MatchesFilter
+    local ac = GetAuraCache()
+    local fn = ac and ac.MatchesFilter
     if not fn then return "(MatchesFilter unavailable)" end
     return FormatBoolWithDiag(
         function(u, id) return fn(u, id, "HARMFUL|RAID_PLAYER_DISPELLABLE") end,
@@ -254,13 +268,15 @@ local function FormatPlayerDispellableHARMFUL(unit, info)
 end
 
 local function FormatOnBlizzardNameplate(unit, info)
+    local ac = GetAuraCache()
     return FormatBoolWithDiag(
-        GeRODPS.AuraCache and GeRODPS.AuraCache.IsOnBlizzardNameplate,
+        ac and ac.IsOnBlizzardNameplate,
         unit, info, "Blizzard nameplate aura list")
 end
 
 local function FormatFilterProbe(unit, info)
-    local fn = GeRODPS.AuraCache and GeRODPS.AuraCache.MatchesFilter
+    local ac = GetAuraCache()
+    local fn = ac and ac.MatchesFilter
     if not fn then return "(MatchesFilter unavailable)" end
     local id = info.auraInstanceID
     if id == nil then return "nil |cFF888888(no auraInstanceID)|r" end
@@ -339,19 +355,31 @@ local registeredUnit = nil
 
 local function SwapRegisteredUnit(newUnit)
     if newUnit == registeredUnit then return end
-    if registeredUnit and GeRODPS and GeRODPS.AuraCache then
-        GeRODPS.AuraCache.Unregister(registeredUnit)
-    end
+    local ac = GetAuraCache()
+    if registeredUnit and ac then ac.Unregister(registeredUnit) end
     registeredUnit = newUnit
-    if registeredUnit and GeRODPS and GeRODPS.AuraCache then
-        GeRODPS.AuraCache.Register(registeredUnit)
-    end
+    if registeredUnit and ac then ac.Register(registeredUnit) end
 end
 
+-- Without GeRODPS.AuraCache we fall back to a direct C_UnitAuras call —
+-- the standalone path loses the cache's batched/event-driven refresh
+-- but still surfaces every aura on the unit so the helper isn't useless.
 local function ScanAuras(unit, filter)
     if not unit or unit == "" then return {} end
-    if not (GeRODPS and GeRODPS.AuraCache) then return {} end
-    return GeRODPS.AuraCache.GetAuras(unit, filter)
+    local ac = GetAuraCache()
+    if ac and ac.GetAuras then
+        return ac.GetAuras(unit, filter)
+    end
+    if not (C_UnitAuras and UnitExists and UnitExists(unit)) then return {} end
+    local out = {}
+    if C_UnitAuras.GetUnitAuras then
+        local sortRule = (Enum and Enum.UnitAuraSortRule and Enum.UnitAuraSortRule.Unsorted) or nil
+        local list = C_UnitAuras.GetUnitAuras(unit, filter, nil, sortRule)
+        if list then
+            for _, info in ipairs(list) do out[#out + 1] = info end
+        end
+    end
+    return out
 end
 
 local function BuildOutputText()
