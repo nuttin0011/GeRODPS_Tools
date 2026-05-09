@@ -31,23 +31,38 @@ local MAX_W, MAX_H = 1600, 1200
 -- ============================================================
 -- Field schema (mirrors original AuraListHelper)
 -- ============================================================
+-- Split into Native (AuraData struct fields) vs Custom (synthetic /
+-- probed via AuraCache helpers, NOT on the AuraData object). Each tab
+-- in the UI shows its own subset; AURA_FIELDS is the union used by the
+-- per-aura formatter so display order stays stable.
 
-local AURA_FIELDS = {
+local NATIVE_FIELDS = {
     "name", "spellId", "auraInstanceID",
     "icon", "applications", "charges", "maxCharges",
     "duration", "expirationTime", "timeMod",
-    "dispelName", "dispelNameByCurve",
-    "isPlayerDispellable",
-    "isPlayerDispellable_HELPFUL", "isPlayerDispellable_HARMFUL",
-    "isOnBlizzardNameplate",
-    "filterProbe",
+    "dispelName",
     "sourceUnit", "points",
     "isHelpful", "isHarmful", "isStealable",
     "isFromPlayerOrPlayerPet", "isBossAura", "isRaid",
     "isNameplateOnly", "nameplateShowAll", "nameplateShowPersonal",
-    "canApplyAura", "canActivePlayerDispel",
+    "canApplyAura",
     "isDPSRoleAura", "isHealerRoleAura", "isTankRoleAura",
 }
+
+local CUSTOM_FIELDS = {
+    "dispelNameByCurve",
+    "isPlayerDispellable",
+    "isPlayerDispellable_HELPFUL", "isPlayerDispellable_HARMFUL",
+    "isOnBlizzardNameplate",
+    "filterProbe",
+    "canActivePlayerDispel",
+}
+
+-- Union — display order in the per-aura formatter. Native first, then custom,
+-- so the more useful fields surface near the top of each aura entry.
+local AURA_FIELDS = {}
+for _, f in ipairs(NATIVE_FIELDS) do AURA_FIELDS[#AURA_FIELDS + 1] = f end
+for _, f in ipairs(CUSTOM_FIELDS) do AURA_FIELDS[#AURA_FIELDS + 1] = f end
 
 local DEFAULT_ENABLED_FIELDS = {
     name = true, spellId = true,
@@ -534,47 +549,35 @@ local function CreateAuraListHelperFrame()
     end
     RefreshIntervalHighlights()
 
-    -- ── Row 3: All / None / Default + field grid ───────────────
-    local allBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
-    allBtn:SetPoint("TOPLEFT", intLbl, "BOTTOMLEFT", 0, -10)
-    allBtn:SetSize(64, 20)
-    allBtn:SetText("All")
-
-    local noneBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
-    noneBtn:SetPoint("LEFT", allBtn, "RIGHT", 4, 0)
-    noneBtn:SetSize(64, 20)
-    noneBtn:SetText("None")
-
-    local defBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
-    defBtn:SetPoint("LEFT", noneBtn, "RIGHT", 4, 0)
-    defBtn:SetSize(64, 20)
-    defBtn:SetText("Default")
-
-    -- Field checkbox grid
-    fieldCheckboxes = {}
-    local gridTop = -10
-    local gridAnchor = allBtn
-    for i, field in ipairs(AURA_FIELDS) do
-        local col = (i - 1) % FIELD_COLS
-        local row = math.floor((i - 1) / FIELD_COLS)
-        local cb = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-        cb:SetSize(20, 20)
-        cb:SetPoint("TOPLEFT", gridAnchor, "BOTTOMLEFT",
-            col * FIELD_COL_W, gridTop - row * FIELD_ROW_H)
-        cb._field = field
-        cb:SetChecked(s.fields and s.fields[field] or false)
-        cb.text:SetText(field)
-        cb.text:ClearAllPoints()
-        cb.text:SetPoint("LEFT", cb, "RIGHT", 2, 0)
-        cb:SetScript("OnClick", function(self)
-            local db = GetDB()
-            db.fields = db.fields or {}
-            db.fields[self._field] = self:GetChecked() and true or false
-            tickAccum = 1e9
-            RenderStatus()
-        end)
-        fieldCheckboxes[#fieldCheckboxes + 1] = cb
+    -- ── Row 3: Tab buttons (button-as-tab fallback; no template dep) ──
+    local tabDef = {
+        { name = "display", label = "Display"        },
+        { name = "native",  label = "Native Fields"  },
+        { name = "custom",  label = "Custom Fields"  },
+    }
+    local tabButtons = {}
+    local prevTabAnchor
+    for i, td in ipairs(tabDef) do
+        local b = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+        b:SetSize(120, 22)
+        if i == 1 then
+            b:SetPoint("TOPLEFT", intLbl, "BOTTOMLEFT", 0, -10)
+        else
+            b:SetPoint("LEFT", prevTabAnchor, "RIGHT", 4, 0)
+        end
+        b:SetText(td.label)
+        b._tab = td.name
+        tabButtons[td.name] = b
+        prevTabAnchor = b
     end
+
+    -- Body area below tabs — every tab body anchors to it via SetAllPoints.
+    local bodyArea = CreateFrame("Frame", nil, content)
+    bodyArea:SetPoint("TOPLEFT", tabButtons.display, "BOTTOMLEFT", 0, -6)
+    bodyArea:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -8, 8)
+
+    local bodies = {}
+    fieldCheckboxes = {}
 
     local function RefreshFieldCheckboxes()
         local db = GetDB()
@@ -585,70 +588,140 @@ local function CreateAuraListHelperFrame()
         RenderStatus()
     end
 
-    allBtn:SetScript("OnClick", function()
-        local db = GetDB()
-        db.fields = db.fields or {}
-        for _, f in ipairs(AURA_FIELDS) do db.fields[f] = true end
-        RefreshFieldCheckboxes()
-    end)
-    noneBtn:SetScript("OnClick", function()
-        local db = GetDB()
-        db.fields = db.fields or {}
-        for _, f in ipairs(AURA_FIELDS) do db.fields[f] = false end
-        RefreshFieldCheckboxes()
-    end)
-    defBtn:SetScript("OnClick", function()
-        local db = GetDB()
-        db.fields = {}
-        for k, v in pairs(DEFAULT_ENABLED_FIELDS) do db.fields[k] = v end
-        RefreshFieldCheckboxes()
-    end)
+    -- ── Display body: status + ScrollFrame output ─────────────
+    do
+        local body = CreateFrame("Frame", nil, bodyArea)
+        body:SetAllPoints(bodyArea)
+        bodies.display = body
 
-    -- ── Status row ─────────────────────────────────────────────
-    local fieldRows = math.ceil(#AURA_FIELDS / FIELD_COLS)
-    local fieldGridH = fieldRows * FIELD_ROW_H
+        statusFS = body:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        statusFS:SetPoint("TOPLEFT", body, "TOPLEFT", 4, -4)
+        statusFS:SetPoint("RIGHT", body, "RIGHT", -4, 0)
+        statusFS:SetJustifyH("LEFT")
+        statusFS:SetText("")
 
-    statusFS = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    statusFS:SetPoint("TOPLEFT", allBtn, "BOTTOMLEFT", 0, gridTop - fieldGridH - 4)
-    statusFS:SetPoint("RIGHT", content, "RIGHT", -12, 0)
-    statusFS:SetJustifyH("LEFT")
-    statusFS:SetText("")
+        local scroll = CreateFrame("ScrollFrame", nil, body, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", statusFS, "BOTTOMLEFT", 0, -6)
+        scroll:SetPoint("BOTTOMRIGHT", body, "BOTTOMRIGHT", -22, 4)
 
-    -- ── Output area ────────────────────────────────────────────
-    local scroll = CreateFrame("ScrollFrame", nil, content, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", statusFS, "BOTTOMLEFT", 0, -6)
-    scroll:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -28, 8)
+        outputContent = CreateFrame("Frame", nil, scroll)
+        outputContent:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
 
-    outputContent = CreateFrame("Frame", nil, scroll)
-    outputContent:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
+        outputFS = outputContent:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+        outputFS:SetPoint("TOPLEFT", outputContent, "TOPLEFT", 4, -2)
+        outputFS:SetPoint("TOPRIGHT", outputContent, "TOPRIGHT", -4, -2)
+        outputFS:SetJustifyH("LEFT")
+        outputFS:SetJustifyV("TOP")
+        outputFS:SetWordWrap(true)
+        outputFS:SetNonSpaceWrap(true)
+        outputFS:SetText("")
 
-    outputFS = outputContent:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
-    outputFS:SetPoint("TOPLEFT", outputContent, "TOPLEFT", 4, -2)
-    outputFS:SetPoint("TOPRIGHT", outputContent, "TOPRIGHT", -4, -2)
-    outputFS:SetJustifyH("LEFT")
-    outputFS:SetJustifyV("TOP")
-    outputFS:SetWordWrap(true)
-    outputFS:SetNonSpaceWrap(true)
-    outputFS:SetText("")
+        scroll:SetScrollChild(outputContent)
+        outputContent:SetSize(math.max(1, scroll:GetWidth()), math.max(1, scroll:GetHeight()))
 
-    scroll:SetScrollChild(outputContent)
-    outputContent:SetSize(math.max(1, scroll:GetWidth()), math.max(1, scroll:GetHeight()))
+        -- Sync content size to viewport on ScrollFrame resize. NEVER read
+        -- output text or its rendered metrics — both trip the secret guard
+        -- when the text contains tainted concat results. Long output is
+        -- clipped at the bottom of the viewport; user resizes the parent
+        -- frame to see more.
+        scroll:SetScript("OnSizeChanged", function(_, w, h)
+            if w <= 0 or h <= 0 then return end
+            outputContent:SetSize(w, h)
+        end)
 
-    -- Sync content size to viewport on ScrollFrame resize. NEVER read
-    -- output text or its rendered metrics — both trip the secret guard
-    -- when the text contains tainted concat results. Long output is
-    -- clipped at the bottom of the viewport; user resizes the parent
-    -- frame to see more.
-    scroll:SetScript("OnSizeChanged", function(_, w, h)
-        if w <= 0 or h <= 0 then return end
-        outputContent:SetSize(w, h)
-    end)
+        local bg = body:CreateTexture(nil, "BACKGROUND")
+        bg:SetPoint("TOPLEFT", scroll, "TOPLEFT", -2, 2)
+        bg:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 2, -2)
+        bg:SetColorTexture(0, 0, 0, 0.45)
+    end
 
-    -- Mild background behind the output area
-    local bg = content:CreateTexture(nil, "BACKGROUND")
-    bg:SetPoint("TOPLEFT", scroll, "TOPLEFT", -2, 2)
-    bg:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 2, -2)
-    bg:SetColorTexture(0, 0, 0, 0.45)
+    -- ── Field-tab body builder: All/None/Default + checkbox grid ──
+    local function BuildFieldsBody(fieldList)
+        local body = CreateFrame("Frame", nil, bodyArea)
+        body:SetAllPoints(bodyArea)
+
+        local allBtn = CreateFrame("Button", nil, body, "UIPanelButtonTemplate")
+        allBtn:SetPoint("TOPLEFT", body, "TOPLEFT", 4, -4)
+        allBtn:SetSize(64, 20)
+        allBtn:SetText("All")
+
+        local noneBtn = CreateFrame("Button", nil, body, "UIPanelButtonTemplate")
+        noneBtn:SetPoint("LEFT", allBtn, "RIGHT", 4, 0)
+        noneBtn:SetSize(64, 20)
+        noneBtn:SetText("None")
+
+        local defBtn = CreateFrame("Button", nil, body, "UIPanelButtonTemplate")
+        defBtn:SetPoint("LEFT", noneBtn, "RIGHT", 4, 0)
+        defBtn:SetSize(64, 20)
+        defBtn:SetText("Default")
+
+        for i, field in ipairs(fieldList) do
+            local col = (i - 1) % FIELD_COLS
+            local row = math.floor((i - 1) / FIELD_COLS)
+            local cb = CreateFrame("CheckButton", nil, body, "UICheckButtonTemplate")
+            cb:SetSize(20, 20)
+            cb:SetPoint("TOPLEFT", allBtn, "BOTTOMLEFT",
+                col * FIELD_COL_W, -10 - row * FIELD_ROW_H)
+            cb._field = field
+            cb:SetChecked(s.fields and s.fields[field] or false)
+            cb.text:SetText(field)
+            cb.text:ClearAllPoints()
+            cb.text:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+            cb:SetScript("OnClick", function(self)
+                local db = GetDB()
+                db.fields = db.fields or {}
+                db.fields[self._field] = self:GetChecked() and true or false
+                tickAccum = 1e9
+                RenderStatus()
+            end)
+            fieldCheckboxes[#fieldCheckboxes + 1] = cb
+        end
+
+        -- Per-tab All/None/Default operate on this tab's field list only.
+        allBtn:SetScript("OnClick", function()
+            local db = GetDB()
+            db.fields = db.fields or {}
+            for _, f in ipairs(fieldList) do db.fields[f] = true end
+            RefreshFieldCheckboxes()
+        end)
+        noneBtn:SetScript("OnClick", function()
+            local db = GetDB()
+            db.fields = db.fields or {}
+            for _, f in ipairs(fieldList) do db.fields[f] = false end
+            RefreshFieldCheckboxes()
+        end)
+        defBtn:SetScript("OnClick", function()
+            local db = GetDB()
+            db.fields = db.fields or {}
+            for _, f in ipairs(fieldList) do
+                db.fields[f] = DEFAULT_ENABLED_FIELDS[f] or false
+            end
+            RefreshFieldCheckboxes()
+        end)
+
+        return body
+    end
+
+    bodies.native = BuildFieldsBody(NATIVE_FIELDS)
+    bodies.custom = BuildFieldsBody(CUSTOM_FIELDS)
+
+    -- ── Tab switcher ─────────────────────────────────────────
+    local function SwitchTab(name)
+        for tn, b in pairs(bodies) do
+            if tn == name then b:Show() else b:Hide() end
+        end
+        for tn, btn in pairs(tabButtons) do
+            if tn == name then btn:LockHighlight() else btn:UnlockHighlight() end
+        end
+        if name == "display" then
+            tickAccum = 1e9
+            RenderOutput()
+        end
+    end
+    for _, btn in pairs(tabButtons) do
+        btn:SetScript("OnClick", function(self) SwitchTab(self._tab) end)
+    end
+    SwitchTab("display")
 
     -- Subscribe AuraCache to current unit
     SwapRegisteredUnit(s.unit ~= "" and s.unit or nil)
