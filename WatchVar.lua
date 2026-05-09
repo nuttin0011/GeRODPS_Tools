@@ -397,6 +397,9 @@ local function CreateWatchVarFrame()
 
     frame:SetMovable(true)
     frame:EnableMouse(true)
+    -- See AuraListHelper.lua for why SetUserPlaced is required: prevents
+    -- the template's auto-anchor from snapping the frame on first resize.
+    frame:SetUserPlaced(true)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", function(self)
@@ -415,14 +418,22 @@ local function CreateWatchVarFrame()
     local resize = CreateFrame("Button", nil, frame)
     resize:SetSize(16, 16)
     resize:SetPoint("BOTTOMRIGHT", -4, 4)
+    resize:EnableMouse(true)
     resize:SetNormalTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up")
     resize:SetHighlightTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Highlight")
     resize:SetPushedTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Down")
-    resize:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end)
-    resize:SetScript("OnMouseUp",   function()
-        frame:StopMovingOrSizing()
-        SaveSize(frame)
-        LayoutSections()
+    resize:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" then
+            frame:StopMovingOrSizing()
+            frame:StartSizing("BOTTOMRIGHT")
+        end
+    end)
+    resize:SetScript("OnMouseUp", function(_, button)
+        if button == "LeftButton" then
+            frame:StopMovingOrSizing()
+            SaveSize(frame)
+            LayoutSections()
+        end
     end)
 
     if frame.TitleText then
