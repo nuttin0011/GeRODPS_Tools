@@ -123,26 +123,46 @@ local function IsSecret(v)
     return issecretvalue ~= nil and issecretvalue(v) == true
 end
 
--- Strict rule: the ONLY operations allowed on a secret value are
---   v == nil
---   issecretvalue(v)
--- Anything else (tostring, ..,  string.format) silently propagates the
--- secret taint into the result string. Tainted strings still display
--- on FontString, but downstream they break things like table.concat
--- ("invalid value (secret) at index N in table for 'concat'"). So we
--- emit a non-tainted literal "<secret>" — never touch the value.
-local function FormatSecret(_v)
+-- DISPLAY rule: `..` and `tostring(v)` against a secret value DO work
+-- — they produce a regular Lua string (with the secret taint flagged
+-- into the metadata). FontString:SetText accepts tainted strings, so
+-- we can show the user a readable "<secret>theActualValue".
+--
+-- LOGIC rule: NEVER do anything else with a secret value. No `==`,
+-- no `<` `>` `~=`, no arithmetic, no `if v then`, no `and`/`or`. Only
+-- `v == nil` and `IsSecret(v)` are guaranteed safe.
+--
+-- Downstream caveat: tainted strings break `table.concat` (raises
+-- "invalid value (secret) at index N in table for 'concat'"). All
+-- string aggregation in this file uses ConcatLines (below) instead.
+local function FormatSecret(v)
+    local ok, s = pcall(function() return "<secret>" .. tostring(v) end)
+    if ok then return s end
     return "<secret>"
 end
 
--- Convert a non-secret value to a display string. Caller MUST IsSecret-
--- gate first; this helper assumes v is not secret. nil → "".
+-- Convert a non-secret value to a display string. nil → "".
 local function SafeToString(v)
     if v == nil then return "" end
-    if IsSecret(v) then return "<secret>" end
+    if IsSecret(v) then return FormatSecret(v) end
     local ok, s = pcall(string.format, "%s", tostring(v))
     if ok then return s end
     return "<opaque>"
+end
+
+-- Manual `..` chain that tolerates tainted entries. Use this instead
+-- of `table.concat` whenever the array might contain values produced
+-- by FormatSecret / VarToText / Format* — those carry the secret
+-- taint forward and table.concat refuses to splice them.
+local function ConcatLines(arr, sep)
+    sep = sep or ""
+    local n = #arr
+    if n == 0 then return "" end
+    local out = arr[1]
+    for i = 2, n do
+        out = out .. sep .. arr[i]
+    end
+    return out
 end
 
 local function VarToText(v)
@@ -164,7 +184,7 @@ local function VarToText(v)
             parts[i] = VarToText(v[i])
         end
         if n > 8 then parts[#parts + 1] = "..." end
-        return "{" .. table.concat(parts, ", ") .. "}"
+        return "{" .. ConcatLines(parts, ", ") .. "}"
     elseif t == "function" then return "<function>"
     elseif t == "thread"   then return "<thread>"
     elseif t == "userdata" then return "<userdata>"
@@ -184,11 +204,12 @@ local function FormatDispelByCurve(unit, info)
     if id == nil then return "nil |cFF888888(no auraInstanceID)|r" end
     if IsSecret(id) then return "nil |cFF888888(auraInstanceID is <secret>)|r" end
     local name = GeRODPS.AuraCache.GetDispelTypeName(unit, id)
-    -- Strict secret rule: only `==nil` and `IsSecret` allowed on `name`
-    -- (don't truthiness-check it, don't concat it). Tainted name would
-    -- propagate into the result and break downstream table.concat.
+    -- Strict logic rule: only `==nil` and `IsSecret` allowed BEFORE we
+    -- decide what to do with `name` (no truthiness check on a possibly
+    -- tainted string). Once we know it's a real (non-secret) string,
+    -- `..` is fine; tainted-string concat is what FormatSecret does.
     if name == nil    then return "nil |cFF888888(curve API returned nil)|r" end
-    if IsSecret(name) then return "<secret>" end
+    if IsSecret(name) then return FormatSecret(name) end
     return '"' .. name .. '"'
 end
 
@@ -200,10 +221,11 @@ local function FormatBoolWithDiag(probeFn, unit, info, label)
     if id == nil then return "nil |cFF888888(no auraInstanceID)|r" end
     if IsSecret(id) then return "nil |cFF888888(auraInstanceID is <secret>)|r" end
     local r = probeFn(unit, id)
-    -- Same strict rule on `r`: `==nil` then `IsSecret` first, only THEN
-    -- can we compare against `true`/`false` (now guaranteed non-secret).
+    -- Same logic rule on `r`: `==nil` and `IsSecret` first; only after
+    -- both checks pass is r guaranteed non-secret and safe to compare
+    -- against true/false.
     if r == nil    then return "nil |cFF888888(" .. label .. " unavailable)|r" end
-    if IsSecret(r) then return "<secret>" end
+    if IsSecret(r) then return FormatSecret(r) end
     if r == true   then return "true"  end
     if r == false  then return "false" end
     return SafeToString(r)
@@ -264,7 +286,7 @@ local function FormatFilterProbe(unit, info)
         return string.format("|cFF888888(0 hits / %d misses / %d errs)|r", misses, errs)
     end
     return string.format("|cFF66FF66%d hit(s)|r |cFF888888(of %d)|r:\n        %s",
-        #hits, #PROBE_FILTERS, table.concat(hits, "\n        "))
+        #hits, #PROBE_FILTERS, ConcatLines(hits, "\n        "))
 end
 
 -- ============================================================
@@ -306,7 +328,7 @@ local function FormatAura(idx, kind, info, enabledFields, unit)
             lines[#lines + 1] = string.format("    %s = %s", field, rendered)
         end
     end
-    return table.concat(lines, "\n")
+    return ConcatLines(lines, "\n")
 end
 
 -- ============================================================
@@ -363,7 +385,7 @@ local function BuildOutputText()
             sections[#sections + 1] = FormatAura(i, "DEBUFF", info, enabled, unit)
         end
     end
-    return table.concat(sections, "\n")
+    return ConcatLines(sections, "\n")
 end
 
 -- ============================================================

@@ -21,36 +21,45 @@ end
 `== true` against it is safe. This is the only check that's allowed
 on the value.
 
-## Allowed operations on a secret value
+## Two separate rules: LOGIC vs DISPLAY
 
-**STRICT RULE (verified by repro):** the only operations the runtime
-permits on a secret value are:
+### LOGIC rule (strict)
+
+The only operations the runtime permits on a secret value for
+**control flow / decisions** are:
 
 - `v == nil`
 - `issecretvalue(v)`
 
-That's it. Everything else is forbidden.
+NOT allowed: `==` against any other constant (true, false, "", 0, ...),
+`<` `>` `~=`, arithmetic (`+`, `-`, `*`, `/`, `-v`), boolean coercion
+(`if v then`, `not v`, `v and a or b`), `type(v)`, `pairs/ipairs`,
+indexing (`v.field`, `v[k]`), length (`#v`).
 
-### Why not `..` / `tostring` / `string.format`?
+### DISPLAY rule (permissive)
 
-In isolation they don't raise — but they silently **propagate the
-taint into the resulting string**. The tainted string then breaks any
-downstream code that does:
+For **rendering text to a FontString**, you CAN do:
 
-- `table.concat({tainted, ...}, sep)` — *"invalid value (secret) at
-  index N in table for 'concat'"*
-- Any truthiness check against the tainted string (`if s then`,
-  `s and ...`, `s or fallback`)
-- Re-feeding it through another `..` chain that also goes into
-  `table.concat` later
+- `"any literal" .. tostring(v)` — surfaces "<tag>theValue"
+- `string.format("%s", v)` — same, via tostring under the hood
 
-Tainted strings ARE accepted by `FontString:SetText`, so a single
-display path can survive — but the moment your formatter joins lines
-into a multi-line output, the chain breaks.
+The result is a regular Lua string, but the WoW runtime tags it as
+**tainted** (carries the secret flag forward). `FontString:SetText`
+accepts tainted strings cleanly — that's the whole point of the
+permissive display path.
 
-**Don't even try.** When you detect a secret value, emit a non-tainted
-literal `"<secret>"` and move on. No information about the value
-content is recoverable safely.
+### Where DISPLAY breaks
+
+Tainted strings DO raise inside:
+
+- `table.concat({tainted, ...}, sep)` —
+  *"invalid value (secret) at index N in table for 'concat'"*
+- Any truthiness check on the tainted string (`if s then`,
+  `s and a`, `s or b`)
+- Comparison of the tainted string (`s == "literal"`)
+
+So the formatter must NEVER feed a tainted string into `table.concat`.
+Use a manual `..` loop instead — see `ConcatLines` below.
 
 ## Forbidden operations
 
@@ -105,33 +114,55 @@ from frame dimensions the user controls (resize handle).
 
 ## Required plumbing patterns
 
-### `FormatSecret(_v)`
+### `FormatSecret(v)`
 
 ```lua
-local function FormatSecret(_v)
+local function FormatSecret(v)
+    local ok, s = pcall(function() return "<secret>" .. tostring(v) end)
+    if ok then return s end
     return "<secret>"
 end
 ```
 
-That's the whole helper. No `..`, no `tostring`, no `pcall`-wrapped
-attempt to read the value — all of those propagate taint. The secret
-content is unrecoverable; we just emit a non-tainted marker.
+Surfaces the actual value as `"<secret>theValue"`. The result is
+tainted but FontString accepts it. pcall-wrapped because tostring on
+a few exotic secret variants may still raise.
 
 ### `SafeToString(v)`
 
 ```lua
 local function SafeToString(v)
     if v == nil then return "" end
-    if IsSecret(v) then return "<secret>" end
+    if IsSecret(v) then return FormatSecret(v) end
     local ok, s = pcall(string.format, "%s", tostring(v))
     if ok then return s end
     return "<opaque>"
 end
 ```
 
-Caller must gate `==nil` and `IsSecret` first via this helper before
-any `tostring` / `string.format`. Used for pcall error messages and
-non-secret values that just need a printable form.
+Gates `==nil` and `IsSecret` first; routes secret values through
+`FormatSecret` (taint preserved); only then runs format/tostring on
+the guaranteed-non-secret value.
+
+### `ConcatLines(arr, sep)`
+
+```lua
+local function ConcatLines(arr, sep)
+    sep = sep or ""
+    local n = #arr
+    if n == 0 then return "" end
+    local out = arr[1]
+    for i = 2, n do
+        out = out .. sep .. arr[i]
+    end
+    return out
+end
+```
+
+Drop-in replacement for `table.concat` when the array might contain
+tainted strings produced by the formatter chain. Each `..` propagates
+taint forward but never raises; the final string ends up tainted (or
+not, if no element was) and feeds cleanly into `FontString:SetText`.
 
 ### Iteration guard
 
@@ -173,19 +204,16 @@ rules. Symptoms observed in the wild:
 Before merging any code that touches values produced by `pcall(fn)`
 or `loadstring("return " .. userInput)`:
 
-- [ ] All `if IsSecret(v) then return "<secret>" end` guards present
-    BEFORE any other op on `v`
-- [ ] Only `v == nil` and `IsSecret(v)` are used against the
-    suspected-secret value
-- [ ] No `..`, `tostring`, `string.format` applied to `v` — those
-    propagate taint into the result string
-- [ ] No `==true` / `==false` / `<` / `>` / `~=` against `v` until
-    AFTER both `==nil` and `IsSecret` checks have passed
-- [ ] No `and` / `or` short-circuits with secret-bearing operands
-    (use explicit `if/else`)
-- [ ] Output goes to FontString, not EditBox
+- [ ] LOGIC paths gate `v == nil` and `IsSecret(v)` BEFORE any other
+    op on `v` (no `==true` / `==false` / `<` / `>` / `~=` / `if v then` /
+    `and` / `or` until both checks have passed)
+- [ ] DISPLAY paths route secret values through `FormatSecret(v)` —
+    `..` and `tostring` are OK because they only produce a tainted
+    string for FontString, never feed control flow
+- [ ] Output goes to `FontString`, not `EditBox`
 - [ ] No `GetText`, `GetStringHeight`, `GetStringWidth` on output
     that may hold tainted text
-- [ ] No `table.concat` of a sequence containing tainted strings
-    (since FormatSecret now emits a literal, this is automatic — but
-    audit any helper that returns a built-up string)
+- [ ] No `table.concat` of a sequence that might contain tainted
+    strings — use `ConcatLines` instead
+- [ ] No `or ""` / `and X` short-circuits applied to a value that
+    might be tainted — use explicit `if/else`

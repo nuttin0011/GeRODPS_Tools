@@ -60,13 +60,34 @@ local function IsSecret(v)
     return issecretvalue ~= nil and issecretvalue(v) == true
 end
 
--- Strict rule: ONLY `==nil` and `issecretvalue` allowed on secret values.
--- Even `..` / tostring / string.format silently propagate the secret
--- taint into the result string; FontString:SetText accepts tainted
--- strings but downstream operations (table.concat, truthiness) reject
--- them. Emit a non-tainted literal instead — never touch the value.
-local function FormatSecret(_v)
+-- DISPLAY rule: `..` and `tostring` against a secret value DO produce
+-- a string the FontString can render — the result carries the secret
+-- taint flag, but SetText accepts that. We use this to surface
+-- "<secret>theActualValue" to the user.
+--
+-- LOGIC rule: NEVER do anything else with a secret value. Only
+-- `v == nil` and `IsSecret(v)` are guaranteed safe (no `==`, no `<`,
+-- no arithmetic, no `if v then`, no `and`/`or`).
+--
+-- Downstream caveat: tainted strings break `table.concat`. All
+-- string aggregation in this file uses ConcatLines (below) instead.
+local function FormatSecret(v)
+    local ok, s = pcall(function() return "<secret>" .. tostring(v) end)
+    if ok then return s end
     return "<secret>"
+end
+
+-- Manual `..` chain that tolerates tainted entries. Use this instead
+-- of `table.concat` whenever the array might contain tainted strings.
+local function ConcatLines(arr, sep)
+    sep = sep or ""
+    local n = #arr
+    if n == 0 then return "" end
+    local out = arr[1]
+    for i = 2, n do
+        out = out .. sep .. arr[i]
+    end
+    return out
 end
 
 local function VarToText(v)
@@ -117,7 +138,7 @@ local function TableToShallowText(tbl, maxItems)
         end
         items[#items + 1] = string.format("  [%s] = %s", tostring(kv.k), vstr)
     end
-    return string.format("{table: %d items}\n%s", total, table.concat(items, "\n"))
+    return string.format("{table: %d items}\n%s", total, ConcatLines(items, "\n"))
 end
 
 local function VarToDisplayText(v)
@@ -142,7 +163,7 @@ local function MultiReturnToText(results, n)
         end
         lines[#lines + 1] = string.format("[%d] = %s", i, vstr)
     end
-    return table.concat(lines, "\n")
+    return ConcatLines(lines, "\n")
 end
 
 -- ============================================================
