@@ -508,7 +508,10 @@ end
 function TOOL.ShowWatchVar()
     local f = CreateWatchVarFrame()
     EnsureTicker()
-    if not f:IsShown() then f:Show() end
+    if not f:IsShown() then
+        ApplySavedGeometry(f)   -- snap into margin on every open
+        f:Show()
+    end
 end
 
 function TOOL.HideWatchVar()
@@ -518,7 +521,12 @@ end
 function TOOL.ToggleWatchVar()
     local f = CreateWatchVarFrame()
     EnsureTicker()
-    if f:IsShown() then f:Hide() else f:Show() end
+    if f:IsShown() then
+        f:Hide()
+    else
+        ApplySavedGeometry(f)   -- snap into margin on every open
+        f:Show()
+    end
 end
 
 -- Register into the minimap menu (Core.lua provides RegisterTool).

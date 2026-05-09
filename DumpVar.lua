@@ -173,7 +173,10 @@ end
 
 function TOOL.ShowDumpVar()
     local f = CreateDumpVarFrame()
-    if not f:IsShown() then f:Show() end
+    if not f:IsShown() then
+        ApplySavedGeometry(f)   -- snap into margin on every open
+        f:Show()
+    end
 end
 
 function TOOL.HideDumpVar()
@@ -182,7 +185,12 @@ end
 
 function TOOL.ToggleDumpVar()
     local f = CreateDumpVarFrame()
-    if f:IsShown() then f:Hide() else f:Show() end
+    if f:IsShown() then
+        f:Hide()
+    else
+        ApplySavedGeometry(f)   -- snap into margin on every open
+        f:Show()
+    end
 end
 
 -- Register into the minimap drop-down menu (from Core.lua).

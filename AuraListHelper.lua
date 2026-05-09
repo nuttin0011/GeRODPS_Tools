@@ -842,7 +842,10 @@ end
 function TOOL.ShowAuraListHelper()
     local f = CreateAuraListHelperFrame()
     EnsureTicker()
-    if not f:IsShown() then f:Show() end
+    if not f:IsShown() then
+        ApplySavedGeometry(f)   -- snap into margin on every open
+        f:Show()
+    end
     tickAccum = 1e9   -- render immediately
     RenderOutput()
 end
@@ -861,6 +864,7 @@ function TOOL.ToggleAuraListHelper()
         f:Hide()
         SwapRegisteredUnit(nil)
     else
+        ApplySavedGeometry(f)   -- snap into margin on every open
         f:Show()
         local s = GetDB()
         SwapRegisteredUnit(s.unit ~= "" and s.unit or nil)
