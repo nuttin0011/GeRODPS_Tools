@@ -23,16 +23,34 @@ on the value.
 
 ## Allowed operations on a secret value
 
-- **String concatenation** `..`
-  Routes through `tostring`. Produces a regular Lua string (which may
-  itself carry the "tainted" flag — see Display below).
-- **`tostring(v)`**
-  Returns `"<secret>"` or similar marker. Allowed.
-- **`string.format("%s", v)`**
-  `%s` calls `tostring` internally. Allowed. Other format specifiers
-  (`%d`, `%f`, ...) trigger arithmetic and ARE blocked.
+**STRICT RULE (verified by repro):** the only operations the runtime
+permits on a secret value are:
+
+- `v == nil`
+- `issecretvalue(v)`
 
 That's it. Everything else is forbidden.
+
+### Why not `..` / `tostring` / `string.format`?
+
+In isolation they don't raise — but they silently **propagate the
+taint into the resulting string**. The tainted string then breaks any
+downstream code that does:
+
+- `table.concat({tainted, ...}, sep)` — *"invalid value (secret) at
+  index N in table for 'concat'"*
+- Any truthiness check against the tainted string (`if s then`,
+  `s and ...`, `s or fallback`)
+- Re-feeding it through another `..` chain that also goes into
+  `table.concat` later
+
+Tainted strings ARE accepted by `FontString:SetText`, so a single
+display path can survive — but the moment your formatter joins lines
+into a multi-line output, the chain breaks.
+
+**Don't even try.** When you detect a secret value, emit a non-tainted
+literal `"<secret>"` and move on. No information about the value
+content is recoverable safely.
 
 ## Forbidden operations
 
@@ -87,31 +105,33 @@ from frame dimensions the user controls (resize handle).
 
 ## Required plumbing patterns
 
-### `FormatSecret(v)`
+### `FormatSecret(_v)`
 
 ```lua
-local function FormatSecret(v)
-    local ok, s = pcall(function() return "<secret>" .. tostring(v) end)
-    if ok then return s end
+local function FormatSecret(_v)
     return "<secret>"
 end
 ```
 
-Belt-and-braces: even `tostring` can theoretically raise on exotic
-secret variants, so wrap in pcall.
+That's the whole helper. No `..`, no `tostring`, no `pcall`-wrapped
+attempt to read the value — all of those propagate taint. The secret
+content is unrecoverable; we just emit a non-tainted marker.
 
 ### `SafeToString(v)`
 
 ```lua
 local function SafeToString(v)
+    if v == nil then return "" end
+    if IsSecret(v) then return "<secret>" end
     local ok, s = pcall(string.format, "%s", tostring(v))
     if ok then return s end
     return "<opaque>"
 end
 ```
 
-For pcall error messages — they may or may not carry secret taint.
-Don't use `or ""` shortcut (truthiness check on potentially-secret).
+Caller must gate `==nil` and `IsSecret` first via this helper before
+any `tostring` / `string.format`. Used for pcall error messages and
+non-secret values that just need a printable form.
 
 ### Iteration guard
 
@@ -153,12 +173,19 @@ rules. Symptoms observed in the wild:
 Before merging any code that touches values produced by `pcall(fn)`
 or `loadstring("return " .. userInput)`:
 
-- [ ] All `if IsSecret(v) then ... end` guards present
-- [ ] No `==`, `<`, `>`, `~=` against the suspected-secret value
-    (rhs of `IsSecret` comparisons is the function's return — safe)
+- [ ] All `if IsSecret(v) then return "<secret>" end` guards present
+    BEFORE any other op on `v`
+- [ ] Only `v == nil` and `IsSecret(v)` are used against the
+    suspected-secret value
+- [ ] No `..`, `tostring`, `string.format` applied to `v` — those
+    propagate taint into the result string
+- [ ] No `==true` / `==false` / `<` / `>` / `~=` against `v` until
+    AFTER both `==nil` and `IsSecret` checks have passed
 - [ ] No `and` / `or` short-circuits with secret-bearing operands
     (use explicit `if/else`)
 - [ ] Output goes to FontString, not EditBox
 - [ ] No `GetText`, `GetStringHeight`, `GetStringWidth` on output
     that may hold tainted text
-- [ ] Error paths use `SafeToString`, not `tostring(x or "")`
+- [ ] No `table.concat` of a sequence containing tainted strings
+    (since FormatSecret now emits a literal, this is automatic — but
+    audit any helper that returns a built-up string)

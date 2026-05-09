@@ -60,13 +60,12 @@ local function IsSecret(v)
     return issecretvalue ~= nil and issecretvalue(v) == true
 end
 
-local function FormatSecret(v)
-    -- "<secret>" .. tostring(v) — concat is allowed on secret values
-    -- per WoW's secret guard. pcall as belt-and-braces. ok is a Lua
-    -- boolean from pcall (not secret); explicit if/else avoids any
-    -- truthiness shortcut against a value that bears the secret.
-    local ok, s = pcall(function() return "<secret>" .. tostring(v) end)
-    if ok then return s end
+-- Strict rule: ONLY `==nil` and `issecretvalue` allowed on secret values.
+-- Even `..` / tostring / string.format silently propagate the secret
+-- taint into the result string; FontString:SetText accepts tainted
+-- strings but downstream operations (table.concat, truthiness) reject
+-- them. Emit a non-tainted literal instead — never touch the value.
+local function FormatSecret(_v)
     return "<secret>"
 end
 
@@ -216,11 +215,13 @@ end
 -- Tick: re-evaluate every input expression
 -- ============================================================
 
--- Convert any value (including secret) to a display string using ONLY
--- concat / tostring / string.format. No comparison, no truthiness check,
--- no `and/or` against the value itself. pcall isolates the rare exotic
--- case where tostring would raise.
+-- Convert a NON-secret value to a display string. Caller must
+-- IsSecret-gate first; this helper bails to "<secret>" if v turns
+-- out to be secret (defence-in-depth). Strict rule: only `==nil`
+-- and IsSecret allowed before any other op on a possibly-secret v.
 local function SafeToString(v)
+    if v == nil then return "" end
+    if IsSecret(v) then return "<secret>" end
     local ok, s = pcall(string.format, "%s", tostring(v))
     if ok then return s end
     return "<opaque>"

@@ -123,13 +123,23 @@ local function IsSecret(v)
     return issecretvalue ~= nil and issecretvalue(v) == true
 end
 
-local function FormatSecret(v)
-    local ok, s = pcall(function() return "<secret>" .. tostring(v) end)
-    if ok then return s end
+-- Strict rule: the ONLY operations allowed on a secret value are
+--   v == nil
+--   issecretvalue(v)
+-- Anything else (tostring, ..,  string.format) silently propagates the
+-- secret taint into the result string. Tainted strings still display
+-- on FontString, but downstream they break things like table.concat
+-- ("invalid value (secret) at index N in table for 'concat'"). So we
+-- emit a non-tainted literal "<secret>" — never touch the value.
+local function FormatSecret(_v)
     return "<secret>"
 end
 
+-- Convert a non-secret value to a display string. Caller MUST IsSecret-
+-- gate first; this helper assumes v is not secret. nil → "".
 local function SafeToString(v)
+    if v == nil then return "" end
+    if IsSecret(v) then return "<secret>" end
     local ok, s = pcall(string.format, "%s", tostring(v))
     if ok then return s end
     return "<opaque>"
@@ -174,8 +184,12 @@ local function FormatDispelByCurve(unit, info)
     if id == nil then return "nil |cFF888888(no auraInstanceID)|r" end
     if IsSecret(id) then return "nil |cFF888888(auraInstanceID is <secret>)|r" end
     local name = GeRODPS.AuraCache.GetDispelTypeName(unit, id)
-    if name then return '"' .. name .. '"' end
-    return "nil |cFF888888(curve API returned nil)|r"
+    -- Strict secret rule: only `==nil` and `IsSecret` allowed on `name`
+    -- (don't truthiness-check it, don't concat it). Tainted name would
+    -- propagate into the result and break downstream table.concat.
+    if name == nil    then return "nil |cFF888888(curve API returned nil)|r" end
+    if IsSecret(name) then return "<secret>" end
+    return '"' .. name .. '"'
 end
 
 local function FormatBoolWithDiag(probeFn, unit, info, label)
@@ -186,9 +200,13 @@ local function FormatBoolWithDiag(probeFn, unit, info, label)
     if id == nil then return "nil |cFF888888(no auraInstanceID)|r" end
     if IsSecret(id) then return "nil |cFF888888(auraInstanceID is <secret>)|r" end
     local r = probeFn(unit, id)
-    if r == true  then return "true"  end
-    if r == false then return "false" end
-    return "nil |cFF888888(" .. label .. " unavailable)|r"
+    -- Same strict rule on `r`: `==nil` then `IsSecret` first, only THEN
+    -- can we compare against `true`/`false` (now guaranteed non-secret).
+    if r == nil    then return "nil |cFF888888(" .. label .. " unavailable)|r" end
+    if IsSecret(r) then return "<secret>" end
+    if r == true   then return "true"  end
+    if r == false  then return "false" end
+    return SafeToString(r)
 end
 
 local function FormatPlayerDispellable(unit, info)
@@ -228,7 +246,13 @@ local function FormatFilterProbe(unit, info)
     local hits, misses, errs = {}, 0, 0
     for _, filter in ipairs(PROBE_FILTERS) do
         local r = fn(unit, id, filter)
-        if r == true then
+        -- Strict secret rule: gate `==nil` and `IsSecret` first before
+        -- comparing against `true`/`false`.
+        if r == nil then
+            errs = errs + 1
+        elseif IsSecret(r) then
+            errs = errs + 1
+        elseif r == true then
             hits[#hits + 1] = filter
         elseif r == false then
             misses = misses + 1
@@ -491,7 +515,7 @@ local function CreateAuraListHelperFrame()
 
     -- ── Row 1: Unit token + Refresh Now ────────────────────────
     local unitLbl = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    unitLbl:SetPoint("TOPLEFT", content, "TOPLEFT", 12, -10)
+    unitLbl:SetPoint("TOPLEFT", content, "TOPLEFT", 12, -22)
     unitLbl:SetText("|cFFFFD200Unit Token|r (target / focus / mouseover / partyN / nameplateN)")
 
     local unitEB = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
