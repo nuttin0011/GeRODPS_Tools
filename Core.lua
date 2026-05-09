@@ -39,33 +39,57 @@ end
 -- ============================================================
 -- Drop-down menu shown on minimap left-click
 -- ============================================================
+-- WoW 11.0 retired UIDropDownMenu / EasyMenu in favour of MenuUtil.
+-- 12.0 ships only the new system, so EasyMenu is nil. We use
+-- MenuUtil.CreateContextMenu and fall back to the legacy
+-- UIDropDownMenu_Initialize + ToggleDropDownMenu pair for safety on
+-- any client where MenuUtil isn't available.
 
-local menuAnchor   -- hidden frame used as the EasyMenu anchor (one per session)
+local legacyAnchor   -- hidden frame for the legacy UIDropDownMenu fallback
 
 local function ShowToolMenu()
-    if not menuAnchor then
-        menuAnchor = CreateFrame(
-            "Frame", "GeRODPS_Tools_MenuAnchor", UIParent, "UIDropDownMenuTemplate")
+    -- Modern path (TWW 11.0+ / WoW 12.0)
+    if MenuUtil and MenuUtil.CreateContextMenu then
+        MenuUtil.CreateContextMenu(UIParent, function(_owner, rootDescription)
+            if #TOOL._tools == 0 then
+                rootDescription:CreateTitle("(no tools registered)")
+                return
+            end
+            for _, t in ipairs(TOOL._tools) do
+                local label, fn = t.label, t.fn
+                rootDescription:CreateButton(label, function() fn() end)
+            end
+        end)
+        return
     end
 
-    local menuList = {}
-    if #TOOL._tools == 0 then
-        menuList[#menuList + 1] = {
-            text         = "(no tools registered)",
-            isTitle      = true,
-            notCheckable = true,
-        }
-    else
-        for _, t in ipairs(TOOL._tools) do
+    -- Legacy path (pre-11.0)
+    if not legacyAnchor then
+        legacyAnchor = CreateFrame(
+            "Frame", "GeRODPS_Tools_MenuAnchor", UIParent,
+            UIDropDownMenuTemplate and "UIDropDownMenuTemplate" or nil)
+    end
+    if EasyMenu then
+        local menuList = {}
+        if #TOOL._tools == 0 then
             menuList[#menuList + 1] = {
-                text         = t.label,
-                notCheckable = true,
-                func         = t.fn,
+                text = "(no tools registered)",
+                isTitle = true, notCheckable = true,
             }
+        else
+            for _, t in ipairs(TOOL._tools) do
+                menuList[#menuList + 1] = {
+                    text = t.label, notCheckable = true, func = t.fn,
+                }
+            end
         end
+        EasyMenu(menuList, legacyAnchor, "cursor", 0, 0, "MENU")
+        return
     end
 
-    EasyMenu(menuList, menuAnchor, "cursor", 0, 0, "MENU")
+    DEFAULT_CHAT_FRAME:AddMessage(
+        "|cffff4444[GeRODPS_Tools]|r Neither MenuUtil nor EasyMenu " ..
+        "available — cannot open tool menu.")
 end
 
 -- ============================================================
