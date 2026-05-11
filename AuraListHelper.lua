@@ -732,9 +732,17 @@ local function CreateAuraListHelperFrame()
         statusFS:SetJustifyH("LEFT")
         statusFS:SetText("")
 
-        local scroll = CreateFrame("ScrollFrame", nil, body, "UIPanelScrollFrameTemplate")
+        -- Plain Frame (NOT UIPanelScrollFrameTemplate). The template's
+        -- internal OnScrollRangeChanged calls ScrollUp/Down:SetEnabled with
+        -- a boolean derived from scrollChild metrics — and our outputFS gets
+        -- secret-tainted text from C_UnitAuras / combat-session APIs, which
+        -- propagates into the FontString's measured height and trips
+        -- SecureScrollTemplates.lua:140 'Secret values are not allowed'.
+        -- Content is already clamped to viewport, so scrolling never works
+        -- anyway; the template was pure liability.
+        local scroll = CreateFrame("Frame", nil, body)
         scroll:SetPoint("TOPLEFT", statusFS, "BOTTOMLEFT", 0, -6)
-        scroll:SetPoint("BOTTOMRIGHT", body, "BOTTOMRIGHT", -22, 4)
+        scroll:SetPoint("BOTTOMRIGHT", body, "BOTTOMRIGHT", -4, 4)
 
         outputContent = CreateFrame("Frame", nil, scroll)
         outputContent:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
@@ -748,14 +756,12 @@ local function CreateAuraListHelperFrame()
         outputFS:SetNonSpaceWrap(true)
         outputFS:SetText("")
 
-        scroll:SetScrollChild(outputContent)
         outputContent:SetSize(math.max(1, scroll:GetWidth()), math.max(1, scroll:GetHeight()))
 
-        -- Sync content size to viewport on ScrollFrame resize. NEVER read
-        -- output text or its rendered metrics — both trip the secret guard
-        -- when the text contains tainted concat results. Long output is
-        -- clipped at the bottom of the viewport; user resizes the parent
-        -- frame to see more.
+        -- Sync content size to viewport. NEVER read output text or its
+        -- rendered metrics — both trip the secret guard when the text
+        -- contains tainted concat results. Long output is clipped at the
+        -- bottom of the viewport; user resizes the parent frame to see more.
         scroll:SetScript("OnSizeChanged", function(_, w, h)
             if w <= 0 or h <= 0 then return end
             outputContent:SetSize(w, h)
