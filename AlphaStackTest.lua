@@ -68,7 +68,7 @@ local RECTS = {
         title       = "Red   (z=top)    default 'Important Spell'",
         defaultRGBA = { 255, 0,   0,   128 },
         zLevel      = 3,
-        posOffset   = {  20,  -20 },   -- top-left
+        posOffset   = {  40,  -20 },   -- top-left (shifted right +20 from 20→40)
     },
 }
 
