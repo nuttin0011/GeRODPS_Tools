@@ -35,8 +35,8 @@ GeRODPS_Tools = GeRODPS_Tools or {}
 local TOOL = GeRODPS_Tools
 
 local FRAME_NAME    = "GeRODPS_ToolsAlphaStackTestFrame"
-local DEFAULT_W, DEFAULT_H = 620, 540
-local MIN_W,     MIN_H     = 520, 460
+local DEFAULT_W, DEFAULT_H = 620, 640
+local MIN_W,     MIN_H     = 520, 540
 local MAX_W,     MAX_H     = 1400, 1000
 local SCREEN_MARGIN        = 100
 
@@ -51,24 +51,27 @@ local RECT_SIZE  = 130
 local RECTS = {
     {
         key         = "blue",
-        title       = "Blue (z=bottom)  default 'Casting'",
+        title       = "Blue  [ล่าง / bottom]   default 'Casting'",
+        canvasTag   = "ล่าง",
         defaultRGBA = { 0,   0,   255, 255 },
         zLevel      = 1,
         posOffset   = { 140,  -60 },   -- top-right area
     },
     {
         key         = "green",
-        title       = "Green (z=middle) default 'Can Interrupt'",
+        title       = "Green [กลาง / middle]  default 'Can Interrupt'",
+        canvasTag   = "กลาง",
         defaultRGBA = { 0,   255, 0,   128 },
         zLevel      = 2,
         posOffset   = {  80, -120 },   -- bottom-center
     },
     {
         key         = "red",
-        title       = "Red   (z=top)    default 'Important Spell'",
+        title       = "Red   [บน / top]       default 'Important Spell'",
+        canvasTag   = "บน",
         defaultRGBA = { 255, 0,   0,   128 },
         zLevel      = 3,
-        posOffset   = {  40,  -20 },   -- top-left (shifted right +20 from 20→40)
+        posOffset   = {  40,  -20 },   -- top-left (shifted right +20)
     },
 }
 
@@ -104,9 +107,14 @@ end
 -- ============================================================
 
 local frame
-local rectTextures = {}   -- [key] = Texture
-local rectEditBoxes = {}  -- [key] = { r=EditBox, g=, b=, a= }
-local rectReadouts  = {}  -- [key] = FontString
+local rectTextures      = {}  -- [key] = Texture (the colored test rect)
+local rectEditBoxes     = {}  -- [key] = { r=EditBox, g=, b=, a= }   -- 0..255 row
+local rectFloatEditBoxes = {} -- [key] = { r=EditBox, g=, b=, a= }   -- 0..1   row
+local rectReadouts      = {}  -- [key] = FontString
+
+local function FmtFloat(v)
+    return string.format("%.3f", v)
+end
 
 -- ============================================================
 -- Geometry persistence + 100 px screen margin
@@ -192,13 +200,20 @@ end
 local function SyncEditBoxes()
     local db = GetDB()
     for _, r in ipairs(RECTS) do
-        local box = rectEditBoxes[r.key]
+        local box  = rectEditBoxes[r.key]
+        local fbox = rectFloatEditBoxes[r.key]
         local rgba = db[r.key]
         if box and rgba then
             box.r:SetText(tostring(rgba[1]))
             box.g:SetText(tostring(rgba[2]))
             box.b:SetText(tostring(rgba[3]))
             box.a:SetText(tostring(rgba[4]))
+        end
+        if fbox and rgba then
+            fbox.r:SetText(FmtFloat(rgba[1] / 255))
+            fbox.g:SetText(FmtFloat(rgba[2] / 255))
+            fbox.b:SetText(FmtFloat(rgba[3] / 255))
+            fbox.a:SetText(FmtFloat(rgba[4] / 255))
         end
     end
 end
@@ -209,6 +224,8 @@ end
 
 local CHANNEL_IDX = { r = 1, g = 2, b = 3, a = 4 }
 
+-- 0..255 row. Width is 50 (vs the visible "255" only needing ~24 px) so the
+-- column lines up exactly with the 0..1 row below ("0.000" needs ~36 px).
 local function CreateChannelEditBox(parent, channelKey, rectKey)
     local row = CreateFrame("Frame", nil, parent)
     row:SetSize(72, 22)
@@ -219,7 +236,7 @@ local function CreateChannelEditBox(parent, channelKey, rectKey)
 
     local eb = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
     eb:SetPoint("LEFT", lbl, "RIGHT", 4, 0)
-    eb:SetSize(44, 22)
+    eb:SetSize(50, 22)
     eb:SetAutoFocus(false)
     eb:SetNumeric(true)
     eb:SetMaxLetters(3)
@@ -231,11 +248,67 @@ local function CreateChannelEditBox(parent, channelKey, rectKey)
         if v > 255 then v = 255 end
         self:SetText(tostring(v))
         GetDB()[rectKey][CHANNEL_IDX[channelKey]] = v
+        -- Cross-sync the matching 0..1 box (round-trip preserves the int)
+        local fbox = rectFloatEditBoxes[rectKey]
+        if fbox and fbox[channelKey] then
+            fbox[channelKey]:SetText(FmtFloat(v / 255))
+        end
         ApplyRect(rectKey)
         self:ClearFocus()
     end)
     eb:SetScript("OnEscapePressed", function(self)
         self:SetText(tostring(GetDB()[rectKey][CHANNEL_IDX[channelKey]]))
+        self:ClearFocus()
+    end)
+
+    return row, eb
+end
+
+-- 0..1 (float) row. Accepts decimals; clamps to [0,1]; rounds to nearest
+-- 1/255 step (the actual storage granularity) and writes the integer back
+-- to both the DB and the matching 0..255 box.
+local function CreateFloatChannelEditBox(parent, channelKey, rectKey)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetSize(72, 22)
+
+    local lbl = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    lbl:SetPoint("LEFT", row, "LEFT", 0, 0)
+    lbl:SetText(string.upper(channelKey))
+
+    local eb = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+    eb:SetPoint("LEFT", lbl, "RIGHT", 4, 0)
+    eb:SetSize(50, 22)
+    eb:SetAutoFocus(false)
+    eb:SetMaxLetters(6)   -- "0.000".."1.000"
+    eb:SetFontObject("ChatFontNormal")
+
+    eb:SetScript("OnEnterPressed", function(self)
+        -- Allow either a 0..1 float OR a 0..255 integer typed here:
+        -- if the entered value is > 1, treat it as the integer form so the
+        -- user can paste an AHK-side reading directly into either row.
+        local raw = tonumber(self:GetText() or "") or 0
+        local intVal
+        if raw > 1 then
+            intVal = math.floor(raw + 0.5)
+        else
+            if raw < 0 then raw = 0 end
+            intVal = math.floor(raw * 255 + 0.5)
+        end
+        if intVal < 0   then intVal = 0   end
+        if intVal > 255 then intVal = 255 end
+
+        GetDB()[rectKey][CHANNEL_IDX[channelKey]] = intVal
+        -- Echo the rounded value back so the user sees the actual stored ratio
+        self:SetText(FmtFloat(intVal / 255))
+        local box = rectEditBoxes[rectKey]
+        if box and box[channelKey] then
+            box[channelKey]:SetText(tostring(intVal))
+        end
+        ApplyRect(rectKey)
+        self:ClearFocus()
+    end)
+    eb:SetScript("OnEscapePressed", function(self)
+        self:SetText(FmtFloat(GetDB()[rectKey][CHANNEL_IDX[channelKey]] / 255))
         self:ClearFocus()
     end)
 
@@ -328,7 +401,10 @@ local function CreateAlphaStackTestFrame()
 
     -- 3 test rectangles. Each is a child Frame with a single Texture so
     -- we can control draw order via SetFrameLevel (Texture-only on the
-    -- canvas itself would all share the canvas layer).
+    -- canvas itself would all share the canvas layer). Each rect also
+    -- carries a tiny tag ("ล่าง" / "กลาง" / "บน") in its top-left so the
+    -- user can identify which rectangle on the canvas matches which
+    -- control row below.
     rectTextures = {}
     local canvasBaseLevel = canvas:GetFrameLevel()
     for _, r in ipairs(RECTS) do
@@ -340,41 +416,71 @@ local function CreateAlphaStackTestFrame()
         local tex = rect:CreateTexture(nil, "ARTWORK")
         tex:SetAllPoints(rect)
         rectTextures[r.key] = tex
+
+        if r.canvasTag and r.canvasTag ~= "" then
+            local tag = rect:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            tag:SetPoint("TOPLEFT", rect, "TOPLEFT", 4, -2)
+            tag:SetText("|cFFFFFFFF" .. r.canvasTag .. "|r")
+        end
     end
 
-    -- ── Control panel below canvas: one row per rectangle ──
+    -- ── Control panel below canvas: one row block per rectangle ──
+    -- Each block is two stacked rows:
+    --   row 1: R/G/B/A EditBox (0..255)
+    --   row 2: R/G/B/A EditBox (0..1, float)  ← columns aligned with row 1
+    -- 0..1 row also accepts a 0..255 integer (any number > 1) so the user
+    -- can paste an AHK reading into either row interchangeably.
     local panelTop = -(14 + CANVAS_H + 14)   -- gap below canvas
+    local ROW_BLOCK_H = 64                    -- per-rect block height
 
-    rectEditBoxes = {}
-    rectReadouts  = {}
+    rectEditBoxes      = {}
+    rectFloatEditBoxes = {}
+    rectReadouts       = {}
 
     for i, r in ipairs(RECTS) do
-        local rowY = panelTop - (i - 1) * 40
+        local rowY = panelTop - (i - 1) * ROW_BLOCK_H
 
-        -- Title row
+        -- Title (z-order tag + default meaning)
         local titleFS = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         titleFS:SetPoint("TOPLEFT", content, "TOPLEFT", 14, rowY)
         titleFS:SetText("|cFFFFD200" .. r.title .. "|r")
 
-        -- Readout to the right of the title
+        -- Live readout (raw RGBA values stored in DB)
         local readout = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         readout:SetPoint("LEFT", titleFS, "RIGHT", 14, 0)
         rectReadouts[r.key] = readout
 
-        -- 4 channel EditBoxes (R / G / B / A), 0..255
+        -- Row 1: 0..255 EditBoxes
         local prevAnchor
-        local boxes = {}
+        local intBoxes = {}
+        local firstIntRow
         for chIdx, ch in ipairs({ "r", "g", "b", "a" }) do
             local row, eb = CreateChannelEditBox(content, ch, r.key)
             if chIdx == 1 then
                 row:SetPoint("TOPLEFT", titleFS, "BOTTOMLEFT", 0, -2)
+                firstIntRow = row
             else
                 row:SetPoint("LEFT", prevAnchor, "RIGHT", 6, 0)
             end
-            boxes[ch] = eb
+            intBoxes[ch] = eb
             prevAnchor = row
         end
-        rectEditBoxes[r.key] = boxes
+        rectEditBoxes[r.key] = intBoxes
+
+        -- Row 2: 0..1 EditBoxes, anchored under row 1 with the same column layout
+        prevAnchor = nil
+        local floatBoxes = {}
+        for chIdx, ch in ipairs({ "r", "g", "b", "a" }) do
+            local row, eb = CreateFloatChannelEditBox(content, ch, r.key)
+            if chIdx == 1 then
+                row:SetPoint("TOPLEFT", firstIntRow, "BOTTOMLEFT", 0, -2)
+            else
+                row:SetPoint("LEFT", prevAnchor, "RIGHT", 6, 0)
+            end
+            floatBoxes[ch] = eb
+            prevAnchor = row
+        end
+        rectFloatEditBoxes[r.key] = floatBoxes
     end
 
     -- ── Reset button (bottom row) ──
