@@ -51,27 +51,30 @@ local RECT_SIZE  = 130
 local RECTS = {
     {
         key         = "blue",
-        title       = "Blue  [ล่าง / bottom]   default 'Casting'",
-        canvasTag   = "ล่าง",
+        title       = "Blue  [Bottom]  default 'Casting'",
+        canvasTag   = "Bottom",
+        tagAnchor   = "TOPRIGHT",      -- requested: top-right of box
         defaultRGBA = { 0,   0,   255, 255 },
         zLevel      = 1,
-        posOffset   = { 140,  -60 },   -- top-right area
+        posOffset   = { 140,  -60 },
     },
     {
         key         = "green",
-        title       = "Green [กลาง / middle]  default 'Can Interrupt'",
-        canvasTag   = "กลาง",
+        title       = "Green [Middle]  default 'Can Interrupt'",
+        canvasTag   = "Middle",
+        tagAnchor   = "BOTTOMLEFT",    -- requested: bottom-left of box
         defaultRGBA = { 0,   255, 0,   128 },
         zLevel      = 2,
-        posOffset   = {  80, -120 },   -- bottom-center
+        posOffset   = {  80, -120 },
     },
     {
         key         = "red",
-        title       = "Red   [บน / top]       default 'Important Spell'",
-        canvasTag   = "บน",
+        title       = "Red   [Top]     default 'Important Spell'",
+        canvasTag   = "Top",
+        tagAnchor   = "TOPLEFT",       -- left as-is (top-left of box)
         defaultRGBA = { 255, 0,   0,   128 },
         zLevel      = 3,
-        posOffset   = {  40,  -20 },   -- top-left (shifted right +20)
+        posOffset   = {  40,  -20 },   -- shifted right +20 earlier
     },
 }
 
@@ -419,7 +422,17 @@ local function CreateAlphaStackTestFrame()
 
         if r.canvasTag and r.canvasTag ~= "" then
             local tag = rect:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-            tag:SetPoint("TOPLEFT", rect, "TOPLEFT", 4, -2)
+            -- Per-rect anchor so labels live in different corners
+            -- (Top → top-left, Bottom → top-right, Middle → bottom-left).
+            -- Offsets push 4 px inward from the corner so the glyph never
+            -- runs into the rectangle's edge.
+            local anchor = r.tagAnchor or "TOPLEFT"
+            local ox, oy = 4, -2
+            if     anchor == "TOPRIGHT"    then ox, oy = -4, -2
+            elseif anchor == "BOTTOMLEFT"  then ox, oy =  4,  2
+            elseif anchor == "BOTTOMRIGHT" then ox, oy = -4,  2
+            end
+            tag:SetPoint(anchor, rect, anchor, ox, oy)
             tag:SetText("|cFFFFFFFF" .. r.canvasTag .. "|r")
         end
     end
