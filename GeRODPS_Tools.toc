@@ -18,3 +18,4 @@ DumpVar.lua
 WatchVar.lua
 AuraListHelper.lua
 AlphaStackTest.lua
+TestSendToStringLength.lua
