@@ -20,3 +20,4 @@ AuraListHelper.lua
 AlphaStackTest.lua
 TestSendToStringLength.lua
 LayeredAlphaTextTest.lua
+TestSendToStringLayers.lua
