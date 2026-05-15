@@ -1,34 +1,41 @@
 --[[
     LayeredAlphaTextTest.lua
 
-    Visual harness สำหรับ 6-layer alpha-encoded text channel ตาม spec
-    ใน GeRODPS/LayeredAlphaEncoding.md (R R G G B B, α = 128/255).
+    Visual harness สำหรับ 5-layer alpha-encoded channel ตาม spec ที่ใช้ได้
+    จริงใน GeRODPS/LayeredAlphaEncoding.md (V_fixed-per-layer, α = 128/255).
 
-    Layer assignment (1 = top, drawn LAST, contributes V/2; 6 = bottom,
-    drawn FIRST, contributes V/64):
+    5-LAYER SCHEME (drawn bottom → top):
+      L5 (bottom, drawn first)  R       V=255   →  R contribution {8..128}
+      L4                         G-Light V=32    →  G low bits {2,4,8,16}
+      L3                         G-Dark  V=255   →  G high bits {32,64,128}
+      L2                         B-Dark  V=255   →  B high bits {64,128}
+      L1 (top, drawn last)       B-Light V=32    →  B low bits = 16
 
-        L1 → B (high)   ── subLayer 6 (on top)
-        L2 → B (low)    ── subLayer 5
-        L3 → G (high)   ── subLayer 4
-        L4 → G (low)    ── subLayer 3
-        L5 → R (high)   ── subLayer 2
-        L6 → R (low)    ── subLayer 1 (drawn first onto black background)
+    Each layer is on/off only (binary state, V is fixed). 5 layers = 32
+    codes/pixel — robust to alpha-blend rounding via bit-mask decode.
+
+    Decode (per pixel):
+      R on      iff  R > 0
+      G-Light   iff  G mod 32 ≠ 0     (L4 contribution bits)
+      G-Dark    iff  G ≥ 32           (L3 contribution bits)
+      B-Light   iff  B mod 32 ≠ 0     (L1 contribution)
+      B-Dark    iff  B ≥ 32           (L2 contribution)
 
     UI:
-        - Canvas สีดำ alpha 1 (พื้นหลัง)
-        - 6 FontStrings ซ้อนกันบน canvas — ใช้ PixelTiny.ttf + MONOCHROME
-        - Slider ปรับ font size (ปรับทีเดียวพร้อมกันทั้ง 6 layer)
-        - 6 รายการ control ต่อ layer:
-            * 3-state toggle (Off / Light V=64 / Dark V=255)
-            * EditBox สำหรับข้อความของ layer นั้น
-        - Live readout: ค่า (R, G, B) ที่คาดหวังจากตาราง encoding
-          (สมมติทุก layer's glyph มี pixel "on" ตรงกัน — pixel ที่เปิดทุก
-          layer จริงๆ จะอ่านเป็นค่านี้)
+      - Canvas สีดำ alpha 1 — 5 FontStrings + 5 Textures ซ้อนกัน
+      - PixelTiny.ttf + MONOCHROME (sharp-edge)
+      - Slider ปรับ font size ทุก layer พร้อมกัน
+      - Per-layer:
+          * On/Off CheckButton
+          * EditBox สำหรับข้อความ
+      - Live readout: R/G/B + decoded state (R, GL, GD, BL, BD)
+      - Render mode radio: Text glyphs / Solid block (full canvas)
+      - Optional: black α=½ separator between layers (experimental)
 
     Public:
-        GeRODPS_Tools.ToggleLayeredAlphaTextTest()
-        GeRODPS_Tools.ShowLayeredAlphaTextTest()
-        GeRODPS_Tools.HideLayeredAlphaTextTest()
+      GeRODPS_Tools.ToggleLayeredAlphaTextTest()
+      GeRODPS_Tools.ShowLayeredAlphaTextTest()
+      GeRODPS_Tools.HideLayeredAlphaTextTest()
 ]]
 
 GeRODPS_Tools = GeRODPS_Tools or {}
@@ -38,7 +45,7 @@ local FRAME_NAME    = "GeRODPS_ToolsLayeredAlphaTextTestFrame"
 local FONT_PATH     = "Interface\\AddOns\\GeRODPS_Tools\\fonts\\PixelTiny.ttf"
 
 local DEFAULT_W     = 760
-local DEFAULT_H     = 600
+local DEFAULT_H     = 560
 local SCREEN_MARGIN = 100
 
 local CANVAS_W      = 700
@@ -49,38 +56,24 @@ local MIN_SIZE      = 8
 local MAX_SIZE      = 96
 
 -- ============================================================
--- Layer spec (top → bottom)
+-- Layer spec — 5 fixed-V layers, drawn bottom-up.
+-- subLayer spacing of 2 leaves room for 4 black separator textures
+-- between adjacent colored layers (subLayers 3, 1, -1, -3).
 -- ============================================================
 
-local STATE_OFF, STATE_LIGHT, STATE_DARK = "off", "light", "dark"
-
--- subLayer mapping leaves room for 5 black separator textures between the
--- 6 colored FontStrings. Draw order (low → high subLayer = first → last):
---    L6 (-5) sep (-4) L5 (-3) sep (-2) L4 (-1) sep (0)
---    L3 (1)  sep (2)  L2 (3)  sep (4)  L1 (5)
--- WoW subLayer range is -8..7, so 11 slots fit comfortably.
 local LAYERS = {
-    { idx = 1, label = "L1  B-high  (blue)",  channel = "B", subLayer =  5 },
-    { idx = 2, label = "L2  B-low   (blue)",  channel = "B", subLayer =  3 },
-    { idx = 3, label = "L3  G-high  (green)", channel = "G", subLayer =  1 },
-    { idx = 4, label = "L4  G-low   (green)", channel = "G", subLayer = -1 },
-    { idx = 5, label = "L5  R-high  (red)",   channel = "R", subLayer = -3 },
-    { idx = 6, label = "L6  R-low   (red)",   channel = "R", subLayer = -5 },
+    { idx = 1, label = "L1  B-Light V=32   (top)",     channel = "B", V = 32,  subLayer =  4 },
+    { idx = 2, label = "L2  B-Dark  V=255",            channel = "B", V = 255, subLayer =  2 },
+    { idx = 3, label = "L3  G-Dark  V=255",            channel = "G", V = 255, subLayer =  0 },
+    { idx = 4, label = "L4  G-Light V=32",             channel = "G", V = 32,  subLayer = -2 },
+    { idx = 5, label = "L5  R       V=255 (bottom)",   channel = "R", V = 255, subLayer = -4 },
 }
 
--- Separator subLayers, in draw order (first drawn = lowest = between L6 and
--- L5). 5 separators total: one between each pair of adjacent colored layers.
-local SEPARATOR_SUBLAYERS = { -4, -2, 0, 2, 4 }
-
-local STATE_ORDER = { STATE_OFF, STATE_LIGHT, STATE_DARK }
-local STATE_LABEL = { off = "Off", light = "Light", dark = "Dark" }
-local STATE_V     = { off = 0,     light = 64,      dark = 255   }
+local SEPARATOR_SUBLAYERS = { 3, 1, -1, -3 }  -- 4 separators between 5 layers
 
 -- ============================================================
 -- DB
 -- ============================================================
-
-local function DefaultText(idx) return tostring(idx) end
 
 local function GetDB()
     GeRODPS_ToolsDB = GeRODPS_ToolsDB or {}
@@ -92,8 +85,8 @@ local function GetDB()
     db.layers = db.layers or {}
     for _, l in ipairs(LAYERS) do
         local entry = db.layers[l.idx] or {}
-        if entry.state == nil then entry.state = STATE_DARK end
-        if entry.text  == nil then entry.text  = "TEST123456" end
+        if entry.on   == nil then entry.on   = true          end
+        if entry.text == nil then entry.text = "TEST123456"  end
         db.layers[l.idx] = entry
     end
     return db
@@ -106,64 +99,97 @@ end
 local frame
 local canvas
 local layerFontStrings  = {}  -- [idx] = FontString (text mode)
-local layerTextures     = {}  -- [idx] = Texture    (solid mode, full-canvas colored)
-local separatorTextures = {}  -- [1..5] = Texture (black α=128/255, full-canvas)
-local stateRadios       = {}  -- [idx] = { [state] = CheckButton }
+local layerTextures     = {}  -- [idx] = Texture    (solid mode)
+local separatorTextures = {}  -- [1..4] = Texture (black α=128/255, full canvas)
+local onCheckboxes      = {}  -- [idx] = CheckButton (binary on/off)
 local textEditBoxes     = {}  -- [idx] = EditBox
 local sizeSlider, sizeValueFS
-local readoutFS
+local readoutFS, decodeFS
 local separatorCheckbox
 local renderModeRadios  = {}  -- ["text"|"solid"] = CheckButton
 
 -- ============================================================
--- Encoding math — expected pixel value for a "fully-on" pixel
+-- Encoding math — simulate alpha blending exactly
 -- ============================================================
 
--- Per-layer exponent for V / 2^exp at a "fully-on" pixel.
--- Without separator:  L_N's draw is the N-th from top → contribution V/2^N.
--- With separator:     each layer is preceded by a black α=½ rect that
---                     halves dst again, so its draw is the (2N-1)-th from
---                     the canvas baseline → contribution V/2^(2N-1).
-local function ContributionExp(layerIdx, useSep)
-    if useSep then return 2 * layerIdx - 1 end
-    return layerIdx
+local function BlendInto(dstR, dstG, dstB, srcR, srcG, srcB, srcA)
+    local oneMA = 1 - srcA
+    return
+        math.floor(srcR * srcA + dstR * oneMA + 0.5),
+        math.floor(srcG * srcA + dstG * oneMA + 0.5),
+        math.floor(srcB * srcA + dstB * oneMA + 0.5)
 end
 
 local function ComputeExpectedRGB()
     local db = GetDB()
-    local useSep = db.useBlackSeparator and true or false
     local r, g, b = 0, 0, 0
-    for _, l in ipairs(LAYERS) do
-        local entry = db.layers[l.idx]
-        local V = STATE_V[entry.state] or 0
-        if V > 0 then
-            local exp = ContributionExp(l.idx, useSep)
-            local contribution = math.floor(V / (2 ^ exp) + 0.5)
-            if l.channel == "R" then r = r + contribution
-            elseif l.channel == "G" then g = g + contribution
-            elseif l.channel == "B" then b = b + contribution
+    local sepAlpha = 128 / 255
+    local colAlpha = 128 / 255
+
+    -- Draw order: L5 (bottom) → L1 (top). idx 5 first, idx 1 last.
+    for idx = #LAYERS, 1, -1 do
+        local spec  = LAYERS[idx]
+        local entry = db.layers[idx]
+        if entry and entry.on then
+            local sR, sG, sB = 0, 0, 0
+            if     spec.channel == "R" then sR = spec.V
+            elseif spec.channel == "G" then sG = spec.V
+            elseif spec.channel == "B" then sB = spec.V
             end
+            r, g, b = BlendInto(r, g, b, sR, sG, sB, colAlpha)
+        end
+        -- Black separator AFTER this layer (between idx and idx-1).
+        -- Skip after the topmost layer.
+        if db.useBlackSeparator and idx > 1 then
+            r, g, b = BlendInto(r, g, b, 0, 0, 0, sepAlpha)
         end
     end
     return r, g, b
+end
+
+local function DecodeStates(r, g, b)
+    return {
+        R       = (r > 0),
+        GLight  = (g % 32 ~= 0),
+        GDark   = (g >= 32),
+        BLight  = (b % 32 ~= 0),
+        BDark   = (b >= 32),
+    }
+end
+
+local function FmtState(label, on)
+    if on then return string.format("|cFF99FF99%s|r",   label) end
+    return       string.format("|cFF666666%s|r",         label)
 end
 
 local function RefreshReadout()
     if not readoutFS then return end
     local db = GetDB()
     local r, g, b = ComputeExpectedRGB()
+    local s = DecodeStates(r, g, b)
+
     local renderTag = (db.renderMode == "solid")
         and "|cFF99CCFFSolid|r"
         or  "|cFFFFFFFFText|r"
     local sepTag = db.useBlackSeparator
-        and "|cFFFFAA55+separator|r (V/2^(2N-1), L5/L6 ≈ 0)"
-        or  "|cFF99FF99no separator|r (V/2^N — original spec)"
-    local modeTag = string.format("Render: %s   |   Encode: %s",
-                                  renderTag, sepTag)
+        and "|cFFFFAA55+separator|r"
+        or  "|cFF99FF99no separator|r"
+
     readoutFS:SetText(string.format(
-        "%s\n|cffaaaaaaExpected pixel (fully-on glyph cell): " ..
-        "R=|r|cFFFF7777%d|r  |cffaaaaaaG=|r|cFF77FF77%d|r  " ..
-        "|cffaaaaaaB=|r|cFF7777FF%d|r", modeTag, r, g, b))
+        "Render: %s   |   Encode: %s\n" ..
+        "|cffaaaaaaPixel:|r  " ..
+        "R=|cFFFF7777%d|r  G=|cFF77FF77%d|r  B=|cFF7777FF%d|r",
+        renderTag, sepTag, r, g, b))
+
+    if decodeFS then
+        decodeFS:SetText(string.format(
+            "|cffaaaaaaDecoded:|r  %s   %s   %s   %s   %s",
+            FmtState("R",       s.R),
+            FmtState("G-Light", s.GLight),
+            FmtState("G-Dark",  s.GDark),
+            FmtState("B-Light", s.BLight),
+            FmtState("B-Dark",  s.BDark)))
+    end
 end
 
 local function ApplySeparatorVisibility()
@@ -186,23 +212,22 @@ local function ApplyLayer(idx)
     if not entry then return end
 
     local spec = LAYERS[idx]
-    local Vraw = STATE_V[entry.state] or 0
-    local V    = Vraw / 255
+    local Vraw = entry.on and spec.V or 0
+    local Vn   = Vraw / 255
     local r, g, b = 0, 0, 0
-    if     spec.channel == "R" then r = V
-    elseif spec.channel == "G" then g = V
-    elseif spec.channel == "B" then b = V end
+    if     spec.channel == "R" then r = Vn
+    elseif spec.channel == "G" then g = Vn
+    elseif spec.channel == "B" then b = Vn end
 
     local solid = (db.renderMode == "solid")
 
-    -- Text mode FontString
     if fs then
         if solid then
             fs:Hide()
         else
             fs:Show()
             fs:SetFont(FONT_PATH, db.fontSize, "MONOCHROME")
-            if entry.state == STATE_OFF then
+            if not entry.on then
                 fs:SetText("")
             else
                 fs:SetTextColor(r, g, b, 128 / 255)
@@ -211,9 +236,8 @@ local function ApplyLayer(idx)
         end
     end
 
-    -- Solid mode Texture (full-canvas)
     if tex then
-        if not solid or entry.state == STATE_OFF then
+        if (not solid) or (not entry.on) then
             tex:Hide()
         else
             tex:Show()
@@ -270,36 +294,11 @@ end
 -- Build helpers
 -- ============================================================
 
-local function CreateStateRadio(parent, idx, stateKey)
-    local cb = CreateFrame("CheckButton", nil, parent, "UIRadioButtonTemplate")
-    cb:SetSize(16, 16)
-    local lbl = cb:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    lbl:SetPoint("LEFT", cb, "RIGHT", 2, 0)
-    lbl:SetText(STATE_LABEL[stateKey])
-    cb._labelFS = lbl
-
-    cb:SetScript("OnClick", function(self)
-        local db = GetDB()
-        db.layers[idx].state = stateKey
-
-        -- Uncheck siblings in same row
-        local row = stateRadios[idx]
-        for s, btn in pairs(row) do
-            btn:SetChecked(s == stateKey)
-        end
-
-        ApplyLayer(idx)
-        RefreshReadout()
-    end)
-
-    return cb
-end
-
-local function CreateLayerRow(content, parent, anchorAbove, idx)
+local function CreateLayerRow(parent, anchorAbove, idx)
     local spec = LAYERS[idx]
 
     local row = CreateFrame("Frame", nil, parent)
-    row:SetHeight(28)
+    row:SetHeight(26)
     if anchorAbove then
         row:SetPoint("TOPLEFT",  anchorAbove, "BOTTOMLEFT",  0, -4)
         row:SetPoint("TOPRIGHT", anchorAbove, "BOTTOMRIGHT", 0, -4)
@@ -308,30 +307,30 @@ local function CreateLayerRow(content, parent, anchorAbove, idx)
         row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
     end
 
-    -- Layer label
     local nameFS = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     nameFS:SetPoint("LEFT", row, "LEFT", 0, 0)
-    nameFS:SetWidth(160)
+    nameFS:SetWidth(210)
     nameFS:SetJustifyH("LEFT")
     nameFS:SetText("|cFFFFD200" .. spec.label .. "|r")
 
-    -- 3 radio buttons (Off / Light / Dark)
-    stateRadios[idx] = {}
-    local prev = nameFS
-    for _, stateKey in ipairs(STATE_ORDER) do
-        local cb = CreateStateRadio(row, idx, stateKey)
-        if prev == nameFS then
-            cb:SetPoint("LEFT", prev, "RIGHT", 4, 0)
-        else
-            cb:SetPoint("LEFT", prev, "RIGHT", 40, 0)
-        end
-        stateRadios[idx][stateKey] = cb
-        prev = cb
-    end
+    -- On/Off checkbox
+    local cb = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+    cb:SetSize(22, 22)
+    cb:SetPoint("LEFT", nameFS, "RIGHT", 6, 0)
+    local onLbl = cb:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    onLbl:SetPoint("LEFT", cb, "RIGHT", 0, 0)
+    onLbl:SetText("On")
+    cb:SetScript("OnClick", function(self)
+        local db = GetDB()
+        db.layers[idx].on = self:GetChecked() and true or false
+        ApplyLayer(idx)
+        RefreshReadout()
+    end)
+    onCheckboxes[idx] = cb
 
     -- Text EditBox
     local eb = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
-    eb:SetPoint("LEFT",  prev,  "RIGHT", 60, 0)
+    eb:SetPoint("LEFT",  onLbl, "RIGHT", 30, 0)
     eb:SetPoint("RIGHT", row,   "RIGHT",  0, 0)
     eb:SetHeight(20)
     eb:SetAutoFocus(false)
@@ -361,7 +360,7 @@ end
 
 local function SyncControlsFromDB()
     local db = GetDB()
-    if sizeSlider then sizeSlider:SetValue(db.fontSize) end
+    if sizeSlider  then sizeSlider:SetValue(db.fontSize) end
     if sizeValueFS then sizeValueFS:SetText(tostring(db.fontSize)) end
     if separatorCheckbox then
         separatorCheckbox:SetChecked(db.useBlackSeparator and true or false)
@@ -372,11 +371,8 @@ local function SyncControlsFromDB()
 
     for _, l in ipairs(LAYERS) do
         local entry = db.layers[l.idx]
-        local row = stateRadios[l.idx]
-        if row then
-            for s, btn in pairs(row) do
-                btn:SetChecked(s == entry.state)
-            end
+        if onCheckboxes[l.idx] then
+            onCheckboxes[l.idx]:SetChecked(entry.on and true or false)
         end
         if textEditBoxes[l.idx] then
             textEditBoxes[l.idx]:SetText(entry.text or "")
@@ -407,12 +403,12 @@ local function CreateTestFrame()
 
     if frame.TitleText then
         frame.TitleText:SetText(
-            "GeRODPS Tools — Layered Alpha Text Test (6 layers, α=128/255)")
+            "GeRODPS Tools — Layered Alpha Test (5 layers, V-fixed, α=128/255)")
     end
 
     local content = frame.Inset or frame
 
-    -- ── Canvas: black background, 6 stacked FontStrings ──
+    -- ── Canvas: black background ──
     canvas = CreateFrame("Frame", nil, content)
     canvas:SetSize(CANVAS_W, CANVAS_H)
     canvas:SetPoint("TOP", content, "TOP", 0, -10)
@@ -421,7 +417,6 @@ local function CreateTestFrame()
     bg:SetAllPoints(canvas)
     bg:SetColorTexture(0, 0, 0, 1)
 
-    -- Thin gray border
     local function MakeEdge(a1, a2, sx, sy)
         local e = canvas:CreateTexture(nil, "OVERLAY")
         e:SetPoint(a1, canvas, a1, 0, 0)
@@ -435,9 +430,7 @@ local function CreateTestFrame()
     MakeEdge("TOPLEFT",    "BOTTOMLEFT",  1,   nil)
     MakeEdge("TOPRIGHT",   "BOTTOMRIGHT", 1,   nil)
 
-    -- 6 FontStrings (text mode) and 6 full-canvas Textures (solid mode),
-    -- sharing the same subLayer per layer so z-order is identical between
-    -- modes. Only one of (fs, tex) is shown per layer based on renderMode.
+    -- 5 FontStrings + 5 Textures (one of each shown per render mode)
     layerFontStrings = {}
     layerTextures    = {}
     for _, l in ipairs(LAYERS) do
@@ -461,10 +454,7 @@ local function CreateTestFrame()
         layerTextures[l.idx] = tex
     end
 
-    -- 5 black separator textures interleaved between the 6 colored layers.
-    -- Each separator is (0, 0, 0) α=128/255 covering the whole canvas, so it
-    -- halves whatever is below at EVERY pixel (regardless of glyph mask).
-    -- Hidden by default; toggled by the "use separator" checkbox below.
+    -- 4 black separator textures (hidden by default)
     separatorTextures = {}
     for _, subLayer in ipairs(SEPARATOR_SUBLAYERS) do
         local sep = canvas:CreateTexture(nil, "OVERLAY")
@@ -476,7 +466,7 @@ local function CreateTestFrame()
         separatorTextures[#separatorTextures + 1] = sep
     end
 
-    -- ── Readout below canvas (2 lines: mode tag + expected RGB) ──
+    -- ── Readout (2 lines: mode + raw RGB) ──
     readoutFS = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     readoutFS:SetPoint("TOPLEFT",  canvas, "BOTTOMLEFT",  0, -8)
     readoutFS:SetPoint("TOPRIGHT", canvas, "BOTTOMRIGHT", 0, -8)
@@ -484,10 +474,17 @@ local function CreateTestFrame()
     readoutFS:SetJustifyV("TOP")
     readoutFS:SetText("")
 
-    -- ── Render-mode row (radio) ──
+    -- Decoded states line (separate FS for alignment)
+    decodeFS = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    decodeFS:SetPoint("TOPLEFT",  readoutFS, "BOTTOMLEFT",  0, -18)
+    decodeFS:SetPoint("TOPRIGHT", readoutFS, "BOTTOMRIGHT", 0, -18)
+    decodeFS:SetJustifyH("LEFT")
+    decodeFS:SetText("")
+
+    -- ── Render-mode row ──
     local modeRow = CreateFrame("Frame", nil, content)
     modeRow:SetSize(CANVAS_W, 24)
-    modeRow:SetPoint("TOPLEFT", readoutFS, "BOTTOMLEFT", 0, -22)
+    modeRow:SetPoint("TOPLEFT", decodeFS, "BOTTOMLEFT", 0, -12)
 
     local modeLabel = modeRow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     modeLabel:SetPoint("LEFT", modeRow, "LEFT", 0, 0)
@@ -515,10 +512,9 @@ local function CreateTestFrame()
     local _, textLbl = MakeModeRadio("text",
         "Text glyphs (decode only at all-glyphs-on pixels)", modeLabel, 8)
     MakeModeRadio("solid",
-        "Solid block (full canvas — math-pure V/2^N at every pixel)",
-        textLbl, 12)
+        "Solid block (math-pure at every pixel)", textLbl, 12)
 
-    -- ── Separator-mode checkbox (text mode only is meaningful) ──
+    -- ── Separator-mode checkbox ──
     separatorCheckbox = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
     separatorCheckbox:SetPoint("TOPLEFT", modeRow, "BOTTOMLEFT", -4, -4)
     separatorCheckbox:SetSize(22, 22)
@@ -526,7 +522,7 @@ local function CreateTestFrame()
     sepLbl:SetPoint("LEFT", separatorCheckbox, "RIGHT", 2, 0)
     sepLbl:SetText(
         "Insert (0,0,0) α=128/255 separator between layers  " ..
-        "|cFFFFAA55(experimental — contrib becomes V/2^(2N-1), L5/L6 ≈ 0)|r")
+        "|cFFFFAA55(experimental — extra halving)|r")
     separatorCheckbox:SetScript("OnClick", function(self)
         local db = GetDB()
         db.useBlackSeparator = self:GetChecked() and true or false
@@ -550,10 +546,6 @@ local function CreateTestFrame()
     sizeSlider:SetValueStep(1)
     sizeSlider:SetObeyStepOnDrag(true)
     sizeSlider:SetValue(DEFAULT_SIZE)
-    if _G[sizeSlider:GetName() and (sizeSlider:GetName() .. "Low")] then end
-    -- The OptionsSliderTemplate ships its own Low/High/Text font strings via
-    -- $parent suffix — we created the slider with no name, so we manually
-    -- hide those if they exist. We use our own numeric readout instead.
 
     sizeValueFS = sizeRow:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     sizeValueFS:SetPoint("LEFT", sizeSlider, "RIGHT", 16, 0)
@@ -568,30 +560,30 @@ local function CreateTestFrame()
         ApplyAllLayers()
     end)
 
-    -- ── 6 layer control rows ──
+    -- ── 5 layer control rows ──
     local rowsHost = CreateFrame("Frame", nil, content)
     rowsHost:SetPoint("TOPLEFT",  sizeRow, "BOTTOMLEFT",  0, -10)
     rowsHost:SetPoint("TOPRIGHT", sizeRow, "BOTTOMRIGHT", 0, -10)
-    rowsHost:SetHeight(28 * #LAYERS + 4 * (#LAYERS - 1))
+    rowsHost:SetHeight(26 * #LAYERS + 4 * (#LAYERS - 1))
 
     local prevRow
     for _, l in ipairs(LAYERS) do
-        prevRow = CreateLayerRow(content, rowsHost, prevRow, l.idx)
+        prevRow = CreateLayerRow(rowsHost, prevRow, l.idx)
     end
 
     -- ── Reset button ──
     local resetBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
     resetBtn:SetSize(160, 22)
     resetBtn:SetPoint("BOTTOMLEFT", content, "BOTTOMLEFT", 14, 14)
-    resetBtn:SetText("Reset (all Dark, '123456...')")
+    resetBtn:SetText("Reset (all On, 'TEST123456')")
     resetBtn:SetScript("OnClick", function()
         local db = GetDB()
         db.fontSize          = DEFAULT_SIZE
         db.useBlackSeparator = false
         db.renderMode        = "text"
         for _, l in ipairs(LAYERS) do
-            db.layers[l.idx].state = STATE_DARK
-            db.layers[l.idx].text  = "TEST123456"
+            db.layers[l.idx].on   = true
+            db.layers[l.idx].text = "TEST123456"
         end
         SyncControlsFromDB()
         ApplyAllLayers()
@@ -602,21 +594,13 @@ local function CreateTestFrame()
     hintFS:SetPoint("RIGHT", content, "RIGHT", -14, 0)
     hintFS:SetJustifyH("LEFT")
     hintFS:SetText(
-        "ใส่ข้อความเดียวกันทุก layer = อ่าน decode ได้ที่ pixel กลาง glyph.  " ..
-        "ต่างกัน = ดูได้ว่าบาง pixel จะ decode ผิดเพราะ glyph mask ไม่ตรง.")
-
-    -- Center the size slider columns visually (Lua-side fix-up: position the
-    -- canvas, readout, size row, rowsHost all anchored to content with
-    -- explicit left padding so the layer rows align with the canvas).
-    -- (Already handled above via TOPLEFT anchors.)
+        "Solid mode → ทุก pixel encode ได้ครบ.  Text mode → decode " ..
+        "ได้เฉพาะ pixel ที่ทุก layer's glyph on พร้อมกัน.")
 
     table.insert(UISpecialFrames, FRAME_NAME)
     ApplySavedGeometry(frame)
-
-    -- Initial state sync
     SyncControlsFromDB()
     ApplyAllLayers()
-
     frame:Hide()
     return frame
 end
@@ -652,6 +636,6 @@ function TOOL.ToggleLayeredAlphaTextTest()
 end
 
 if TOOL.RegisterTool then
-    TOOL.RegisterTool("Test Layered Alpha Text (6 layers)",
+    TOOL.RegisterTool("Test Layered Alpha Text (5 layers)",
                       TOOL.ToggleLayeredAlphaTextTest)
 end
