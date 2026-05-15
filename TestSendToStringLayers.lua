@@ -320,6 +320,34 @@ local function CreateTestFrame()
         ApplyAllRows()
     end)
 
+    -- Verify: print Lua-side state to chat so user can confirm whether
+    -- the override API is actually receiving the calls.
+    local btnVerify = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+    btnVerify:SetSize(120, 22)
+    btnVerify:SetPoint("LEFT", btnDefaults, "RIGHT", 8, 0)
+    btnVerify:SetText("Verify (print)")
+    btnVerify:SetScript("OnClick", function()
+        if not HasOverrideAPI() then
+            DEFAULT_CHAT_FRAME:AddMessage(
+                "|cffff4444[SendToStringLayers]|r Override API not found.")
+            return
+        end
+        DEFAULT_CHAT_FRAME:AddMessage(
+            "|cff66ccff[SendToStringLayers]|r --- Override state ---")
+        for i = 1, 5 do
+            local v = _G.GeRODPS.SendToString.GetLayerOverride(i)
+            local layers = _G.GeRODPS.TextSendToAHKLayers
+            local fs = layers and layers[i]
+            local fsText = fs and fs:GetText() or "(no FontString)"
+            DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                "  L%d  override=%s  fs.text=%s",
+                i,
+                v == nil and "|cffaaaaaaNIL|r"
+                          or string.format("|cff99ff99'%s'|r", tostring(v)),
+                fsText))
+        end
+    end)
+
     -- Backend warning line
     lblBackend = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     lblBackend:SetPoint("BOTTOMLEFT",  content, "BOTTOMLEFT",  14, 42)
