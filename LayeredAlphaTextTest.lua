@@ -430,12 +430,16 @@ local function CreateTestFrame()
     MakeEdge("TOPLEFT",    "BOTTOMLEFT",  1,   nil)
     MakeEdge("TOPRIGHT",   "BOTTOMRIGHT", 1,   nil)
 
-    -- 5 FontStrings + 5 Textures (one of each shown per render mode)
+    -- 5 FontStrings + 5 Textures (one of each shown per render mode).
+    -- IMPORTANT: subLayer is set via the 4-arg form of CreateFontString /
+    -- CreateTexture (the documented way). Calling :SetDrawLayer() after
+    -- creation does not reliably update the subLevel for FontStrings on
+    -- some WoW builds — texts stayed at subLevel 0 (default) and z-order
+    -- collapsed to creation order (L5 visually on top instead of L1).
     layerFontStrings = {}
     layerTextures    = {}
     for _, l in ipairs(LAYERS) do
-        local fs = canvas:CreateFontString(nil, "OVERLAY")
-        fs:SetDrawLayer("OVERLAY", l.subLayer)
+        local fs = canvas:CreateFontString(nil, "OVERLAY", nil, l.subLayer)
         fs:SetPoint("TOPLEFT",     canvas, "TOPLEFT",      4,  -4)
         fs:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -4,   4)
         fs:SetJustifyH("LEFT")
@@ -445,8 +449,7 @@ local function CreateTestFrame()
         fs:SetNonSpaceWrap(false)
         layerFontStrings[l.idx] = fs
 
-        local tex = canvas:CreateTexture(nil, "OVERLAY")
-        tex:SetDrawLayer("OVERLAY", l.subLayer)
+        local tex = canvas:CreateTexture(nil, "OVERLAY", nil, l.subLayer)
         tex:SetPoint("TOPLEFT",     canvas, "TOPLEFT",      4,  -4)
         tex:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -4,   4)
         tex:SetColorTexture(0, 0, 0, 0)
@@ -457,8 +460,7 @@ local function CreateTestFrame()
     -- 4 black separator textures (hidden by default)
     separatorTextures = {}
     for _, subLayer in ipairs(SEPARATOR_SUBLAYERS) do
-        local sep = canvas:CreateTexture(nil, "OVERLAY")
-        sep:SetDrawLayer("OVERLAY", subLayer)
+        local sep = canvas:CreateTexture(nil, "OVERLAY", nil, subLayer)
         sep:SetPoint("TOPLEFT",     canvas, "TOPLEFT",      4,  -4)
         sep:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -4,   4)
         sep:SetColorTexture(0, 0, 0, 128 / 255)
