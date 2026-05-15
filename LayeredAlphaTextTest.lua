@@ -88,6 +88,7 @@ local function GetDB()
     GeRODPS_ToolsDB.layeredAlphaText = db
     if db.fontSize          == nil then db.fontSize          = DEFAULT_SIZE end
     if db.useBlackSeparator == nil then db.useBlackSeparator = false        end
+    if db.renderMode        == nil then db.renderMode        = "text"       end
     db.layers = db.layers or {}
     for _, l in ipairs(LAYERS) do
         local entry = db.layers[l.idx] or {}
@@ -104,13 +105,15 @@ end
 
 local frame
 local canvas
-local layerFontStrings = {}   -- [idx] = FontString
+local layerFontStrings  = {}  -- [idx] = FontString (text mode)
+local layerTextures     = {}  -- [idx] = Texture    (solid mode, full-canvas colored)
 local separatorTextures = {}  -- [1..5] = Texture (black α=128/255, full-canvas)
-local stateRadios      = {}   -- [idx] = { [state] = CheckButton }
-local textEditBoxes    = {}   -- [idx] = EditBox
+local stateRadios       = {}  -- [idx] = { [state] = CheckButton }
+local textEditBoxes     = {}  -- [idx] = EditBox
 local sizeSlider, sizeValueFS
 local readoutFS
 local separatorCheckbox
+local renderModeRadios  = {}  -- ["text"|"solid"] = CheckButton
 
 -- ============================================================
 -- Encoding math — expected pixel value for a "fully-on" pixel
@@ -149,9 +152,14 @@ local function RefreshReadout()
     if not readoutFS then return end
     local db = GetDB()
     local r, g, b = ComputeExpectedRGB()
-    local modeTag = db.useBlackSeparator
-        and "|cFFFFAA55Mode: WITH separator|r (contrib V/2^(2N-1) — L5/L6 ≈ 0)"
-        or  "|cFF99FF99Mode: original spec|r (contrib V/2^N)"
+    local renderTag = (db.renderMode == "solid")
+        and "|cFF99CCFFSolid|r"
+        or  "|cFFFFFFFFText|r"
+    local sepTag = db.useBlackSeparator
+        and "|cFFFFAA55+separator|r (V/2^(2N-1), L5/L6 ≈ 0)"
+        or  "|cFF99FF99no separator|r (V/2^N — original spec)"
+    local modeTag = string.format("Render: %s   |   Encode: %s",
+                                  renderTag, sepTag)
     readoutFS:SetText(string.format(
         "%s\n|cffaaaaaaExpected pixel (fully-on glyph cell): " ..
         "R=|r|cFFFF7777%d|r  |cffaaaaaaG=|r|cFF77FF77%d|r  " ..
@@ -174,24 +182,44 @@ local function ApplyLayer(idx)
     local db    = GetDB()
     local entry = db.layers[idx]
     local fs    = layerFontStrings[idx]
-    if not fs or not entry then return end
+    local tex   = layerTextures[idx]
+    if not entry then return end
 
     local spec = LAYERS[idx]
-    fs:SetFont(FONT_PATH, db.fontSize, "MONOCHROME")
-
-    if entry.state == STATE_OFF then
-        fs:SetText("")
-        return
-    end
-
-    local V = STATE_V[entry.state] / 255
+    local Vraw = STATE_V[entry.state] or 0
+    local V    = Vraw / 255
     local r, g, b = 0, 0, 0
     if     spec.channel == "R" then r = V
     elseif spec.channel == "G" then g = V
     elseif spec.channel == "B" then b = V end
 
-    fs:SetTextColor(r, g, b, 128 / 255)
-    fs:SetText(entry.text or "")
+    local solid = (db.renderMode == "solid")
+
+    -- Text mode FontString
+    if fs then
+        if solid then
+            fs:Hide()
+        else
+            fs:Show()
+            fs:SetFont(FONT_PATH, db.fontSize, "MONOCHROME")
+            if entry.state == STATE_OFF then
+                fs:SetText("")
+            else
+                fs:SetTextColor(r, g, b, 128 / 255)
+                fs:SetText(entry.text or "")
+            end
+        end
+    end
+
+    -- Solid mode Texture (full-canvas)
+    if tex then
+        if not solid or entry.state == STATE_OFF then
+            tex:Hide()
+        else
+            tex:Show()
+            tex:SetColorTexture(r, g, b, 128 / 255)
+        end
+    end
 end
 
 local function ApplyAllLayers()
@@ -338,6 +366,9 @@ local function SyncControlsFromDB()
     if separatorCheckbox then
         separatorCheckbox:SetChecked(db.useBlackSeparator and true or false)
     end
+    for k, btn in pairs(renderModeRadios) do
+        btn:SetChecked(k == db.renderMode)
+    end
 
     for _, l in ipairs(LAYERS) do
         local entry = db.layers[l.idx]
@@ -404,9 +435,11 @@ local function CreateTestFrame()
     MakeEdge("TOPLEFT",    "BOTTOMLEFT",  1,   nil)
     MakeEdge("TOPRIGHT",   "BOTTOMRIGHT", 1,   nil)
 
-    -- The 6 FontStrings, all anchored TOPLEFT of canvas with same size.
-    -- subLayer higher = drawn later = on top (matches §2 of the spec).
+    -- 6 FontStrings (text mode) and 6 full-canvas Textures (solid mode),
+    -- sharing the same subLayer per layer so z-order is identical between
+    -- modes. Only one of (fs, tex) is shown per layer based on renderMode.
     layerFontStrings = {}
+    layerTextures    = {}
     for _, l in ipairs(LAYERS) do
         local fs = canvas:CreateFontString(nil, "OVERLAY")
         fs:SetDrawLayer("OVERLAY", l.subLayer)
@@ -418,6 +451,14 @@ local function CreateTestFrame()
         fs:SetWordWrap(false)
         fs:SetNonSpaceWrap(false)
         layerFontStrings[l.idx] = fs
+
+        local tex = canvas:CreateTexture(nil, "OVERLAY")
+        tex:SetDrawLayer("OVERLAY", l.subLayer)
+        tex:SetPoint("TOPLEFT",     canvas, "TOPLEFT",      4,  -4)
+        tex:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -4,   4)
+        tex:SetColorTexture(0, 0, 0, 0)
+        tex:Hide()
+        layerTextures[l.idx] = tex
     end
 
     -- 5 black separator textures interleaved between the 6 colored layers.
@@ -443,15 +484,49 @@ local function CreateTestFrame()
     readoutFS:SetJustifyV("TOP")
     readoutFS:SetText("")
 
-    -- ── Separator-mode checkbox ──
+    -- ── Render-mode row (radio) ──
+    local modeRow = CreateFrame("Frame", nil, content)
+    modeRow:SetSize(CANVAS_W, 24)
+    modeRow:SetPoint("TOPLEFT", readoutFS, "BOTTOMLEFT", 0, -22)
+
+    local modeLabel = modeRow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    modeLabel:SetPoint("LEFT", modeRow, "LEFT", 0, 0)
+    modeLabel:SetText("Render mode:")
+
+    local function MakeModeRadio(modeKey, labelText, anchorTo, anchorXOff)
+        local rb = CreateFrame("CheckButton", nil, modeRow, "UIRadioButtonTemplate")
+        rb:SetSize(18, 18)
+        rb:SetPoint("LEFT", anchorTo, "RIGHT", anchorXOff, 0)
+        local lbl = rb:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        lbl:SetPoint("LEFT", rb, "RIGHT", 2, 0)
+        lbl:SetText(labelText)
+        rb:SetScript("OnClick", function()
+            local db = GetDB()
+            db.renderMode = modeKey
+            for k, btn in pairs(renderModeRadios) do
+                btn:SetChecked(k == modeKey)
+            end
+            ApplyAllLayers()
+        end)
+        renderModeRadios[modeKey] = rb
+        return rb, lbl
+    end
+
+    local _, textLbl = MakeModeRadio("text",
+        "Text glyphs (decode only at all-glyphs-on pixels)", modeLabel, 8)
+    MakeModeRadio("solid",
+        "Solid block (full canvas — math-pure V/2^N at every pixel)",
+        textLbl, 12)
+
+    -- ── Separator-mode checkbox (text mode only is meaningful) ──
     separatorCheckbox = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-    separatorCheckbox:SetPoint("TOPLEFT", readoutFS, "BOTTOMLEFT", -4, -20)
+    separatorCheckbox:SetPoint("TOPLEFT", modeRow, "BOTTOMLEFT", -4, -4)
     separatorCheckbox:SetSize(22, 22)
     local sepLbl = separatorCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     sepLbl:SetPoint("LEFT", separatorCheckbox, "RIGHT", 2, 0)
     sepLbl:SetText(
         "Insert (0,0,0) α=128/255 separator between layers  " ..
-        "|cFFFFAA55(experimental — breaks decode of L5/L6)|r")
+        "|cFFFFAA55(experimental — contrib becomes V/2^(2N-1), L5/L6 ≈ 0)|r")
     separatorCheckbox:SetScript("OnClick", function(self)
         local db = GetDB()
         db.useBlackSeparator = self:GetChecked() and true or false
@@ -513,6 +588,7 @@ local function CreateTestFrame()
         local db = GetDB()
         db.fontSize          = DEFAULT_SIZE
         db.useBlackSeparator = false
+        db.renderMode        = "text"
         for _, l in ipairs(LAYERS) do
             db.layers[l.idx].state = STATE_DARK
             db.layers[l.idx].text  = "TEST123456"
