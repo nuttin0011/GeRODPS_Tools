@@ -57,19 +57,21 @@ local MAX_SIZE      = 96
 
 -- ============================================================
 -- Layer spec — 5 fixed-V layers, drawn bottom-up.
--- subLayer spacing of 2 leaves room for 4 black separator textures
--- between adjacent colored layers (subLayers 3, 1, -1, -3).
+-- Z-order is controlled entirely by CREATION ORDER inside the canvas:
+-- L5 (bottom) is created first → drawn first; L1 (top) is created
+-- last → drawn last. No reliance on subLayer (both the 4-arg form of
+-- CreateFontString/CreateTexture AND SetDrawLayer were observed to NOT
+-- reliably set subLevel on FontStrings in WoW 12.0 — items collapsed to
+-- the default subLevel 0 and z-order fell back to creation order anyway).
 -- ============================================================
 
 local LAYERS = {
-    { idx = 1, label = "L1  B-Light V=32   (top)",     channel = "B", V = 32,  subLayer =  4 },
-    { idx = 2, label = "L2  B-Dark  V=255",            channel = "B", V = 255, subLayer =  2 },
-    { idx = 3, label = "L3  G-Dark  V=255",            channel = "G", V = 255, subLayer =  0 },
-    { idx = 4, label = "L4  G-Light V=32",             channel = "G", V = 32,  subLayer = -2 },
-    { idx = 5, label = "L5  R       V=255 (bottom)",   channel = "R", V = 255, subLayer = -4 },
+    { idx = 1, label = "L1  B-Light V=32   (top)",     channel = "B", V = 32  },
+    { idx = 2, label = "L2  B-Dark  V=255",            channel = "B", V = 255 },
+    { idx = 3, label = "L3  G-Dark  V=255",            channel = "G", V = 255 },
+    { idx = 4, label = "L4  G-Light V=32",             channel = "G", V = 32  },
+    { idx = 5, label = "L5  R       V=255 (bottom)",   channel = "R", V = 255 },
 }
-
-local SEPARATOR_SUBLAYERS = { 3, 1, -1, -3 }  -- 4 separators between 5 layers
 
 -- ============================================================
 -- DB
@@ -430,16 +432,21 @@ local function CreateTestFrame()
     MakeEdge("TOPLEFT",    "BOTTOMLEFT",  1,   nil)
     MakeEdge("TOPRIGHT",   "BOTTOMRIGHT", 1,   nil)
 
-    -- 5 FontStrings + 5 Textures (one of each shown per render mode).
-    -- IMPORTANT: subLayer is set via the 4-arg form of CreateFontString /
-    -- CreateTexture (the documented way). Calling :SetDrawLayer() after
-    -- creation does not reliably update the subLevel for FontStrings on
-    -- some WoW builds — texts stayed at subLevel 0 (default) and z-order
-    -- collapsed to creation order (L5 visually on top instead of L1).
-    layerFontStrings = {}
-    layerTextures    = {}
-    for _, l in ipairs(LAYERS) do
-        local fs = canvas:CreateFontString(nil, "OVERLAY", nil, l.subLayer)
+    -- Build the layer stack in BOTTOM-UP draw order.
+    -- Creation order = z-order (when all items share the same drawLayer +
+    -- subLevel). So we iterate L5 → L1 and interleave the optional black
+    -- separators right after each lower layer. Final OVERLAY draw stack:
+    --     edges (created earlier)  ← oldest, deepest
+    --     L5    →  sep   →  L4   →  sep  →  L3   →  sep  →  L2   →  sep  →  L1
+    --                                                                         ← top
+    layerFontStrings  = {}
+    layerTextures     = {}
+    separatorTextures = {}
+
+    for idx = #LAYERS, 1, -1 do
+        local l = LAYERS[idx]
+
+        local fs = canvas:CreateFontString(nil, "OVERLAY")
         fs:SetPoint("TOPLEFT",     canvas, "TOPLEFT",      4,  -4)
         fs:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -4,   4)
         fs:SetJustifyH("LEFT")
@@ -449,23 +456,22 @@ local function CreateTestFrame()
         fs:SetNonSpaceWrap(false)
         layerFontStrings[l.idx] = fs
 
-        local tex = canvas:CreateTexture(nil, "OVERLAY", nil, l.subLayer)
+        local tex = canvas:CreateTexture(nil, "OVERLAY")
         tex:SetPoint("TOPLEFT",     canvas, "TOPLEFT",      4,  -4)
         tex:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -4,   4)
         tex:SetColorTexture(0, 0, 0, 0)
         tex:Hide()
         layerTextures[l.idx] = tex
-    end
 
-    -- 4 black separator textures (hidden by default)
-    separatorTextures = {}
-    for _, subLayer in ipairs(SEPARATOR_SUBLAYERS) do
-        local sep = canvas:CreateTexture(nil, "OVERLAY", nil, subLayer)
-        sep:SetPoint("TOPLEFT",     canvas, "TOPLEFT",      4,  -4)
-        sep:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -4,   4)
-        sep:SetColorTexture(0, 0, 0, 128 / 255)
-        sep:Hide()
-        separatorTextures[#separatorTextures + 1] = sep
+        -- Separator BETWEEN this layer and the next-up one (skip after top).
+        if idx > 1 then
+            local sep = canvas:CreateTexture(nil, "OVERLAY")
+            sep:SetPoint("TOPLEFT",     canvas, "TOPLEFT",      4,  -4)
+            sep:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -4,   4)
+            sep:SetColorTexture(0, 0, 0, 128 / 255)
+            sep:Hide()
+            separatorTextures[#separatorTextures + 1] = sep
+        end
     end
 
     -- ── Readout (2 lines: mode + raw RGB) ──
