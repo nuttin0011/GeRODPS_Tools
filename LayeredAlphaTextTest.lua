@@ -54,14 +54,23 @@ local MAX_SIZE      = 96
 
 local STATE_OFF, STATE_LIGHT, STATE_DARK = "off", "light", "dark"
 
+-- subLayer mapping leaves room for 5 black separator textures between the
+-- 6 colored FontStrings. Draw order (low → high subLayer = first → last):
+--    L6 (-5) sep (-4) L5 (-3) sep (-2) L4 (-1) sep (0)
+--    L3 (1)  sep (2)  L2 (3)  sep (4)  L1 (5)
+-- WoW subLayer range is -8..7, so 11 slots fit comfortably.
 local LAYERS = {
-    { idx = 1, label = "L1  B-high  (blue)",  channel = "B", subLayer = 6 },
-    { idx = 2, label = "L2  B-low   (blue)",  channel = "B", subLayer = 5 },
-    { idx = 3, label = "L3  G-high  (green)", channel = "G", subLayer = 4 },
-    { idx = 4, label = "L4  G-low   (green)", channel = "G", subLayer = 3 },
-    { idx = 5, label = "L5  R-high  (red)",   channel = "R", subLayer = 2 },
-    { idx = 6, label = "L6  R-low   (red)",   channel = "R", subLayer = 1 },
+    { idx = 1, label = "L1  B-high  (blue)",  channel = "B", subLayer =  5 },
+    { idx = 2, label = "L2  B-low   (blue)",  channel = "B", subLayer =  3 },
+    { idx = 3, label = "L3  G-high  (green)", channel = "G", subLayer =  1 },
+    { idx = 4, label = "L4  G-low   (green)", channel = "G", subLayer = -1 },
+    { idx = 5, label = "L5  R-high  (red)",   channel = "R", subLayer = -3 },
+    { idx = 6, label = "L6  R-low   (red)",   channel = "R", subLayer = -5 },
 }
+
+-- Separator subLayers, in draw order (first drawn = lowest = between L6 and
+-- L5). 5 separators total: one between each pair of adjacent colored layers.
+local SEPARATOR_SUBLAYERS = { -4, -2, 0, 2, 4 }
 
 local STATE_ORDER = { STATE_OFF, STATE_LIGHT, STATE_DARK }
 local STATE_LABEL = { off = "Off", light = "Light", dark = "Dark" }
@@ -77,7 +86,8 @@ local function GetDB()
     GeRODPS_ToolsDB = GeRODPS_ToolsDB or {}
     local db = GeRODPS_ToolsDB.layeredAlphaText or {}
     GeRODPS_ToolsDB.layeredAlphaText = db
-    if db.fontSize == nil then db.fontSize = DEFAULT_SIZE end
+    if db.fontSize          == nil then db.fontSize          = DEFAULT_SIZE end
+    if db.useBlackSeparator == nil then db.useBlackSeparator = false        end
     db.layers = db.layers or {}
     for _, l in ipairs(LAYERS) do
         local entry = db.layers[l.idx] or {}
@@ -95,23 +105,37 @@ end
 local frame
 local canvas
 local layerFontStrings = {}   -- [idx] = FontString
+local separatorTextures = {}  -- [1..5] = Texture (black α=128/255, full-canvas)
 local stateRadios      = {}   -- [idx] = { [state] = CheckButton }
 local textEditBoxes    = {}   -- [idx] = EditBox
 local sizeSlider, sizeValueFS
 local readoutFS
+local separatorCheckbox
 
 -- ============================================================
 -- Encoding math — expected pixel value for a "fully-on" pixel
 -- ============================================================
 
+-- Per-layer exponent for V / 2^exp at a "fully-on" pixel.
+-- Without separator:  L_N's draw is the N-th from top → contribution V/2^N.
+-- With separator:     each layer is preceded by a black α=½ rect that
+--                     halves dst again, so its draw is the (2N-1)-th from
+--                     the canvas baseline → contribution V/2^(2N-1).
+local function ContributionExp(layerIdx, useSep)
+    if useSep then return 2 * layerIdx - 1 end
+    return layerIdx
+end
+
 local function ComputeExpectedRGB()
     local db = GetDB()
+    local useSep = db.useBlackSeparator and true or false
     local r, g, b = 0, 0, 0
     for _, l in ipairs(LAYERS) do
         local entry = db.layers[l.idx]
         local V = STATE_V[entry.state] or 0
         if V > 0 then
-            local contribution = math.floor(V / (2 ^ l.idx) + 0.5)
+            local exp = ContributionExp(l.idx, useSep)
+            local contribution = math.floor(V / (2 ^ exp) + 0.5)
             if l.channel == "R" then r = r + contribution
             elseif l.channel == "G" then g = g + contribution
             elseif l.channel == "B" then b = b + contribution
@@ -123,11 +147,23 @@ end
 
 local function RefreshReadout()
     if not readoutFS then return end
+    local db = GetDB()
     local r, g, b = ComputeExpectedRGB()
+    local modeTag = db.useBlackSeparator
+        and "|cFFFFAA55Mode: WITH separator|r (contrib V/2^(2N-1) — L5/L6 ≈ 0)"
+        or  "|cFF99FF99Mode: original spec|r (contrib V/2^N)"
     readoutFS:SetText(string.format(
-        "|cffaaaaaaExpected pixel (fully-on glyph cell): " ..
+        "%s\n|cffaaaaaaExpected pixel (fully-on glyph cell): " ..
         "R=|r|cFFFF7777%d|r  |cffaaaaaaG=|r|cFF77FF77%d|r  " ..
-        "|cffaaaaaaB=|r|cFF7777FF%d|r", r, g, b))
+        "|cffaaaaaaB=|r|cFF7777FF%d|r", modeTag, r, g, b))
+end
+
+local function ApplySeparatorVisibility()
+    local db = GetDB()
+    local show = db.useBlackSeparator and true or false
+    for _, sep in ipairs(separatorTextures) do
+        if show then sep:Show() else sep:Hide() end
+    end
 end
 
 -- ============================================================
@@ -160,6 +196,7 @@ end
 
 local function ApplyAllLayers()
     for _, l in ipairs(LAYERS) do ApplyLayer(l.idx) end
+    ApplySeparatorVisibility()
     RefreshReadout()
 end
 
@@ -298,6 +335,9 @@ local function SyncControlsFromDB()
     local db = GetDB()
     if sizeSlider then sizeSlider:SetValue(db.fontSize) end
     if sizeValueFS then sizeValueFS:SetText(tostring(db.fontSize)) end
+    if separatorCheckbox then
+        separatorCheckbox:SetChecked(db.useBlackSeparator and true or false)
+    end
 
     for _, l in ipairs(LAYERS) do
         local entry = db.layers[l.idx]
@@ -380,17 +420,48 @@ local function CreateTestFrame()
         layerFontStrings[l.idx] = fs
     end
 
-    -- ── Readout below canvas ──
+    -- 5 black separator textures interleaved between the 6 colored layers.
+    -- Each separator is (0, 0, 0) α=128/255 covering the whole canvas, so it
+    -- halves whatever is below at EVERY pixel (regardless of glyph mask).
+    -- Hidden by default; toggled by the "use separator" checkbox below.
+    separatorTextures = {}
+    for _, subLayer in ipairs(SEPARATOR_SUBLAYERS) do
+        local sep = canvas:CreateTexture(nil, "OVERLAY")
+        sep:SetDrawLayer("OVERLAY", subLayer)
+        sep:SetPoint("TOPLEFT",     canvas, "TOPLEFT",      4,  -4)
+        sep:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -4,   4)
+        sep:SetColorTexture(0, 0, 0, 128 / 255)
+        sep:Hide()
+        separatorTextures[#separatorTextures + 1] = sep
+    end
+
+    -- ── Readout below canvas (2 lines: mode tag + expected RGB) ──
     readoutFS = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     readoutFS:SetPoint("TOPLEFT",  canvas, "BOTTOMLEFT",  0, -8)
     readoutFS:SetPoint("TOPRIGHT", canvas, "BOTTOMRIGHT", 0, -8)
     readoutFS:SetJustifyH("LEFT")
+    readoutFS:SetJustifyV("TOP")
     readoutFS:SetText("")
+
+    -- ── Separator-mode checkbox ──
+    separatorCheckbox = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+    separatorCheckbox:SetPoint("TOPLEFT", readoutFS, "BOTTOMLEFT", -4, -20)
+    separatorCheckbox:SetSize(22, 22)
+    local sepLbl = separatorCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    sepLbl:SetPoint("LEFT", separatorCheckbox, "RIGHT", 2, 0)
+    sepLbl:SetText(
+        "Insert (0,0,0) α=128/255 separator between layers  " ..
+        "|cFFFFAA55(experimental — breaks decode of L5/L6)|r")
+    separatorCheckbox:SetScript("OnClick", function(self)
+        local db = GetDB()
+        db.useBlackSeparator = self:GetChecked() and true or false
+        ApplyAllLayers()
+    end)
 
     -- ── Font size slider ──
     local sizeRow = CreateFrame("Frame", nil, content)
     sizeRow:SetSize(CANVAS_W, 24)
-    sizeRow:SetPoint("TOPLEFT", readoutFS, "BOTTOMLEFT", 0, -6)
+    sizeRow:SetPoint("TOPLEFT", separatorCheckbox, "BOTTOMLEFT", 4, -8)
 
     local sizeLabel = sizeRow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     sizeLabel:SetPoint("LEFT", sizeRow, "LEFT", 0, 0)
@@ -440,7 +511,8 @@ local function CreateTestFrame()
     resetBtn:SetText("Reset (all Dark, '123456...')")
     resetBtn:SetScript("OnClick", function()
         local db = GetDB()
-        db.fontSize = DEFAULT_SIZE
+        db.fontSize          = DEFAULT_SIZE
+        db.useBlackSeparator = false
         for _, l in ipairs(LAYERS) do
             db.layers[l.idx].state = STATE_DARK
             db.layers[l.idx].text  = "TEST123456"
