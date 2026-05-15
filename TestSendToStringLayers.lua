@@ -57,6 +57,7 @@ local function GetDB()
     GeRODPS_ToolsDB = GeRODPS_ToolsDB or {}
     local db = GeRODPS_ToolsDB.testSendToStringLayers or {}
     GeRODPS_ToolsDB.testSendToStringLayers = db
+    if db.exporterPaused == nil then db.exporterPaused = false end
     db.layers = db.layers or {}
     for i = 1, 5 do
         local entry = db.layers[i] or {}
@@ -76,6 +77,7 @@ local rowCheckboxes = {}   -- [L] = CheckButton
 local rowEditBoxes  = {}   -- [L] = EditBox
 local rowCounters   = {}   -- [L] = FontString
 local lblBackend                       -- warning when GeRODPS not loaded
+local pauseCheckbox                    -- exporter-pause toggle
 
 local function HasOverrideAPI()
     return type(_G.GeRODPS) == "table"
@@ -83,6 +85,18 @@ local function HasOverrideAPI()
        and type(_G.GeRODPS.SendToString.SetLayerOverride)   == "function"
        and type(_G.GeRODPS.SendToString.ClearLayerOverride) == "function"
        and type(_G.GeRODPS.SendToString.ClearAllOverrides)  == "function"
+end
+
+local function HasPauseAPI()
+    return type(_G.GeRODPS) == "table"
+       and type(_G.GeRODPS.SendToString) == "table"
+       and type(_G.GeRODPS.SendToString.SetExporterPaused) == "function"
+end
+
+local function ApplyPauseFromDB()
+    if not HasPauseAPI() then return end
+    local db = GetDB()
+    _G.GeRODPS.SendToString.SetExporterPaused(db.exporterPaused and true or false)
 end
 
 local function ApplyRow(idx)
@@ -224,6 +238,9 @@ end
 
 local function SyncControlsFromDB()
     local db = GetDB()
+    if pauseCheckbox then
+        pauseCheckbox:SetChecked(db.exporterPaused and true or false)
+    end
     for i = 1, 5 do
         local entry = db.layers[i]
         if rowCheckboxes[i] then
@@ -280,12 +297,31 @@ local function CreateTestFrame()
     headerFS:SetJustifyH("LEFT")
     headerFS:SetText(
         "Tick a layer to override its text. Typing applies immediately. " ..
-        "Closing this window clears every override.")
+        "Closing this window clears every override and resumes the tick.")
+
+    -- Pause-exporter checkbox: when ticked, UpdateSendToStringTick is
+    -- skipped so overrides remain visible without the normal exporter
+    -- repainting layers each tick.
+    pauseCheckbox = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+    pauseCheckbox:SetSize(22, 22)
+    pauseCheckbox:SetPoint("TOPLEFT", headerFS, "BOTTOMLEFT", 0, -4)
+    local pauseLbl = pauseCheckbox:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    pauseLbl:SetPoint("LEFT", pauseCheckbox, "RIGHT", 2, 0)
+    pauseLbl:SetText(
+        "|cFFFFD200Pause normal exporter tick|r " ..
+        "|cFFAAAAAA(stop UpdateSendToStringTick from repainting layers)|r")
+    pauseCheckbox:SetScript("OnClick", function(self)
+        local db = GetDB()
+        db.exporterPaused = self:GetChecked() and true or false
+        if HasPauseAPI() then
+            _G.GeRODPS.SendToString.SetExporterPaused(db.exporterPaused)
+        end
+    end)
 
     -- 5 layer rows
     local rowsHost = CreateFrame("Frame", nil, content)
-    rowsHost:SetPoint("TOPLEFT",  headerFS, "BOTTOMLEFT",  0, -8)
-    rowsHost:SetPoint("TOPRIGHT", headerFS, "BOTTOMRIGHT", 0, -8)
+    rowsHost:SetPoint("TOPLEFT",  pauseCheckbox, "BOTTOMLEFT",  0, -8)
+    rowsHost:SetPoint("RIGHT",    content,       "RIGHT",      -14, 0)
     rowsHost:SetHeight(26 * 5 + 4 * 4)
 
     local prevRow
@@ -359,10 +395,16 @@ local function CreateTestFrame()
     frame:SetScript("OnShow", function()
         SyncControlsFromDB()
         ApplyAllRows()
+        ApplyPauseFromDB()
     end)
     frame:SetScript("OnHide", function()
-        -- Always clear overrides on close — restore normal exporter
+        -- Always clear overrides AND resume the exporter on close so the
+        -- main addon returns to normal behavior even if the user left
+        -- pause enabled.
         ClearAllLive()
+        if HasPauseAPI() then
+            _G.GeRODPS.SendToString.SetExporterPaused(false)
+        end
     end)
 
     table.insert(UISpecialFrames, FRAME_NAME)
