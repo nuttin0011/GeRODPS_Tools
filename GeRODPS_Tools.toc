@@ -1,6 +1,6 @@
 ## Interface: 120000, 120001
 ## Title: GeRODPS Tools
-## Notes: Runtime inspection tools — Dump Var, Watch Var, Aura List Helper, Alpha Stack Test.
+## Notes: Runtime inspection tools — Dump Var, Watch Var, Aura List Helper, Alpha Stack Test, Item Range Check Test.
 ## Author: HeeMenDum
 ## Version: 1.0.0
 ## SavedVariables: GeRODPS_ToolsDB
@@ -21,3 +21,4 @@ AlphaStackTest.lua
 TestSendToStringLength.lua
 LayeredAlphaTextTest.lua
 TestSendToStringLayers.lua
+ItemRangeCheckTest.lua
