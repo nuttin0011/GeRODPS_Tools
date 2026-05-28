@@ -25,3 +25,4 @@ ItemRangeCheckTest.lua
 CombatLogEventView.lua
 SpellOverrideListView.lua
 ReorderAnimTest.lua
+CardColorTune.lua
