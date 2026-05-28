@@ -299,17 +299,27 @@ local function BuildFrame()
     statusFS:SetPoint("TOP", frame, "TOP", 0, -28)
     statusFS:SetText("(loading...)")
 
-    -- Two columns inside frame.Inset
-    local inset = frame.Inset
-    inset:ClearAllPoints()
-    inset:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -50)
-    inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -8, 8)
+    -- Two columns. BasicFrameTemplateWithInset in TWW provides Inset
+    -- decorative textures (InsetBg, InsetBorder*) but no child Inset
+    -- subframe — match the `frame.Inset or frame` pattern used by other
+    -- Tools (AlphaStackTest, WatchVar, CombatLogEventView). Skip the
+    -- inset anchor reset because there's nothing to re-anchor on fallback.
+    local inset = frame.Inset or frame
+    if frame.Inset then
+        inset:ClearAllPoints()
+        inset:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -50)
+        inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -8, 8)
+    end
+    -- When fallback (inset == frame), header offsets need to clear the
+    -- title bar (~28px). Use a top-offset variable so children below
+    -- compose correctly in either path.
+    local TOP_OFFSET = frame.Inset and 0 or -42   -- extra drop when no inset
 
     local colW = (DEFAULT_W - 32) / 2
 
     -- Left: AceGUI side
     local leftHeader = inset:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    leftHeader:SetPoint("TOPLEFT", inset, "TOPLEFT", 10, -10)
+    leftHeader:SetPoint("TOPLEFT", inset, "TOPLEFT", 10, -10 + TOP_OFFSET)
     leftHeader:SetText("|cff5fb0ffAceGUI (production parity)|r")
 
     -- Embed AceGUI ScrollFrame
@@ -318,8 +328,7 @@ local function BuildFrame()
         local container = AceGUI:Create("SimpleGroup")
         container:SetLayout("Fill")
         container.frame:SetParent(inset)
-        container.frame:SetPoint("TOPLEFT", inset, "TOPLEFT", 10, -36)
-        container.frame:SetPoint("BOTTOMRIGHT", inset, "TOP", -10, -36 - 340)
+        container.frame:SetPoint("TOPLEFT", inset, "TOPLEFT", 10, -36 + TOP_OFFSET)
         container.frame:SetWidth(colW)
         container.frame:SetHeight(340)
         container.frame:Show()
@@ -328,24 +337,24 @@ local function BuildFrame()
         container:AddChild(aceScroll)
     else
         local err = inset:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        err:SetPoint("TOPLEFT", inset, "TOPLEFT", 10, -36)
+        err:SetPoint("TOPLEFT", inset, "TOPLEFT", 10, -36 + TOP_OFFSET)
         err:SetText("|cffff4444AceGUI not loaded — enable GeRODPS|r")
     end
 
     local aceAddBtn = CreateFrame("Button", nil, inset, "UIPanelButtonTemplate")
     aceAddBtn:SetSize(colW - 20, 26)
-    aceAddBtn:SetPoint("TOPLEFT", inset, "TOPLEFT", 10, -36 - 340 - 6)
+    aceAddBtn:SetPoint("TOPLEFT", inset, "TOPLEFT", 10, -36 - 340 - 6 + TOP_OFFSET)
     aceAddBtn:SetText("+ Add AceGUI Card")
     aceAddBtn:SetScript("OnClick", AceAddCard)
 
     -- Right: Raw side
     local rightHeader = inset:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    rightHeader:SetPoint("TOPLEFT", inset, "TOPLEFT", 10 + colW + 10, -10)
+    rightHeader:SetPoint("TOPLEFT", inset, "TOPLEFT", 10 + colW + 10, -10 + TOP_OFFSET)
     rightHeader:SetText("|cff44ff44Raw CreateFrame (control)|r")
 
     -- Raw scroll: simple ScrollFrame with inner content
     local rawScroll = CreateFrame("ScrollFrame", nil, inset, "UIPanelScrollFrameTemplate")
-    rawScroll:SetPoint("TOPLEFT", inset, "TOPLEFT", 10 + colW + 10, -36)
+    rawScroll:SetPoint("TOPLEFT", inset, "TOPLEFT", 10 + colW + 10, -36 + TOP_OFFSET)
     rawScroll:SetSize(colW - 26, 340)   -- -26 to leave room for scrollbar
     rawScrollContent = CreateFrame("Frame", nil, rawScroll)
     rawScrollContent:SetSize(colW - 26, 400)
@@ -353,11 +362,13 @@ local function BuildFrame()
 
     local rawAddBtn = CreateFrame("Button", nil, inset, "UIPanelButtonTemplate")
     rawAddBtn:SetSize(colW - 20, 26)
-    rawAddBtn:SetPoint("TOPLEFT", inset, "TOPLEFT", 10 + colW + 10, -36 - 340 - 6)
+    rawAddBtn:SetPoint("TOPLEFT", inset, "TOPLEFT", 10 + colW + 10, -36 - 340 - 6 + TOP_OFFSET)
     rawAddBtn:SetText("+ Add Raw Card")
     rawAddBtn:SetScript("OnClick", RawAddCard)
 
-    -- Reset button (clears both sides)
+    -- Reset button (clears both sides). Bottom anchor unaffected by
+    -- TOP_OFFSET since frame.Inset's bottom is roughly the frame's own
+    -- bottom in fallback path.
     local resetBtn = CreateFrame("Button", nil, inset, "UIPanelButtonTemplate")
     resetBtn:SetSize(120, 22)
     resetBtn:SetPoint("BOTTOMRIGHT", inset, "BOTTOMRIGHT", -10, 10)
