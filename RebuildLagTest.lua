@@ -160,6 +160,11 @@ local function Rebuild(strategy)
     local AceGUI = LibStub("AceGUI-3.0")
     local t0 = debugprofilestop and debugprofilestop() or 0
 
+    -- Preserve scroll offset across rebuild (matches Tab2Body / SpellNameHelper
+    -- pattern) so user's scroll position doesn't snap to 0 each click.
+    local _st = scroll.status or scroll.localstatus
+    local savedOffset = (_st and _st.offset) or 0
+
     if strategy == "D" then
         scroll.frame:Hide()
     elseif strategy == "E" then
@@ -214,6 +219,14 @@ local function Rebuild(strategy)
             if scroll and scroll.frame then scroll.frame:SetAlpha(1) end
         end)
     end
+
+    -- Restore scroll offset after AceGUI Flow finishes layout next frame.
+    C_Timer.After(0, function()
+        if not scroll then return end
+        local st = scroll.status or scroll.localstatus
+        if st then st.offset = savedOffset end
+        if scroll.FixScroll then scroll:FixScroll() end
+    end)
 
     local t1 = debugprofilestop and debugprofilestop() or 0
     return t1 - t0
