@@ -220,13 +220,14 @@ local function Rebuild(strategy)
         end)
     end
 
-    -- Restore scroll offset after AceGUI Flow finishes layout next frame.
-    C_Timer.After(0, function()
-        if not scroll then return end
-        local st = scroll.status or scroll.localstatus
-        if st then st.offset = savedOffset end
-        if scroll.FixScroll then scroll:FixScroll() end
-    end)
+    -- SYNC scroll offset restore (same frame as the AddChild loop).
+    -- Previously deferred via C_Timer.After(0, ...) — but that puts the
+    -- offset snap on FRAME N+1 after content already painted at offset=0
+    -- on FRAME N. The 1-frame snap is the user-visible flicker.
+    -- Sync restore means painter only sees the FINAL state once.
+    local st = scroll.status or scroll.localstatus
+    if st then st.offset = savedOffset end
+    if scroll.FixScroll then scroll:FixScroll() end
 
     local t1 = debugprofilestop and debugprofilestop() or 0
     return t1 - t0
