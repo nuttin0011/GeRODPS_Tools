@@ -26,3 +26,4 @@ CombatLogEventView.lua
 SpellOverrideListView.lua
 ReorderAnimTest.lua
 CardColorTune.lua
+RebuildLagTest.lua
