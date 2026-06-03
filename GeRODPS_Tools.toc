@@ -27,3 +27,4 @@ SpellOverrideListView.lua
 ReorderAnimTest.lua
 CardColorTune.lua
 RebuildLagTest.lua
+PasteSpeedTest.lua
