@@ -60,11 +60,38 @@ local function GetScanTip()
 end
 
 -- =============================================================
--- ScanTooltipForChannel(spellID) — returns "channeled", duration | "instant", 0 | nil
--- Locale-sensitive: scans for "Channeled" / "Instant" English keywords.
--- For Thai client, may need locale table (TODO if needed).
+-- Secret value log (Midnight 12.0 taint guard)
+-- ใน combat / instance บางค่าจะเป็น secret string ที่อ่าน/process ไม่ได้
+-- (ทั้ง :lower(), :find(), comparison ฯลฯ จะ taint).
+-- เก็บ secrets ใน log → แสดงใน Secret Viewer frame
+-- (FontString:SetText จัดการ secret value ได้ — Blizzard widget)
 -- =============================================================
-local function ScanTooltipForChannel(spellID)
+local secretLog = {}   -- array of { spellName, spellID, field, value (secret) }
+local ShowSecretViewer  -- forward declaration (defined below)
+
+local function isSecret(v)
+    return type(issecretvalue) == "function" and issecretvalue(v) or false
+end
+
+local function LogSecret(spellName, spellID, field, value)
+    secretLog[#secretLog + 1] = {
+        spellName = spellName,
+        spellID   = spellID,
+        field     = field,
+        value     = value,   -- can be secret — only ever passed to FontString:SetText
+    }
+end
+
+local function ClearSecretLog()
+    wipe(secretLog)
+end
+
+-- =============================================================
+-- ScanTooltipForChannel(spellID, spellName) — secret-safe
+-- Returns: "channeled", duration | "instant", 0 | nil
+-- Side effect: logs secret tooltip lines via LogSecret
+-- =============================================================
+local function ScanTooltipForChannel(spellID, spellName)
     local tip = GetScanTip()
     tip:ClearLines()
     -- Re-set owner ทุกครั้งเผื่อ frame ถูก reuse (defensive)
@@ -76,21 +103,25 @@ local function ScanTooltipForChannel(spellID)
     for i = 1, tip:NumLines() do
         local line = _G["GeRODPS_ToolsSpellCastTypeScanTipTextLeft" .. i]
         if line then
-            local text = line:GetText() or ""
-            -- ⚠ ENG keyword. For TH client: add localized matchers later.
-            local lower = text:lower()
-
-            if lower:find("channeled") then
-                -- Try to extract duration — common patterns:
-                --   "Channels for X sec"
-                --   "over X sec"  (e.g., Eye Beam "16,823 damage over 2.2 sec")
-                --   "for X sec"
-                local dur = text:match("([%d%.]+)%s*sec")
-                          or text:match("for%s+([%d%.]+)")
-                return "channeled", tonumber(dur)
-            end
-            if lower:find("instant") then
-                return "instant", 0
+            local text = line:GetText()
+            if text then
+                -- ⚠ Guard: text อาจเป็น secret string ใน combat/instance
+                -- :lower()/:find()/:match() จะ taint ถ้า text เป็น secret
+                if isSecret(text) then
+                    LogSecret(spellName, spellID,
+                        "tooltip line " .. i, text)
+                else
+                    -- Safe to inspect — ENG keyword match
+                    local lower = text:lower()
+                    if lower:find("channeled") then
+                        local dur = text:match("([%d%.]+)%s*sec")
+                                  or text:match("for%s+([%d%.]+)")
+                        return "channeled", tonumber(dur)
+                    end
+                    if lower:find("instant") then
+                        return "instant", 0
+                    end
+                end
             end
         end
     end
@@ -98,19 +129,29 @@ local function ScanTooltipForChannel(spellID)
 end
 
 -- =============================================================
--- DetectCastType(spellID) → { type = "passive"|"cast"|"channeled"|"instant",
---                              duration = number (sec), source = "api"|"tooltip" }
+-- DetectCastType(spellID, spellName) → { type, duration, source, hadSecret }
+-- type: "passive" | "cast" | "channeled" | "instant" | "unknown"
+-- secrets ถูก log ไป secretLog แยก (ไม่ inspect ที่นี่)
 -- =============================================================
-local function DetectCastType(spellID)
+local function DetectCastType(spellID, spellName)
     if not spellID or spellID == 0 then
-        return { type = "unknown", duration = 0, source = "none" }
+        return { type = "unknown", duration = 0, source = "none", hadSecret = false }
     end
+
+    local hadSecret = false
 
     -- Layer 1: Passive
     if C_Spell and C_Spell.IsSpellPassive then
         local pOK, p = pcall(C_Spell.IsSpellPassive, spellID)
-        if pOK and p then
-            return { type = "passive", duration = 0, source = "api" }
+        if pOK then
+            if isSecret(p) then
+                LogSecret(spellName, spellID, "IsSpellPassive", p)
+                hadSecret = true
+                -- fall through to next layer (assume not passive)
+            elseif p then
+                return { type = "passive", duration = 0, source = "api",
+                         hadSecret = hadSecret }
+            end
         end
     end
 
@@ -118,23 +159,34 @@ local function DetectCastType(spellID)
     local castMs = 0
     if C_Spell and C_Spell.GetSpellInfo then
         local iOK, info = pcall(C_Spell.GetSpellInfo, spellID)
-        if iOK and info and info.castTime then
-            castMs = info.castTime
+        if iOK and info then
+            local ct = info.castTime
+            if ct ~= nil then
+                if isSecret(ct) then
+                    LogSecret(spellName, spellID, "GetSpellInfo.castTime", ct)
+                    hadSecret = true
+                else
+                    castMs = ct
+                end
+            end
         end
     end
 
     if castMs > 0 then
-        return { type = "cast", duration = castMs / 1000, source = "api" }
+        return { type = "cast", duration = castMs / 1000, source = "api",
+                 hadSecret = hadSecret }
     end
 
     -- Layer 3: Tooltip scan (could be channeled OR instant)
-    local scanType, scanDur = ScanTooltipForChannel(spellID)
+    local scanType, scanDur = ScanTooltipForChannel(spellID, spellName)
     if scanType == "channeled" then
-        return { type = "channeled", duration = scanDur or 0, source = "tooltip" }
+        return { type = "channeled", duration = scanDur or 0, source = "tooltip",
+                 hadSecret = hadSecret }
     end
 
     -- Layer 4: Default instant (castTime=0 ไม่ใช่ passive, ไม่ใช่ channeled)
-    return { type = "instant", duration = 0, source = "default" }
+    return { type = "instant", duration = 0, source = "default",
+             hadSecret = hadSecret }
 end
 
 -- =============================================================
@@ -173,13 +225,33 @@ local function CollectAllSpells()
                         local iconID
                         if C_Spell and C_Spell.GetSpellTexture then
                             local tOK, t = pcall(C_Spell.GetSpellTexture, sid)
-                            iconID = tOK and t or nil
+                            if tOK and t and not isSecret(t) then
+                                iconID = t
+                            end
+                        end
+                        -- Guard secret name: secret string can't be compared
+                        local safeName, secretName
+                        if item.name then
+                            if isSecret(item.name) then
+                                secretName = item.name
+                                safeName = "Spell #" .. sid
+                                LogSecret("Spell #" .. sid, sid,
+                                    "SpellBookItem.name", item.name)
+                            else
+                                if item.name ~= "" then
+                                    safeName = item.name
+                                else
+                                    safeName = "Spell #" .. sid
+                                end
+                            end
+                        else
+                            safeName = "Spell #" .. sid
                         end
                         out[#out + 1] = {
-                            id   = sid,
-                            name = (item.name and item.name ~= "")
-                                   and item.name or ("Spell #" .. sid),
-                            iconID = iconID,
+                            id         = sid,
+                            name       = safeName,
+                            secretName = secretName,
+                            iconID     = iconID,
                         }
                     end
                 end
@@ -322,6 +394,8 @@ end
 local function RefreshList()
     if not frame or not frame:IsShown() then return end
 
+    ClearSecretLog()
+
     local spells = CollectAllSpells()
     local filtered = ApplyFilter(spells, frame.filterText)
 
@@ -339,7 +413,7 @@ local function RefreshList()
         end
         row:SetWidth(frame.scrollChild:GetWidth() - 8)
 
-        local det = DetectCastType(sp.id)
+        local det = DetectCastType(sp.id, sp.name)
 
         -- Detect change from last refresh
         local prev = lastDetections[sp.id]
@@ -358,11 +432,21 @@ local function RefreshList()
         else
             row.icon:Hide()
         end
-        row.name:SetText(sp.name or "?")
+
+        -- Name: secret-safe via FontString:SetText
+        if sp.secretName then
+            row.name:SetText(sp.secretName)
+        else
+            row.name:SetText(sp.name or "?")
+        end
         row.id:SetText("|cff888888" .. tostring(sp.id) .. "|r")
 
+        local typeLabel = TYPE_LABEL[det.type] or "?"
+        if det.hadSecret or sp.secretName then
+            typeLabel = typeLabel .. " |cffff5555<secret>|r"
+        end
         local color = TYPE_COLOR[det.type] or "ffffffff"
-        row.castType:SetText("|c" .. color .. (TYPE_LABEL[det.type] or "?") .. "|r")
+        row.castType:SetText("|c" .. color .. typeLabel .. "|r")
 
         if det.type == "cast" or det.type == "channeled" then
             local d = det.duration or 0
@@ -385,10 +469,27 @@ local function RefreshList()
     frame.scrollChild:SetHeight(math.max(totalH, frame.scrollOuter:GetHeight()))
 
     -- Update status bar
-    frame.lblCount:SetText(string.format("%d spells | %d shown | %d changed",
-        #spells, #filtered, changedCount))
+    local secretCount = #secretLog
+    local statusText = string.format("%d spells | %d shown | %d changed",
+        #spells, #filtered, changedCount)
+    if secretCount > 0 then
+        statusText = statusText
+            .. string.format(" | |cffff5555%d secret|r", secretCount)
+    end
+    frame.lblCount:SetText(statusText)
     local ts = date("%H:%M:%S")
     frame.lblLastRefresh:SetText("Last refresh: " .. ts)
+
+    -- Update Secret button
+    if frame.btnShowSecrets then
+        if secretCount > 0 then
+            frame.btnShowSecrets:SetText("Show Secrets (" .. secretCount .. ")")
+            frame.btnShowSecrets:Enable()
+        else
+            frame.btnShowSecrets:SetText("Show Secrets (0)")
+            frame.btnShowSecrets:Disable()
+        end
+    end
 end
 
 -- =============================================================
@@ -423,6 +524,184 @@ local function StopAutoRefresh()
         autoTimer = nil
     end
     GetDB().autoRefresh = false
+end
+
+-- =============================================================
+-- Secret Viewer Frame
+-- Raw CreateFrame + FontString rows (FontString:SetText is secret-safe).
+-- Each entry shows: spell name, spellID, field, value (may be secret).
+-- =============================================================
+local secretFrame
+local secretRowPool = {}
+local secretActiveRows = {}
+
+local SECRET_ROW_HEIGHT = 22
+
+local function ReleaseAllSecretRows()
+    for i = #secretActiveRows, 1, -1 do
+        local row = secretActiveRows[i]
+        row:Hide()
+        row:ClearAllPoints()
+        secretRowPool[#secretRowPool + 1] = row
+        secretActiveRows[i] = nil
+    end
+end
+
+local function CreateSecretRow(parent)
+    if #secretRowPool > 0 then
+        local r = table.remove(secretRowPool)
+        r:Show()
+        return r
+    end
+    local row = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    row:SetHeight(SECRET_ROW_HEIGHT)
+    row:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    })
+    row:SetBackdropColor(0.05, 0.02, 0.02, 0.4)
+
+    row.spellName = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    row.spellName:SetPoint("LEFT", row, "LEFT", 6, 0)
+    row.spellName:SetWidth(180)
+    row.spellName:SetJustifyH("LEFT")
+
+    row.spellID = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.spellID:SetPoint("LEFT", row.spellName, "RIGHT", 4, 0)
+    row.spellID:SetWidth(60)
+    row.spellID:SetJustifyH("LEFT")
+
+    row.field = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    row.field:SetPoint("LEFT", row.spellID, "RIGHT", 4, 0)
+    row.field:SetWidth(180)
+    row.field:SetJustifyH("LEFT")
+
+    row.value = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.value:SetPoint("LEFT", row.field, "RIGHT", 4, 0)
+    row.value:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+    row.value:SetJustifyH("LEFT")
+    row.value:SetWordWrap(false)
+
+    return row
+end
+
+local function AcquireSecretRow(parent)
+    return CreateSecretRow(parent)
+end
+
+local function RefreshSecretList()
+    if not secretFrame or not secretFrame:IsShown() then return end
+
+    ReleaseAllSecretRows()
+
+    for idx, entry in ipairs(secretLog) do
+        local row = AcquireSecretRow(secretFrame.scrollChild)
+        if idx == 1 then
+            row:SetPoint("TOPLEFT", secretFrame.scrollChild, "TOPLEFT", 4, -4)
+        else
+            row:SetPoint("TOPLEFT", secretActiveRows[idx - 1],
+                "BOTTOMLEFT", 0, -1)
+        end
+        row:SetWidth(secretFrame.scrollChild:GetWidth() - 8)
+
+        -- Spell name (string — safe)
+        row.spellName:SetText(entry.spellName or "?")
+        row.spellID:SetText("|cff888888#" .. tostring(entry.spellID) .. "|r")
+        row.field:SetText("|cffffd200" .. (entry.field or "?") .. "|r")
+
+        -- Value: may be secret. FontString:SetText is secret-safe.
+        -- Concat via .. is allowed; result string stays tainted but
+        -- FontString accepts it without throwing.
+        row.value:SetText("= " .. entry.value)
+
+        secretActiveRows[idx] = row
+    end
+
+    local totalH = #secretActiveRows * (SECRET_ROW_HEIGHT + 1) + 8
+    secretFrame.scrollChild:SetHeight(
+        math.max(totalH, secretFrame.scrollOuter:GetHeight()))
+
+    secretFrame.lblCount:SetText(
+        string.format("|cffff5555%d secret values logged|r", #secretLog))
+end
+
+local function CreateSecretViewerFrame()
+    if secretFrame then return secretFrame end
+
+    secretFrame = CreateFrame("Frame", "GeRODPS_ToolsSpellCastTypeSecrets",
+        UIParent, "BackdropTemplate")
+    secretFrame:SetSize(820, 460)
+    secretFrame:SetPoint("CENTER", UIParent, "CENTER", 30, -30)
+    secretFrame:SetBackdrop({
+        bgFile   = "Interface/DialogFrame/UI-DialogBox-Background-Dark",
+        edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left=11, right=12, top=12, bottom=11 },
+    })
+    secretFrame:SetBackdropColor(0, 0, 0, 0.95)
+    secretFrame:SetFrameStrata("DIALOG")
+    secretFrame:SetMovable(true)
+    secretFrame:EnableMouse(true)
+    secretFrame:RegisterForDrag("LeftButton")
+    secretFrame:SetScript("OnDragStart", secretFrame.StartMoving)
+    secretFrame:SetScript("OnDragStop",  secretFrame.StopMovingOrSizing)
+    secretFrame:Hide()
+
+    local title = secretFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOP", secretFrame, "TOP", 0, -16)
+    title:SetText("|cffff8855Secret Values|r — fields tainted by secret-value system")
+
+    local close = CreateFrame("Button", nil, secretFrame, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", secretFrame, "TOPRIGHT", -6, -6)
+
+    -- Header
+    local header = CreateFrame("Frame", nil, secretFrame, "BackdropTemplate")
+    header:SetPoint("TOPLEFT",  secretFrame, "TOPLEFT",  16, -46)
+    header:SetPoint("TOPRIGHT", secretFrame, "TOPRIGHT", -36, -46)
+    header:SetHeight(20)
+    header:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    })
+    header:SetBackdropColor(0.15, 0.10, 0.04, 0.9)
+
+    local function makeHeaderText(parent, text, x, w)
+        local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        fs:SetPoint("LEFT", parent, "LEFT", x, 0)
+        fs:SetWidth(w)
+        fs:SetJustifyH("LEFT")
+        fs:SetText("|cffffd200" .. text .. "|r")
+        return fs
+    end
+    makeHeaderText(header, "Spell",      6,   180)
+    makeHeaderText(header, "ID",         190, 60)
+    makeHeaderText(header, "Field",      254, 180)
+    makeHeaderText(header, "Value",      438, 320)
+
+    -- Scroll
+    local scrollOuter = CreateFrame("ScrollFrame", nil, secretFrame, "UIPanelScrollFrameTemplate")
+    scrollOuter:SetPoint("TOPLEFT",  header, "BOTTOMLEFT",  0, -4)
+    scrollOuter:SetPoint("BOTTOMRIGHT", secretFrame, "BOTTOMRIGHT", -32, 36)
+
+    local scrollChild = CreateFrame("Frame", nil, scrollOuter)
+    scrollChild:SetSize(scrollOuter:GetWidth() - 4, 1)
+    scrollOuter:SetScrollChild(scrollChild)
+
+    secretFrame.scrollOuter = scrollOuter
+    secretFrame.scrollChild = scrollChild
+
+    -- Status
+    local lblCount = secretFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    lblCount:SetPoint("BOTTOMLEFT", secretFrame, "BOTTOMLEFT", 16, 14)
+    lblCount:SetText("0 secret values logged")
+    secretFrame.lblCount = lblCount
+
+    return secretFrame
+end
+
+-- Assign forward-declared local (closes the upvalue from the OnClick handler)
+ShowSecretViewer = function()
+    CreateSecretViewerFrame()
+    secretFrame:Show()
+    RefreshSecretList()
 end
 
 -- =============================================================
@@ -539,6 +818,17 @@ local function CreateInspectorFrame()
         RefreshList()
     end)
     filterBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+
+    -- Show Secrets button (right side)
+    local btnShowSecrets = CreateFrame("Button", nil, controls, "UIPanelButtonTemplate")
+    btnShowSecrets:SetSize(140, 22)
+    btnShowSecrets:SetPoint("RIGHT", controls, "RIGHT", 0, 0)
+    btnShowSecrets:SetText("Show Secrets (0)")
+    btnShowSecrets:Disable()
+    btnShowSecrets:SetScript("OnClick", function()
+        ShowSecretViewer()
+    end)
+    frame.btnShowSecrets = btnShowSecrets
 
     -- Header row
     local header = CreateFrame("Frame", nil, frame, "BackdropTemplate")
