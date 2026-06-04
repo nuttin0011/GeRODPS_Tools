@@ -67,7 +67,8 @@ end
 -- (FontString:SetText จัดการ secret value ได้ — Blizzard widget)
 -- =============================================================
 local secretLog = {}   -- array of { spellName, spellID, field, value (secret) }
-local ShowSecretViewer  -- forward declaration (defined below)
+local ShowSecretViewer    -- forward declaration (defined below)
+local ShowTooltipDetail   -- forward declaration (defined below)
 
 local function isSecret(v)
     return type(issecretvalue) == "function" and issecretvalue(v) or false
@@ -358,6 +359,18 @@ local function CreateRow(parent)
     row.source:SetWidth(60)
     row.source:SetJustifyH("LEFT")
 
+    -- Read Tooltip button — scans current spell's tooltip and shows per-line
+    -- secret state in a popup (so user can verify which spells have secret
+    -- tooltips vs just some).
+    row.readBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    row.readBtn:SetSize(56, 18)
+    row.readBtn:SetPoint("LEFT", row.source, "RIGHT", 6, 0)
+    row.readBtn:SetText("Read TT")
+    row.readBtn:SetScript("OnClick", function(self)
+        if not row.spellID then return end
+        ShowTooltipDetail(row.spellID, row.spellName or ("Spell #" .. row.spellID))
+    end)
+
     -- Hover tooltip: full info
     row:SetScript("OnEnter", function(self)
         if not self.spellID then return end
@@ -382,6 +395,7 @@ local function ReleaseAllRows()
         row:Hide()
         row:ClearAllPoints()
         row.spellID = nil
+        row.spellName = nil
         row:SetBackdropColor(0, 0, 0, 0)
         rowPool[#rowPool + 1] = row
     end
@@ -442,6 +456,7 @@ local function RefreshList()
         lastDetections[sp.id] = { type = det.type, duration = det.duration }
 
         row.spellID = sp.id
+        row.spellName = sp.name  -- always non-secret (safeName from CollectAllSpells)
         if sp.iconID then
             row.icon:SetTexture(sp.iconID)
             row.icon:Show()
@@ -822,6 +837,245 @@ ShowSecretViewer = function()
     CreateSecretViewerFrame()
     secretFrame:Show()
     RefreshSecretList()
+end
+
+-- =============================================================
+-- Tooltip Detail Popup — per-spell tooltip line inspector
+-- Lets user verify which tooltip lines are secret for a specific spell.
+-- Uses manual-scroll Frame (not UIPanelScrollFrameTemplate) to keep secret
+-- content isolated from Blizzard SecureScrollTemplates.
+-- =============================================================
+local ttDetailFrame
+local ttDetailScanTip  -- second hidden tooltip; separate from ScanTooltipForChannel
+local ttRowPool = {}
+local ttActiveRows = {}
+local TT_ROW_HEIGHT = 22
+
+local function GetTTDetailScanTip()
+    if not ttDetailScanTip then
+        ttDetailScanTip = CreateFrame("GameTooltip",
+            "GeRODPS_ToolsSpellTTDetailScanTip", UIParent, "GameTooltipTemplate")
+        ttDetailScanTip:SetOwner(WorldFrame, "ANCHOR_NONE")
+    end
+    return ttDetailScanTip
+end
+
+local function ReleaseAllTTRows()
+    for i = #ttActiveRows, 1, -1 do
+        local r = ttActiveRows[i]
+        r:Hide()
+        r:ClearAllPoints()
+        ttRowPool[#ttRowPool + 1] = r
+        ttActiveRows[i] = nil
+    end
+end
+
+local function CreateTTRow(parent)
+    if #ttRowPool > 0 then
+        local r = table.remove(ttRowPool)
+        r:Show()
+        return r
+    end
+    local row = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    row:SetHeight(TT_ROW_HEIGHT)
+    row:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    })
+
+    row.lineNo = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.lineNo:SetPoint("LEFT", row, "LEFT", 6, 0)
+    row.lineNo:SetWidth(40)
+    row.lineNo:SetJustifyH("LEFT")
+
+    row.tag = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.tag:SetPoint("LEFT", row.lineNo, "RIGHT", 4, 0)
+    row.tag:SetWidth(80)
+    row.tag:SetJustifyH("LEFT")
+
+    row.content = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.content:SetPoint("LEFT", row.tag, "RIGHT", 4, 0)
+    row.content:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+    row.content:SetJustifyH("LEFT")
+    row.content:SetWordWrap(false)
+
+    return row
+end
+
+local function ApplyTTScroll()
+    if not ttDetailFrame or not ttDetailFrame.content then return end
+    local viewH = ttDetailFrame.viewport:GetHeight()
+    local contentH = ttDetailFrame.content:GetHeight()
+    local maxScroll = math.max(0, contentH - viewH)
+    local s = ttDetailFrame.scrollY or 0
+    if s < 0 then s = 0 end
+    if s > maxScroll then s = maxScroll end
+    ttDetailFrame.scrollY = s
+    ttDetailFrame.content:ClearAllPoints()
+    ttDetailFrame.content:SetPoint("TOPLEFT", ttDetailFrame.viewport,
+        "TOPLEFT", 0, s)
+end
+
+local function CreateTooltipDetailFrame()
+    if ttDetailFrame then return ttDetailFrame end
+
+    ttDetailFrame = CreateFrame("Frame", "GeRODPS_ToolsSpellTTDetail",
+        UIParent, "BackdropTemplate")
+    ttDetailFrame:SetSize(720, 420)
+    ttDetailFrame:SetPoint("CENTER", UIParent, "CENTER", -40, 40)
+    ttDetailFrame:SetBackdrop({
+        bgFile   = "Interface/DialogFrame/UI-DialogBox-Background-Dark",
+        edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left=11, right=12, top=12, bottom=11 },
+    })
+    ttDetailFrame:SetBackdropColor(0, 0, 0, 0.95)
+    ttDetailFrame:SetFrameStrata("DIALOG")
+    ttDetailFrame:SetMovable(true)
+    ttDetailFrame:EnableMouse(true)
+    ttDetailFrame:RegisterForDrag("LeftButton")
+    ttDetailFrame:SetScript("OnDragStart", ttDetailFrame.StartMoving)
+    ttDetailFrame:SetScript("OnDragStop",  ttDetailFrame.StopMovingOrSizing)
+    ttDetailFrame:Hide()
+
+    local title = ttDetailFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOP", ttDetailFrame, "TOP", 0, -16)
+    title:SetText("Tooltip Detail")
+    ttDetailFrame.title = title
+
+    local subtitle = ttDetailFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    subtitle:SetPoint("TOP", title, "BOTTOM", 0, -2)
+    subtitle:SetText("|cff888888each line of the spell's tooltip + secret flag|r")
+    ttDetailFrame.subtitle = subtitle
+
+    local close = CreateFrame("Button", nil, ttDetailFrame, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", ttDetailFrame, "TOPRIGHT", -6, -6)
+
+    -- Header columns
+    local header = CreateFrame("Frame", nil, ttDetailFrame, "BackdropTemplate")
+    header:SetPoint("TOPLEFT",  ttDetailFrame, "TOPLEFT",  16, -62)
+    header:SetPoint("TOPRIGHT", ttDetailFrame, "TOPRIGHT", -16, -62)
+    header:SetHeight(20)
+    header:SetBackdrop({ bgFile = "Interface/Tooltips/UI-Tooltip-Background" })
+    header:SetBackdropColor(0.15, 0.10, 0.04, 0.9)
+
+    local function makeHeaderText(parent, text, x, w)
+        local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        fs:SetPoint("LEFT", parent, "LEFT", x, 0)
+        fs:SetWidth(w)
+        fs:SetJustifyH("LEFT")
+        fs:SetText("|cffffd200" .. text .. "|r")
+    end
+    makeHeaderText(header, "Line", 6, 40)
+    makeHeaderText(header, "Tag", 50, 80)
+    makeHeaderText(header, "Content", 134, 540)
+
+    -- Viewport + content (manual scroll)
+    local viewport = CreateFrame("Frame", nil, ttDetailFrame, "BackdropTemplate")
+    viewport:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -4)
+    viewport:SetPoint("BOTTOMRIGHT", ttDetailFrame, "BOTTOMRIGHT", -16, 36)
+    viewport:SetClipsChildren(true)
+    viewport:EnableMouseWheel(true)
+    viewport:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    })
+    viewport:SetBackdropColor(0, 0, 0, 0.3)
+
+    local content = CreateFrame("Frame", nil, viewport)
+    content:SetPoint("TOPLEFT", viewport, "TOPLEFT", 0, 0)
+    content:SetWidth(ttDetailFrame:GetWidth() - 32)
+    content:SetHeight(1)
+
+    ttDetailFrame.viewport = viewport
+    ttDetailFrame.content  = content
+    ttDetailFrame.scrollY  = 0
+
+    viewport:SetScript("OnMouseWheel", function(_, delta)
+        ttDetailFrame.scrollY = (ttDetailFrame.scrollY or 0) - delta * 30
+        ApplyTTScroll()
+    end)
+
+    -- Status bar
+    local lblStatus = ttDetailFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    lblStatus:SetPoint("BOTTOMLEFT", ttDetailFrame, "BOTTOMLEFT", 16, 14)
+    lblStatus:SetText("0 lines")
+    ttDetailFrame.lblStatus = lblStatus
+
+    local hint = ttDetailFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    hint:SetPoint("BOTTOMRIGHT", ttDetailFrame, "BOTTOMRIGHT", -16, 14)
+    hint:SetText("|cff666666scroll with mouse wheel|r")
+
+    return ttDetailFrame
+end
+
+ShowTooltipDetail = function(spellID, spellName)
+    CreateTooltipDetailFrame()
+    ttDetailFrame:Show()
+
+    -- Title
+    ttDetailFrame.title:SetText(string.format(
+        "Tooltip Detail — %s |cff888888#%d|r",
+        spellName or "?", spellID or 0))
+
+    -- Scan tooltip
+    local tip = GetTTDetailScanTip()
+    tip:ClearLines()
+    tip:SetOwner(WorldFrame, "ANCHOR_NONE")
+    local scanOK = pcall(tip.SetSpellByID, tip, spellID)
+
+    ReleaseAllTTRows()
+
+    if not scanOK then
+        ttDetailFrame.lblStatus:SetText(
+            "|cffff5555scan failed (pcall error)|r")
+        ApplyTTScroll()
+        return
+    end
+
+    local lineCount = tip:NumLines() or 0
+    local secretCount = 0
+    local rowIdx = 0
+    local contentW = ttDetailFrame.content:GetWidth() - 8
+
+    for i = 1, lineCount do
+        local fs = _G["GeRODPS_ToolsSpellTTDetailScanTipTextLeft" .. i]
+        local text = fs and fs:GetText()
+        if text ~= nil then
+            rowIdx = rowIdx + 1
+            local row = CreateTTRow(ttDetailFrame.content)
+            if rowIdx == 1 then
+                row:SetPoint("TOPLEFT", ttDetailFrame.content, "TOPLEFT", 4, -4)
+            else
+                row:SetPoint("TOPLEFT", ttActiveRows[rowIdx - 1],
+                    "BOTTOMLEFT", 0, -1)
+            end
+            row:SetWidth(contentW)
+
+            row.lineNo:SetText("|cff888888" .. i .. "|r")
+
+            if isSecret(text) then
+                secretCount = secretCount + 1
+                row.tag:SetText("|cffff5555[SECRET]|r")
+                row:SetBackdropColor(0.20, 0.04, 0.04, 0.7)
+                -- text is secret — SetText accepts it (Blizzard widget)
+                row.content:SetText(text)
+            else
+                row.tag:SetText("|cff66dd66[VISIBLE]|r")
+                row:SetBackdropColor(0.04, 0.10, 0.04, 0.5)
+                row.content:SetText(text)
+            end
+
+            ttActiveRows[rowIdx] = row
+        end
+    end
+
+    local totalH = rowIdx * (TT_ROW_HEIGHT + 1) + 8
+    ttDetailFrame.content:SetHeight(totalH)
+    ttDetailFrame.scrollY = 0
+    ApplyTTScroll()
+
+    ttDetailFrame.lblStatus:SetText(string.format(
+        "%d lines  |  |cffff5555%d secret|r  |  |cff66dd66%d visible|r",
+        rowIdx, secretCount, rowIdx - secretCount))
 end
 
 -- =============================================================
