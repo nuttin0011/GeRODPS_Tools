@@ -220,20 +220,35 @@ local function CollectAllSpells()
                 if itemOK and item and item.spellID
                    and (item.itemType == nil or item.itemType == spellEnum) then
                     local sid = item.spellID
-                    if not seen[sid] then
+
+                    -- Guard secret spellID — if secret we can't safely use it
+                    -- as table key (taint propagates through comparisons later).
+                    local sidSecret = isSecret(sid)
+                    if sidSecret then
+                        LogSecret("(unknown)", 0, "SpellBookItem.spellID", sid)
+                    end
+
+                    if not sidSecret and not seen[sid] then
                         seen[sid] = true
+
                         local iconID
                         if C_Spell and C_Spell.GetSpellTexture then
                             local tOK, t = pcall(C_Spell.GetSpellTexture, sid)
-                            if tOK and t and not isSecret(t) then
-                                iconID = t
+                            if tOK and t then
+                                if isSecret(t) then
+                                    LogSecret("Spell #" .. sid, sid,
+                                        "GetSpellTexture", t)
+                                else
+                                    iconID = t
+                                end
                             end
                         end
+
                         -- Guard secret name: secret string can't be compared
-                        local safeName, secretName
+                        local safeName, hasSecretName
                         if item.name then
                             if isSecret(item.name) then
-                                secretName = item.name
+                                hasSecretName = true
                                 safeName = "Spell #" .. sid
                                 LogSecret("Spell #" .. sid, sid,
                                     "SpellBookItem.name", item.name)
@@ -247,11 +262,12 @@ local function CollectAllSpells()
                         else
                             safeName = "Spell #" .. sid
                         end
+
                         out[#out + 1] = {
-                            id         = sid,
-                            name       = safeName,
-                            secretName = secretName,
-                            iconID     = iconID,
+                            id            = sid,
+                            name          = safeName,
+                            hasSecretName = hasSecretName,
+                            iconID        = iconID,
                         }
                     end
                 end
@@ -433,16 +449,18 @@ local function RefreshList()
             row.icon:Hide()
         end
 
-        -- Name: secret-safe via FontString:SetText
-        if sp.secretName then
-            row.name:SetText(sp.secretName)
+        -- Name: placeholder only — never put secret content in scroll row
+        -- (FontString:SetText accepts secret, but the FontString's measured
+        -- dimensions then propagate taint to parent ScrollFrame.)
+        if sp.hasSecretName then
+            row.name:SetText("|cffff8855<secret name>|r")
         else
             row.name:SetText(sp.name or "?")
         end
         row.id:SetText("|cff888888" .. tostring(sp.id) .. "|r")
 
         local typeLabel = TYPE_LABEL[det.type] or "?"
-        if det.hadSecret or sp.secretName then
+        if det.hadSecret or sp.hasSecretName then
             typeLabel = typeLabel .. " |cffff5555<secret>|r"
         end
         local color = TYPE_COLOR[det.type] or "ffffffff"
@@ -588,22 +606,94 @@ local function AcquireSecretRow(parent)
     return CreateSecretRow(parent)
 end
 
+-- Clamp scroll to valid range and reposition content
+local function ApplySecretScroll()
+    if not secretFrame or not secretFrame.content then return end
+    local viewH = secretFrame.viewport:GetHeight()
+    local contentH = secretFrame.content:GetHeight()
+    local maxScroll = math.max(0, contentH - viewH)
+    local s = secretFrame.scrollY or 0
+    if s < 0 then s = 0 end
+    if s > maxScroll then s = maxScroll end
+    secretFrame.scrollY = s
+    secretFrame.content:ClearAllPoints()
+    secretFrame.content:SetPoint("TOPLEFT", secretFrame.viewport,
+        "TOPLEFT", 0, s)
+end
+
 local function RefreshSecretList()
     if not secretFrame or not secretFrame:IsShown() then return end
 
     ReleaseAllSecretRows()
 
-    for idx, entry in ipairs(secretLog) do
-        local row = AcquireSecretRow(secretFrame.scrollChild)
-        if idx == 1 then
-            row:SetPoint("TOPLEFT", secretFrame.scrollChild, "TOPLEFT", 4, -4)
+    -- Build summary: count secret fields per spell
+    local perSpell = {}
+    local order = {}
+    for _, entry in ipairs(secretLog) do
+        local key = tostring(entry.spellID) .. "|" .. (entry.spellName or "?")
+        local agg = perSpell[key]
+        if not agg then
+            agg = { spellName = entry.spellName, spellID = entry.spellID,
+                    count = 0 }
+            perSpell[key] = agg
+            order[#order + 1] = key
+        end
+        agg.count = agg.count + 1
+    end
+
+    local rowIdx = 0
+    local contentW = secretFrame.content:GetWidth() - 8
+
+    -- ----- Section: per-spell summary header -----
+    if #order > 0 then
+        for _, key in ipairs(order) do
+            local agg = perSpell[key]
+            rowIdx = rowIdx + 1
+            local row = AcquireSecretRow(secretFrame.content)
+            if rowIdx == 1 then
+                row:SetPoint("TOPLEFT", secretFrame.content, "TOPLEFT", 4, -4)
+            else
+                row:SetPoint("TOPLEFT", secretActiveRows[rowIdx - 1],
+                    "BOTTOMLEFT", 0, -1)
+            end
+            row:SetWidth(contentW)
+            row:SetBackdropColor(0.20, 0.10, 0.04, 0.6)  -- header tint
+
+            row.spellName:SetText("|cffffd200" .. (agg.spellName or "?") .. "|r")
+            row.spellID:SetText("|cff888888#" .. tostring(agg.spellID) .. "|r")
+            row.field:SetText("|cff66ddff[summary]|r")
+            row.value:SetText(
+                "|cffff8855" .. agg.count .. " secret field(s)|r")
+            secretActiveRows[rowIdx] = row
+        end
+
+        -- Divider row
+        rowIdx = rowIdx + 1
+        local divRow = AcquireSecretRow(secretFrame.content)
+        divRow:SetPoint("TOPLEFT", secretActiveRows[rowIdx - 1],
+            "BOTTOMLEFT", 0, -1)
+        divRow:SetWidth(contentW)
+        divRow:SetBackdropColor(0.05, 0.05, 0.05, 0.9)
+        divRow.spellName:SetText("|cff66ddffDetail|r")
+        divRow.spellID:SetText("")
+        divRow.field:SetText("")
+        divRow.value:SetText("")
+        secretActiveRows[rowIdx] = divRow
+    end
+
+    -- ----- Section: detailed entries -----
+    for _, entry in ipairs(secretLog) do
+        rowIdx = rowIdx + 1
+        local row = AcquireSecretRow(secretFrame.content)
+        if rowIdx == 1 then
+            row:SetPoint("TOPLEFT", secretFrame.content, "TOPLEFT", 4, -4)
         else
-            row:SetPoint("TOPLEFT", secretActiveRows[idx - 1],
+            row:SetPoint("TOPLEFT", secretActiveRows[rowIdx - 1],
                 "BOTTOMLEFT", 0, -1)
         end
-        row:SetWidth(secretFrame.scrollChild:GetWidth() - 8)
+        row:SetWidth(contentW)
+        row:SetBackdropColor(0.05, 0.02, 0.02, 0.4)
 
-        -- Spell name (string — safe)
         row.spellName:SetText(entry.spellName or "?")
         row.spellID:SetText("|cff888888#" .. tostring(entry.spellID) .. "|r")
         row.field:SetText("|cffffd200" .. (entry.field or "?") .. "|r")
@@ -613,15 +703,18 @@ local function RefreshSecretList()
         -- FontString accepts it without throwing.
         row.value:SetText("= " .. entry.value)
 
-        secretActiveRows[idx] = row
+        secretActiveRows[rowIdx] = row
     end
 
-    local totalH = #secretActiveRows * (SECRET_ROW_HEIGHT + 1) + 8
-    secretFrame.scrollChild:SetHeight(
-        math.max(totalH, secretFrame.scrollOuter:GetHeight()))
+    -- Set content height (non-secret math)
+    local totalH = rowIdx * (SECRET_ROW_HEIGHT + 1) + 8
+    secretFrame.content:SetHeight(totalH)
 
-    secretFrame.lblCount:SetText(
-        string.format("|cffff5555%d secret values logged|r", #secretLog))
+    ApplySecretScroll()
+
+    secretFrame.lblCount:SetText(string.format(
+        "|cffff5555%d secret values logged|r  |cff888888(across %d spells)|r",
+        #secretLog, #order))
 end
 
 local function CreateSecretViewerFrame()
@@ -676,23 +769,50 @@ local function CreateSecretViewerFrame()
     makeHeaderText(header, "Field",      254, 180)
     makeHeaderText(header, "Value",      438, 320)
 
-    -- Scroll
-    local scrollOuter = CreateFrame("ScrollFrame", nil, secretFrame, "UIPanelScrollFrameTemplate")
-    scrollOuter:SetPoint("TOPLEFT",  header, "BOTTOMLEFT",  0, -4)
-    scrollOuter:SetPoint("BOTTOMRIGHT", secretFrame, "BOTTOMRIGHT", -32, 36)
+    -- Manual scroll viewport (NOT UIPanelScrollFrameTemplate — that template
+    -- runs Blizzard SecureScrollTemplates which does numeric conversion on
+    -- child dimensions. If any child FontString shows a secret string, the
+    -- child's measured size becomes tainted → Blizzard throws on tonumber().)
+    local viewport = CreateFrame("Frame", nil, secretFrame, "BackdropTemplate")
+    viewport:SetPoint("TOPLEFT",  header, "BOTTOMLEFT", 0, -4)
+    viewport:SetPoint("BOTTOMRIGHT", secretFrame, "BOTTOMRIGHT", -16, 36)
+    viewport:SetClipsChildren(true)
+    viewport:EnableMouseWheel(true)
+    viewport:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    })
+    viewport:SetBackdropColor(0, 0, 0, 0.3)
 
-    local scrollChild = CreateFrame("Frame", nil, scrollOuter)
-    scrollChild:SetSize(scrollOuter:GetWidth() - 4, 1)
-    scrollOuter:SetScrollChild(scrollChild)
+    -- Content frame is the "moving" inner frame; its height = sum of rows.
+    -- We slide it up/down via SetPoint y-offset on mouse wheel.
+    -- Fixed width derived from secretFrame size (avoids first-call zero width).
+    local content = CreateFrame("Frame", nil, viewport)
+    content:SetPoint("TOPLEFT", viewport, "TOPLEFT", 0, 0)
+    content:SetWidth(secretFrame:GetWidth() - 32)
+    content:SetHeight(1)
 
-    secretFrame.scrollOuter = scrollOuter
-    secretFrame.scrollChild = scrollChild
+    secretFrame.viewport = viewport
+    secretFrame.content  = content
+    secretFrame.scrollY  = 0
+
+    viewport:SetScript("OnMouseWheel", function(_, delta)
+        secretFrame.scrollY = (secretFrame.scrollY or 0) - delta * 30
+        ApplySecretScroll()
+    end)
+    viewport:SetScript("OnSizeChanged", function(_, w)
+        content:SetWidth(w)
+    end)
 
     -- Status
     local lblCount = secretFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     lblCount:SetPoint("BOTTOMLEFT", secretFrame, "BOTTOMLEFT", 16, 14)
     lblCount:SetText("0 secret values logged")
     secretFrame.lblCount = lblCount
+
+    -- Hint (mouse wheel to scroll)
+    local hint = secretFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    hint:SetPoint("BOTTOMRIGHT", secretFrame, "BOTTOMRIGHT", -16, 14)
+    hint:SetText("|cff666666scroll with mouse wheel|r")
 
     return secretFrame
 end
