@@ -30,4 +30,5 @@ RebuildLagTest.lua
 PasteSpeedTest.lua
 SpellCastTypeInspector.lua
 FontGlyphCatalogData.lua
+FontGlyphCoverage.lua
 FontGlyphViewer.lua

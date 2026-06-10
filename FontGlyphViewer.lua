@@ -28,9 +28,9 @@ GeRODPS_Tools = GeRODPS_Tools or {}
 -- ============================================================
 
 local FRAME_W       = 760
-local FRAME_H       = 640
+local FRAME_H       = 660
 local ROW_HEIGHT    = 24
-local HEADER_HEIGHT = 100
+local HEADER_HEIGHT = 130   -- bumped to accommodate filter dropdown row
 local SIDE_PAD      = 14
 
 -- Font choices for the GLYPH column. Codepoint + name columns stay on
@@ -60,12 +60,29 @@ local FONT_CHOICES = {
 -- ============================================================
 
 local toolFrame
-local categoryDropdown, fontDropdown
+local categoryDropdown, fontDropdown, filterDropdown
 local infoFS, rangeFS, notesFS, hdrFS
 local scrollFrame, contentFrame
 local rowPool = {}             -- reusable row containers
 local currentCatIdx = 1
 local currentFontObj = GameFontHighlight
+local currentFilter = "all"    -- "all" | "supported" | "missing"
+
+-- Resolve the codepoint-supported lookup. All 4 .ttf files in WoW/Fonts are
+-- byte-identical (md5 confirmed via fontTools), so any entry works — use [1].
+local function GetSupportedSet()
+    local cov = GeRODPS_Tools.FontGlyphCoverage
+    if not (cov and cov[1] and cov[1].supported) then return nil end
+    return cov[1].supported
+end
+
+-- Parse "U+25B2" -> 0x25B2 (number). Returns nil on bad input.
+local function ParseCodepoint(cpStr)
+    if type(cpStr) ~= "string" then return nil end
+    local hex = cpStr:match("^U%+(%x+)$")
+    if not hex then return nil end
+    return tonumber(hex, 16)
+end
 
 -- ============================================================
 -- Row management
@@ -78,10 +95,16 @@ local function GetOrCreateRow(i)
     local container = CreateFrame("Frame", nil, contentFrame)
     container:SetSize(FRAME_W - SIDE_PAD * 2 - 22, ROW_HEIGHT)
 
+    -- Coverage marker column (✓ green / x red — both ASCII-safe)
+    local covFS = container:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    covFS:SetPoint("LEFT", container, "LEFT", 6, 0)
+    covFS:SetJustifyH("CENTER")
+    covFS:SetWidth(28)
+
     -- Glyph column (font swappable)
     local glyphFS = container:CreateFontString(nil, "OVERLAY")
     glyphFS:SetFontObject(currentFontObj)
-    glyphFS:SetPoint("LEFT", container, "LEFT", 6, 0)
+    glyphFS:SetPoint("LEFT", covFS, "RIGHT", 4, 0)
     glyphFS:SetJustifyH("CENTER")
     glyphFS:SetWidth(60)
 
@@ -98,7 +121,10 @@ local function GetOrCreateRow(i)
     nameFS:SetPoint("RIGHT", container, "RIGHT", -6, 0)
     nameFS:SetJustifyH("LEFT")
 
-    row = { container = container, glyphFS = glyphFS, cpFS = cpFS, nameFS = nameFS }
+    row = {
+        container = container,
+        covFS = covFS, glyphFS = glyphFS, cpFS = cpFS, nameFS = nameFS,
+    }
     rowPool[i] = row
     return row
 end
@@ -138,21 +164,44 @@ local function RenderCategory()
         return
     end
 
+    local supported = GetSupportedSet()
+
+    -- Filter entries based on current filter setting
+    local visibleEntries = {}
+    local supCount, totCount = 0, #cat.entries
+    for _, e in ipairs(cat.entries) do
+        local cp = ParseCodepoint(e[2])
+        local isSup = supported and cp and supported[cp] or false
+        if isSup then supCount = supCount + 1 end
+        local include = (currentFilter == "all")
+                     or (currentFilter == "supported" and isSup)
+                     or (currentFilter == "missing"   and not isSup)
+        if include then
+            visibleEntries[#visibleEntries + 1] = { e, isSup }
+        end
+    end
+
     infoFS:SetText(string.format(
-        "|cFFFFCC00%s|r  -  %d glyphs",
-        cat.title, #cat.entries))
+        "|cFFFFCC00%s|r  -  |cFF66FF66%d|r / %d supported  |cFF888888(showing %d)|r",
+        cat.title, supCount, totCount, #visibleEntries))
     rangeFS:SetText(cat.unicodeRange or "")
     notesFS:SetText(cat.notes or "")
 
-    local total = #cat.entries
+    local total = #visibleEntries
     contentFrame:SetHeight(total * ROW_HEIGHT + 6)
 
-    for i, e in ipairs(cat.entries) do
+    for i, pair in ipairs(visibleEntries) do
+        local e, isSup = pair[1], pair[2]
         local row = GetOrCreateRow(i)
         row.container:ClearAllPoints()
         row.container:SetPoint("TOPLEFT", contentFrame, "TOPLEFT",
             0, -(i - 1) * ROW_HEIGHT)
         row.container:Show()
+        if isSup then
+            row.covFS:SetText("|cFF66FF66OK|r")
+        else
+            row.covFS:SetText("|cFFFF5555x|r")
+        end
         row.glyphFS:SetFontObject(currentFontObj)
         row.glyphFS:SetText(e[1])      -- glyph
         row.cpFS:SetText(e[2])         -- codepoint
@@ -161,7 +210,6 @@ local function RenderCategory()
 
     ReleaseRowsFrom(total + 1)
 
-    -- Reset scroll to top when changing category
     if scrollFrame then
         scrollFrame:SetVerticalScroll(0)
     end
@@ -247,9 +295,38 @@ local function BuildFrame()
     rangeFS:SetJustifyH("LEFT")
     rangeFS:SetTextColor(0.7, 0.85, 1)
 
+    -- ── Filter dropdown ──
+    local filterLabel = inset:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    filterLabel:SetPoint("TOPLEFT", fontLabel, "BOTTOMLEFT", 0, -10)
+    filterLabel:SetText("Filter:")
+
+    local FILTER_CHOICES = {
+        { "all",       "All glyphs" },
+        { "supported", "Supported only (renders correctly)" },
+        { "missing",   "Missing only (renders as tofu)" },
+    }
+    filterDropdown = CreateFrame("DropdownButton", nil, inset,
+        "WowStyle1DropdownTemplate")
+    filterDropdown:SetPoint("LEFT", filterLabel, "RIGHT", 6, -2)
+    filterDropdown:SetWidth(260)
+    filterDropdown:SetDefaultText(FILTER_CHOICES[1][2])
+    filterDropdown:SetupMenu(function(_, rootDescription)
+        for _, choice in ipairs(FILTER_CHOICES) do
+            local key, label = choice[1], choice[2]
+            rootDescription:CreateRadio(label,
+                function() return currentFilter == key end,
+                function()
+                    currentFilter = key
+                    filterDropdown:SetDefaultText(label)
+                    RenderCategory()
+                    return MenuResponse.CloseAll
+                end)
+        end
+    end)
+
     -- ── Notes row ──
     notesFS = inset:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    notesFS:SetPoint("TOPLEFT", fontLabel, "BOTTOMLEFT", 0, -10)
+    notesFS:SetPoint("TOPLEFT", filterLabel, "BOTTOMLEFT", 0, -10)
     notesFS:SetPoint("RIGHT", inset, "RIGHT", -SIDE_PAD, 0)
     notesFS:SetJustifyH("LEFT")
     notesFS:SetHeight(14)
@@ -259,7 +336,7 @@ local function BuildFrame()
     hdrFS:SetPoint("TOPLEFT", inset, "TOPLEFT", SIDE_PAD + 4, -HEADER_HEIGHT + 18)
     hdrFS:SetWidth(FRAME_W - SIDE_PAD * 2 - 30)
     hdrFS:SetJustifyH("LEFT")
-    hdrFS:SetText("|cFFFFCC00Glyph |r       |cFFFFCC00Codepoint |r  |cFFFFCC00English Name|r")
+    hdrFS:SetText("|cFFFFCC00OK?|r   |cFFFFCC00Glyph|r       |cFFFFCC00Codepoint|r   |cFFFFCC00English Name|r")
 
     -- ── Scroll frame holds rows ──
     scrollFrame = CreateFrame("ScrollFrame", nil, inset,
