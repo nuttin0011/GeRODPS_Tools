@@ -1,11 +1,13 @@
 --[[
     TestSendToStringLayers.lua
 
-    Phase 2.1 — Override the 5 SendToString layers from a UI for AHK
-    end-to-end verification.
+    Override the 9 SendToString layers from a UI for AHK end-to-end
+    verification (measured-model alpha stack, 2026-06-10).
 
-    Each row controls ONE layer of the new 5-layer SendToString channel:
-        L1 (top, B-Light) … L5 (bottom, R)
+    Each row controls ONE layer of the 9-layer SendToString channel
+    (ชุดสีต้องตรงกับ GeRODPS/PixelAndBarSetup.lua LAYER_BUILD):
+        L1 (top, B2) | L2 G38 | L3 G4 | L4 R46 | L5 R222 | L6 R62 |
+        L7 B124 | L8 G252 | L9 (bottom, R255 alpha 1)
 
     Per-row controls:
       [On/Off checkbox]  [EditBox text]   <NN chars>
@@ -30,24 +32,29 @@ local TOOL = GeRODPS_Tools
 
 local FRAME_NAME    = "GeRODPS_ToolsTestSendToStringLayersFrame"
 local DEFAULT_W     = 600
-local DEFAULT_H     = 320
+local DEFAULT_H     = 440
 local SCREEN_MARGIN = 100
 
+-- ต้อง sync กับ GeRODPS/SendToString.lua LAYER_COUNT + PixelAndBarSetup.lua
+-- LAYER_BUILD (9-layer measured-model stack)
+local LAYER_COUNT = 9
+
 local LAYER_LABELS = {
-    [1] = "L1  B-Light  (top)",
-    [2] = "L2  B-Dark",
-    [3] = "L3  G-Dark",
-    [4] = "L4  G-Light",
-    [5] = "L5  R       (bottom)",
+    [1] = "L1  B2    (top)",
+    [2] = "L2  G38",
+    [3] = "L3  G4",
+    [4] = "L4  R46",
+    [5] = "L5  R222",
+    [6] = "L6  R62",
+    [7] = "L7  B124",
+    [8] = "L8  G252",
+    [9] = "L9  R255 a1 (bottom)",
 }
 
-local DEFAULT_TEXTS = {
-    [1] = "$layer1$test1%",
-    [2] = "$layer2$test2%",
-    [3] = "$layer3$test3%",
-    [4] = "$layer4$test4%",
-    [5] = "$layer5$test5%",
-}
+local DEFAULT_TEXTS = {}
+for i = 1, LAYER_COUNT do
+    DEFAULT_TEXTS[i] = ("$layer%d$test%d%%"):format(i, i)
+end
 
 -- ============================================================
 -- DB
@@ -59,7 +66,7 @@ local function GetDB()
     GeRODPS_ToolsDB.testSendToStringLayers = db
     if db.exporterPaused == nil then db.exporterPaused = false end
     db.layers = db.layers or {}
-    for i = 1, 5 do
+    for i = 1, LAYER_COUNT do
         local entry = db.layers[i] or {}
         if entry.enabled == nil then entry.enabled = false           end
         if entry.text    == nil then entry.text    = DEFAULT_TEXTS[i] end
@@ -111,7 +118,7 @@ local function ApplyRow(idx)
 end
 
 local function ApplyAllRows()
-    for i = 1, 5 do ApplyRow(i) end
+    for i = 1, LAYER_COUNT do ApplyRow(i) end
 end
 
 local function ClearAllLive()
@@ -241,7 +248,7 @@ local function SyncControlsFromDB()
     if pauseCheckbox then
         pauseCheckbox:SetChecked(db.exporterPaused and true or false)
     end
-    for i = 1, 5 do
+    for i = 1, LAYER_COUNT do
         local entry = db.layers[i]
         if rowCheckboxes[i] then
             rowCheckboxes[i]:SetChecked(entry.enabled and true or false)
@@ -285,7 +292,7 @@ local function CreateTestFrame()
 
     if frame.TitleText then
         frame.TitleText:SetText(
-            "GeRODPS Tools — Test SendToString Layers (5-layer override)")
+            "GeRODPS Tools — Test SendToString Layers (9-layer override)")
     end
 
     local content = frame.Inset or frame
@@ -318,14 +325,14 @@ local function CreateTestFrame()
         end
     end)
 
-    -- 5 layer rows
+    -- Layer rows (1 แถวต่อ layer)
     local rowsHost = CreateFrame("Frame", nil, content)
     rowsHost:SetPoint("TOPLEFT",  pauseCheckbox, "BOTTOMLEFT",  0, -8)
     rowsHost:SetPoint("RIGHT",    content,       "RIGHT",      -14, 0)
-    rowsHost:SetHeight(26 * 5 + 4 * 4)
+    rowsHost:SetHeight(26 * LAYER_COUNT + 4 * (LAYER_COUNT - 1))
 
     local prevRow
-    for i = 1, 5 do
+    for i = 1, LAYER_COUNT do
         prevRow = CreateLayerRow(rowsHost, prevRow, i)
     end
 
@@ -336,7 +343,7 @@ local function CreateTestFrame()
     btnClear:SetText("Clear All Overrides")
     btnClear:SetScript("OnClick", function()
         local db = GetDB()
-        for i = 1, 5 do
+        for i = 1, LAYER_COUNT do
             db.layers[i].enabled = false
         end
         ClearAllLive()
@@ -349,7 +356,7 @@ local function CreateTestFrame()
     btnDefaults:SetText("Reset Texts to Defaults")
     btnDefaults:SetScript("OnClick", function()
         local db = GetDB()
-        for i = 1, 5 do
+        for i = 1, LAYER_COUNT do
             db.layers[i].text = DEFAULT_TEXTS[i]
         end
         SyncControlsFromDB()
@@ -370,7 +377,7 @@ local function CreateTestFrame()
         end
         DEFAULT_CHAT_FRAME:AddMessage(
             "|cff66ccff[SendToStringLayers]|r --- Override state ---")
-        for i = 1, 5 do
+        for i = 1, LAYER_COUNT do
             local v = _G.GeRODPS.SendToString.GetLayerOverride(i)
             local layers = _G.GeRODPS.TextSendToAHKLayers
             local fs = layers and layers[i]
@@ -440,6 +447,6 @@ function TOOL.ToggleTestSendToStringLayers()
 end
 
 if TOOL.RegisterTool then
-    TOOL.RegisterTool("Test SendToString Layers (5-layer override)",
+    TOOL.RegisterTool("Test SendToString Layers (9-layer override)",
                       TOOL.ToggleTestSendToStringLayers)
 end
