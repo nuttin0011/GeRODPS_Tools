@@ -2,3 +2,6 @@
 *~
 Thumbs.db
 .DS_Store
+scripts/run_log.txt
+scripts/run_err.txt
+scripts/__pycache__/

@@ -32,3 +32,4 @@ SpellCastTypeInspector.lua
 FontGlyphCatalogData.lua
 FontGlyphCoverage.lua
 FontGlyphViewer.lua
+ColorHalfStepViewer.lua
