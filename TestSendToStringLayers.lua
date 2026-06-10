@@ -6,8 +6,8 @@
 
     Each row controls ONE layer of the 9-layer SendToString channel
     (ชุดสีต้องตรงกับ GeRODPS/PixelAndBarSetup.lua LAYER_BUILD):
-        L1 (top, B2) | L2 G38 | L3 G4 | L4 R46 | L5 R222 | L6 R62 |
-        L7 B124 | L8 G252 | L9 (bottom, R255 alpha 1)
+        L1 (top, R2) | L2 G38 | L3 G4 | L4 B46 | L5 B222 | L6 B62 |
+        L7 R124 | L8 G252 | L9 (bottom, B255 alpha 1)
 
     Per-row controls:
       [On/Off checkbox]  [EditBox text]   <NN chars>
@@ -40,15 +40,15 @@ local SCREEN_MARGIN = 100
 local LAYER_COUNT = 9
 
 local LAYER_LABELS = {
-    [1] = "L1  B2    (top)",
+    [1] = "L1  R2    (top)",
     [2] = "L2  G38",
     [3] = "L3  G4",
-    [4] = "L4  R46",
-    [5] = "L5  R222",
-    [6] = "L6  R62",
-    [7] = "L7  B124",
+    [4] = "L4  B46",
+    [5] = "L5  B222",
+    [6] = "L6  B62",
+    [7] = "L7  R124",
     [8] = "L8  G252",
-    [9] = "L9  R255 a1 (bottom)",
+    [9] = "L9  B255 a1 (bottom)",
 }
 
 local DEFAULT_TEXTS = {}
