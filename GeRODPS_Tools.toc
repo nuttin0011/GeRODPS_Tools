@@ -29,3 +29,5 @@ CardColorTune.lua
 RebuildLagTest.lua
 PasteSpeedTest.lua
 SpellCastTypeInspector.lua
+FontGlyphCatalogData.lua
+FontGlyphViewer.lua
