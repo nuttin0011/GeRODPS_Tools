@@ -30,6 +30,20 @@ function TOOL.RegisterTool(label, fn)
     TOOL._tools[#TOOL._tools + 1] = { label = label, fn = fn }
 end
 
+-- Register a SUBMENU entry: label + array of { label, fn } sub-items.
+-- Rendered as a nested fly-out in the minimap menu.
+function TOOL.RegisterSubmenu(label, items)
+    if type(label) ~= "string" or label == "" then return end
+    if type(items) ~= "table" then return end
+    for i, t in ipairs(TOOL._tools) do
+        if t.label == label then
+            TOOL._tools[i] = { label = label, submenu = items }
+            return
+        end
+    end
+    TOOL._tools[#TOOL._tools + 1] = { label = label, submenu = items }
+end
+
 -- ============================================================
 -- Drop-down menu shown on minimap left-click
 -- ============================================================
@@ -50,8 +64,16 @@ local function ShowToolMenu()
                 return
             end
             for _, t in ipairs(TOOL._tools) do
-                local label, fn = t.label, t.fn
-                rootDescription:CreateButton(label, function() fn() end)
+                if t.submenu then
+                    local parent = rootDescription:CreateButton(t.label)
+                    for _, s in ipairs(t.submenu) do
+                        local sfn = s.fn
+                        parent:CreateButton(s.label, function() if sfn then sfn() end end)
+                    end
+                else
+                    local fn = t.fn
+                    rootDescription:CreateButton(t.label, function() if fn then fn() end end)
+                end
             end
         end)
         return
@@ -72,9 +94,19 @@ local function ShowToolMenu()
             }
         else
             for _, t in ipairs(TOOL._tools) do
-                menuList[#menuList + 1] = {
-                    text = t.label, notCheckable = true, func = t.fn,
-                }
+                if t.submenu then
+                    local sub = {}
+                    for _, s in ipairs(t.submenu) do
+                        sub[#sub + 1] = { text = s.label, notCheckable = true, func = s.fn }
+                    end
+                    menuList[#menuList + 1] = {
+                        text = t.label, notCheckable = true, hasArrow = true, menuList = sub,
+                    }
+                else
+                    menuList[#menuList + 1] = {
+                        text = t.label, notCheckable = true, func = t.fn,
+                    }
+                end
             end
         end
         EasyMenu(menuList, legacyAnchor, "cursor", 0, 0, "MENU")

@@ -25,6 +25,7 @@ ItemRangeCheckTest.lua
 CombatLogEventView.lua
 SpellOverrideListView.lua
 ReorderAnimTest.lua
+ScrollUITests.lua
 CardColorTune.lua
 RebuildLagTest.lua
 PasteSpeedTest.lua
