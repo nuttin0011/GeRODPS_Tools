@@ -34,3 +34,4 @@ FontGlyphCatalogData.lua
 FontGlyphCoverage.lua
 FontGlyphViewer.lua
 ColorHalfStepViewer.lua
+TTSSpeakTest.lua
