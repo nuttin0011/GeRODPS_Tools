@@ -35,3 +35,4 @@ FontGlyphCoverage.lua
 FontGlyphViewer.lua
 ColorHalfStepViewer.lua
 TTSSpeakTest.lua
+ReorderPerfLab.lua
