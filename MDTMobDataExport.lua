@@ -40,6 +40,12 @@ local TOOL = GeRODPS_Tools
 
 local FRAME_NAME    = "GeRODPS_ToolsMDTMobDataExportFrame"
 local SCREEN_MARGIN = 50
+-- Frame (0,0) includes the title bar, so the first content row must clear it.
+-- Anchor to `frame` + reserve TITLE_H — never rely on `frame.Inset` (nil on
+-- some clients → silent title-bar overlap). (wow-coding Rule 10)
+local TITLE_H       = 28
+local SIDE_PAD      = 12
+local TOP_PAD       = 6
 
 local DEFAULT_W, DEFAULT_H = 900, 620
 local MIN_W,     MIN_H     = 620, 400
@@ -571,13 +577,12 @@ local function CreateFrameOnce()
         frame.TitleText:SetText("GeRODPS Tools — MDT Mob Data Export")
     end
 
-    local inset = frame.Inset or frame
-
     -- ── Row 1: dungeon picker + scan + select-all + status ──
-    local toolbar = CreateFrame("Frame", nil, inset)
+    -- Anchor to `frame` and reserve the title bar height explicitly (Rule 10).
+    local toolbar = CreateFrame("Frame", nil, frame)
     toolbar:SetHeight(26)
-    toolbar:SetPoint("TOPLEFT", inset, "TOPLEFT", 8, -4)
-    toolbar:SetPoint("TOPRIGHT", inset, "TOPRIGHT", -8, -4)
+    toolbar:SetPoint("TOPLEFT", frame, "TOPLEFT", SIDE_PAD, -(TITLE_H + TOP_PAD))
+    toolbar:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -SIDE_PAD, -(TITLE_H + TOP_PAD))
 
     dungeonBtn = CreateFrame("Button", nil, toolbar, "UIPanelButtonTemplate")
     dungeonBtn:SetSize(230, 22)
@@ -606,7 +611,7 @@ local function CreateFrameOnce()
     statusFS:SetText("")
 
     -- ── Row 2: option checkboxes ───────────────────────────
-    local optRow = CreateFrame("Frame", nil, inset)
+    local optRow = CreateFrame("Frame", nil, frame)
     optRow:SetHeight(24)
     optRow:SetPoint("TOPLEFT", toolbar, "BOTTOMLEFT", 0, -4)
     optRow:SetPoint("TOPRIGHT", toolbar, "BOTTOMRIGHT", 0, -4)
@@ -617,19 +622,19 @@ local function CreateFrameOnce()
     MakeCheck(optRow, "hidden",  "Include hidden spells", 510, 0)
 
     -- ── Copy hint ──────────────────────────────────────────
-    local hint = inset:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     hint:SetPoint("TOPLEFT", optRow, "BOTTOMLEFT", 2, -4)
     hint:SetText("Click 'Scan & Export', then 'Select All' (or Ctrl+A) and Ctrl+C to copy.")
 
-    charFS = inset:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    charFS = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     charFS:SetPoint("TOPRIGHT", optRow, "BOTTOMRIGHT", -4, -4)
     charFS:SetJustifyH("RIGHT")
     charFS:SetText("0 chars")
 
     -- ── Output scroll + native EditBox ─────────────────────
-    scrollFrame = CreateFrame("ScrollFrame", "$parentScroll", inset, "UIPanelScrollFrameTemplate")
+    scrollFrame = CreateFrame("ScrollFrame", "$parentScroll", frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -6)
-    scrollFrame:SetPoint("BOTTOMRIGHT", inset, "BOTTOMRIGHT", -28, 8)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 12)
 
     editBox = CreateFrame("EditBox", nil, scrollFrame)
     editBox:SetMultiLine(true)
