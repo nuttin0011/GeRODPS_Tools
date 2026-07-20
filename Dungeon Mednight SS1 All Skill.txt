@@ -1,0 +1,2596 @@
+=== GeRODPS MDT Mob Data Export ===
+Format: '### Dungeon' -> '-- Mob | NPC id | Boss/Trash | HP | Lv | Type | Forces | CC'
+        '* [SpellID] Name | cast | MDT-flags'  then tooltip lines prefixed '>'
+MDT flags = interruptible/magic/poison/disease/curse/bleed/enrage (static, from MDT data)
+Dungeons: 8 | Spells: 657 (tooltip ok 657, missing 0)
+
+### Dungeon: Algeth'ar Academy [45] | Total Forces: 460
+-- Corrupted Manafiend | NPC 196045 | Trash | HP 1.52m | Lv 90 | Elemental | Forces 5 | CC: Banish,Disorient,Fear,Grip,Incapacitate,Knock,Mind Control,Root,Silence,Sleep Walk,Slow,Stun,Taunt
+* [387523] Return to Book | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > The creature's essence is recalled back to the Magic Book.
+* [388862] Surge | cast 3.1s | MDT: interruptible
+  > 100 yd range
+  > 3.1 sec cast
+  > Inflicts 95,753 Arcane damage to target enemy.
+* [388863] Mana Void | instant | MDT: -
+  > Instant
+  > Infuses the target with a corrupted void, inflicting 9,574 Arcane damage every 1 sec for 6 sec. Upon expiration, the void condenses inflicting 2,921 Arcane damage and draining 1,200 Mana from players within 4 yards.
+* [388866] Mana Void | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Infuses the target with a corrupted void, inflicting 9,574 Arcane damage every 1 sec for 6 sec. Upon expiration, the void condenses inflicting 2,921 Arcane damage and draining 1,200 Mana from players within 4 yards.
+-- Spellbound Battleaxe | NPC 196577 | Trash | HP 1.67m | Lv 90 | Elemental | Forces 5 | CC: Disorient,Fear,Grip,Incapacitate,Knock,Root,Silence,Sleep Walk,Slow,Stun,Taunt
+* [387523] Return to Book | instant | MDT: -
+  > (see [387523] above)
+* [388841] Spellbound Weapon | instant | MDT: -
+  > Instant
+  > Melee attacks inflict additional 21,886 Arcane damage.
+* [1270098] Spellbound Weapon | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Melee attacks inflict additional 21,886 Arcane damage.
+-- Arcane Ravager | NPC 196671 | Trash | HP 3.65m | Lv 91 | Beast | Forces 15 | CC: Taunt
+* [388940] Vicious Ambush | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Ambushes the target in a whirl of energy inflicting 32,829 Arcane damage to players within 6 yards and knocking them back. Arcane energy lingers on the damaged players for 8 sec, inflicting 32,829 damage every 5.2 sec.
+* [388942] Vicious Ambush | cast 2.7s | MDT: -
+  > 60 yd range
+  > 2.7 sec cast
+  > Ambushes the target in a whirl of energy inflicting 32,829 Arcane damage to players within 6 yards and knocking them back. Arcane energy lingers on the damaged players for 8 sec, inflicting 32,829 damage every 5.2 sec.
+* [388957] Riftbreath | instant | MDT: -
+  > Instant
+  > The Ravager channels a breath of powerful energy, inflicting 16,415 Arcane damage every 0.3 sec for 2.5 sec.
+
+* [388958] Riftbreath | instant | MDT: -
+  > Channeled
+  > The Ravager channels a breath of powerful energy, inflicting 16,415 Arcane damage every 0.3 sec for 2.5 sec.
+
+
+* [388976] Riftbreath | cast 1.9s | MDT: -
+  > 100 yd range
+  > 1.9 sec cast
+  > The Ravager channels a breath of powerful energy, inflicting 16,415 Arcane damage every 0.3 sec for 2.5 sec.
+
+* [388982] Vicious Ambush | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Ambushes the target in a whirl of energy inflicting 32,829 Arcane damage to players within 6 yards and knocking them back. Arcane energy lingers on the damaged players for 8 sec, inflicting 32,829 damage every 5.2 sec.
+* [388984] Vicious Ambush | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Ambushes the target in a whirl of energy inflicting 32,829 Arcane damage to players within 6 yards and knocking them back. Arcane energy lingers on the damaged players for 8 sec, inflicting 32,829 damage every 5.2 sec.
+-- Arcane Forager | NPC 196694 | Trash | HP 1.22m | Lv 90 | Elemental | Forces 4 | CC: Banish,Disorient,Fear,Grip,Incapacitate,Knock,Mind Control,Root,Silence,Sleep Walk,Slow,Stun,Taunt
+* [389054] Vicious Lunge | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > Lunges at the target and bites them inflicting 24,621 Physical damage.
+* [389055] Vicious Lunge | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Lunges at the target and bites them inflicting 24,621 Physical damage.
+-- Unruly Textbook | NPC 196044 | Trash | HP 1.22m | Lv 90 | Elemental | Forces 4 | CC: Disorient,Fear,Grip,Incapacitate,Knock,Root,Silence,Sleep Walk,Slow,Stun,Taunt
+* [387523] Return to Book | instant | MDT: -
+  > (see [387523] above)
+* [388392] Monotonous Lecture | cast 3.1s | MDT: interruptible,magic
+  > 3.1 sec cast
+  > Bores the target to sleep with a stodgy lesson.
+-- Vexamus | NPC 194181 | BOSS (enc 2509) | HP 11.07m | Lv 92 | Elemental | Forces 0 | CC: Taunt
+* [385958] Arcane Expulsion | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Vexamus ejects a mass of arcane energy inflicting 95,753 Arcane damage to players in front of it.
+* [386173] Mana Bombs | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > Vexamus infuses up to 3 players with explosive mana, inflicting 13,678 Arcane damage every 1 sec for 4 sec. Upon expiration, the mana will detonate inflicting 27,358 Arcane damage within 4 yards and leaving a pool of Corrupted Mana for 1 min.
+* [386181] Mana Bomb | instant | MDT: -
+  > Vexamus infuses up to 3 players with explosive mana, inflicting 13,678 Arcane damage every 1 sec for 4 sec. Upon expiration, the mana will detonate inflicting 27,358 Arcane damage within 4 yards and leaving a pool of Corrupted Mana for 1 min.
+* [386201] Corrupted Mana | instant | MDT: -
+  > Corrupted Mana inflicts 49,245 Arcane damage every 1 sec to players inside and reduces their movement speed by 30%.
+* [386202] Mana Bomb | instant | MDT: -
+  > Vexamus infuses up to 3 players with explosive mana, inflicting 13,678 Arcane damage every 1 sec for 4 sec. Upon expiration, the mana will detonate inflicting 27,358 Arcane damage within 4 yards and leaving a pool of Corrupted Mana for 1 min.
+* [387691] Arcane Orbs | instant | MDT: -
+  > The Professor conjures enchanted orbs from the magic book that inflict 82,074 Arcane damage within 3 yards of impact and begin to gravitate towards Vexamus.
+
+If an orb is absorbed by Vexamus, the elemental inflict 32,829 Arcane damage to all players. If an orb is absorbed by a player, it will inflict 24,813 Arcane damage to them.
+* [388537] Arcane Fissure | cast 2.3s | MDT: -
+  > Unlimited range
+  > 2.3 sec cast
+  > Upon reaching 100 energy, Vexamus explodes with overwhelming power inflicting 43,772 Arcane damage to all players and pushing them back. Fissures erupt multiple times at player locations, each inflicting 82,074 Arcane damage within 4 yards.
+* [388546] Arcane Fissure | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Upon reaching 100 energy, Vexamus explodes with overwhelming power inflicting 43,772 Arcane damage to all players and pushing them back. Fissures erupt multiple times at player locations, each inflicting 82,074 Arcane damage within 4 yards.
+* [388651] Arcane Fissure | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Upon reaching 100 energy, Vexamus explodes with overwhelming power inflicting 43,772 Arcane damage to all players and pushing them back. Fissures erupt multiple times at player locations, each inflicting 82,074 Arcane damage within 4 yards.
+-- Guardian Sentry | NPC 192680 | Trash | HP 4.56m | Lv 91 | Elemental | Forces 18 | CC: Taunt
+* [377912] Expel Intruders | cast 4.3s | MDT: -
+  > 4.3 sec cast
+  > Knocks all enemies within 30 yards of the caster back.
+Inflicts 82,074 Nature damage to enemies within 30 yards.
+* [377991] Storm Slash | cast 3.0s | MDT: -
+  > 100 yd range
+  > 3 sec cast
+  > Inflicts 68,396 Nature damage to an enemy.
+* [378003] Deadly Winds | cast 1.9s | MDT: -
+  > 100 yd range
+  > 1.9 sec cast
+  > Creates a deadly storm at a target location.
+* [378011] Deadly Winds | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Stuns an enemy, rendering it unable to move or attack for 2.5 sec.
+Inflicts 54,716 Nature damage to an enemy.
+-- Territorial Eagle | NPC 192329 | Trash | HP 759k | Lv 90 | Beast | Forces 2 | CC: Disorient,Fear,Grip,Hibernate,Imprison,Incapacitate,Knock,Mind Control,Polymorph,Root,Sap,Scare Beast,Silence,Sleep Walk,Slow,Stun,Taunt
+* [377344] Peck | instant | MDT: bleed
+  > 100 yd range
+  > Instant
+  > Territorial Eagle pecks at the target, causing them to bleed 4,103 Physical every 1.5 sec for 6 sec.
+* [377389] Raging Screech | cast 2.3s | MDT: enrage
+  > 2.3 sec cast
+  > The caster unleashes a resounding shriek, increasing the attack speed of all nearby eagles by 50% for 10 sec and inflicting 41,037 Sonic damage to enemies within 60 yards.
+-- Alpha Eagle | NPC 192333 | Trash | HP 2.28m | Lv 91 | Beast | Forces 15 | CC: Taunt
+* [377383] Gust | cast 1.9s | MDT: -
+  > 100 yd range
+  > 1.9 sec cast
+  > Knocks all enemies in front of the caster back.
+Inflicts 95,753 Nature damage to all enemies in front of the caster.
+* [377389] Raging Screech | cast 2.3s | MDT: enrage
+  > (see [377389] above)
+* [1276632] Raging Screech | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > The caster unleashes a resounding shriek, increasing the attack speed of all nearby eagles by 50% for 10 sec and inflicting 41,037 Sonic damage to enemies within 60 yards.
+-- Crawth | NPC 191736 | BOSS (enc 2495) | HP 15.82m | Lv 92 | Beast | Forces 0 | CC: Taunt
+* [181089] Encounter Event | instant | MDT: -
+  > Instant
+  > An encounter event has occurred.
+* [376997] Savage Peck | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Crawth viciously pecks at her target, inflicting 123,112 Physical damage instantly with an additional 19,150 Physical damage every 1 sec for 10 sec.
+* [377004] Deafening Screech | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > Crawth releases a loud screech, causing a sonic eruption at all player locations, inflicting 32,829 Nature damage and additional 10,943 Nature damage every 1 sec for 8 sec to all players within 4 yards of each location.
+
+This effect interrupts spell casts and also silences any player interrupted in this manner for 6 sec.
+* [377009] Deafening Screech | instant | MDT: -
+  > 300 yd range
+  > Instant
+  > Crawth releases a loud screech, causing a sonic eruption at all player locations, inflicting 32,829 Nature damage and additional 10,943 Nature damage every 1 sec for 8 sec to all players within 4 yards of each location.
+
+This effect interrupts spell casts and also silences any player interrupted in this manner for 6 sec.
+* [377034] Overpowering Gust | cast 2.3s | MDT: -
+  > 300 yd range
+  > 2.3 sec cast
+  > Crawth faces a random player and flaps her wings, inflicting 136,790 Nature damage and knocking back all players in front of her.
+* [1276752] Ruinous Winds | cast 15.5s | MDT: -
+  > 100 yd range
+  > 16 sec cast
+  > At 75% and 45% health, Crawth unleashes a devasting gust of winds every 3 sec, inflicting 54,716 Nature damage to all players and knocking them back.
+* [1285508] Blistering Fire | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Fire emits searing heat that inflicts 9,574 Fire damage every 2 sec to all players.
+* [1285509] Blistering Fire | instant | MDT: -
+  > Instant
+  > Fire emits searing heat that inflicts 9,574 Fire damage every 2 sec to all players.
+-- Aggravated Skitterfly | NPC 197406 | Trash | HP 1.22m | Lv 90 | Beast | Forces 4 | CC: Banish,Disorient,Fear,Grip,Imprison,Incapacitate,Knock,Mind Control,Polymorph,Root,Sap,Silence,Sleep Walk,Slow,Stun,Taunt
+* [390938] Agitation | instant | MDT: enrage
+  > Instant
+  > Causes the caster to inflict 15% increased Physical damage.
+* [390942] Darting Sting | instant | MDT: -
+  > 50 yd range
+  > Instant
+  > The caster charges and stings an enemy, inflicting 21,886 Nature damage.
+* [390944] Darting Sting | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > The caster charges and stings an enemy, inflicting 21,886 Nature damage.
+-- Vile Lasher | NPC 197219 | Trash | HP 2.73m | Lv 91 | Elemental | Forces 9 | CC: Taunt
+* [390912] Detonation Seeds | instant | MDT: -
+  > 50 yd range
+  > Instant
+  > The caster creates exploding seeds, inflicting 82,074 Nature damage and Disorients all players within 6 yards of impact.
+* [390915] Detonation Seeds | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The caster creates exploding seeds, inflicting 82,074 Nature damage and Disorients all players within 6 yards of impact.
+* [390918] Seed Detonation | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > The caster creates exploding seeds, inflicting 82,074 Nature damage and Disorients all players within 6 yards of impact.
+* [1282244] Vile Bite | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Inflicts 109,433 Physical damage to an enemy.
+Inflicts 13,678 Physical damage to an enemy every 1 sec for 8 sec.
+-- Hungry Lasher | NPC 197398 | Trash | HP 759k | Lv 90 | Elemental | Forces 2 | CC: Banish,Disorient,Fear,Grip,Incapacitate,Knock,Mind Control,Root,Silence,Sleep Walk,Slow,Stun,Taunt
+-- Overgrown Ancient | NPC 196482 | BOSS (enc 2512) | HP 9.49m | Lv 92 | Elemental | Forces 0 | CC: Taunt
+* [388544] Barkbreaker | cast 0.8s | MDT: -
+  > 0.78 sec cast
+  > The Overgrown Ancient stomps its target with crushing force, inflicting 131,319 Physical damage and increasing Physical damage taken by 100% for 9 sec.
+* [388623] Branch Out | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > The Overgrown Ancient throws one of its own branches at a location, inflicting 82,074 Physical damage to players within 8 yds and knocking them back.
+
+The Ancient Branch then animates and attacks players.
+* [388796] Germinate | instant | MDT: -
+  > Channeled
+  > The Overgrown Ancient forces dormant lasher seeds beneath all players' feet to sprout every 1 sec for 4 sec.
+
+Each emerging seed inflicts 68,396 Physical damage to players within 4 yds and knocks them back, then leaves behind a dormant Hungry Lasher.
+* [388799] Germinate | instant | MDT: -
+  > The Overgrown Ancient forces dormant lasher seeds beneath all players' feet to sprout every 1 sec for 4 sec.
+
+Each emerging seed inflicts 68,396 Physical damage to players within 4 yds and knocks them back, then leaves behind a dormant Hungry Lasher.
+* [388923] Burst Forth | cast 2.3s | MDT: -
+  > 100 Energy
+  > 2.3 sec cast
+  > Upon reaching 100 energy, the Overgrown Ancient releases its abundant life magic to awaken all dormant Lashers, inflicting 43,772 Nature damage to all players as they burst free from the ground.
+* [390297] Dormant | instant | MDT: -
+  > Instant
+  > Life energy suppressed by nearby Vile Lashers.
+* [396716] Splinterbark | instant | MDT: bleed
+  > Splinters erupt from the Ancient as its branch is torn away, causing all players to bleed for 27,358 every 3 sec for 1 min. This effect stacks.
+-- Algeth'ar Echoknight | NPC 196200 | Trash | HP 2.73m | Lv 91 | Dragonkin | Forces 15 | CC: Disorient,Fear,Grip,Hibernate,Incapacitate,Knock,Mind Control,Mind Soothe,Repentance,Root,Sap,Silence,Sleep Walk,Slow,Stun,Taunt
+* [1270349] Astral Whirlwind | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Manifests an astral projection at a target enemy's location. The projection starts an astral whirlwind after 3 sec, inflicting 21,886 Arcane damage every 0.5 sec to enemies within 8 yards for 15 sec.
+* [1270356] Arcane Smash | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Inflicts 49,245 Arcane damage to enemies within 100 yards.
+-- Spectral Invoker | NPC 196202 | Trash | HP 1.67m | Lv 90 | Dragonkin | Forces 5 | CC: Disorient,Fear,Grip,Hibernate,Incapacitate,Knock,Mind Control,Mind Soothe,Repentance,Root,Sap,Silence,Sleep Walk,Slow,Stun,Taunt
+* [1279627] Arcane Bolt | cast 1.9s | MDT: interruptible
+  > 60 yd range
+  > 1.9 sec cast
+  > Inflicts 32,829 Arcane damage to an enemy.
+-- Echo of Doragosa | NPC 190609 | BOSS (enc 2514) | HP 14.24m | Lv 92 | Dragonkin | Forces 0 | CC: Mind Soothe,Taunt
+* [373326] Arcane Missiles | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The Echo of Doragosa inflicts 27,358 Arcane damage to a player.
+
+Applies Overwhelming Power to the target.
+
+* [374343] Energy Bomb | cast 1.2s | MDT: -
+  > 100 yd range
+  > 1.2 sec cast
+* [374350] Energy Bomb | instant | MDT: magic
+  > 100 yd range
+  > Instant
+  > The Echo of Doragosa marks random players with arcane energy for 6 sec.  When the Energy Bomb expires, it inflicts 32,829 Arcane damage to all players within 8 yards.
+
+Applies Overwhelming Power to the target.
+* [374352] Energy Bomb | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The Echo of Doragosa marks random players with arcane energy for 6 sec.  When the Energy Bomb expires, it inflicts 32,829 Arcane damage to all players within 8 yards.
+
+Applies Overwhelming Power to the target.
+* [388822] Power Vacuum | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > The Echo of Doragosa pulls all players to her location, then strikes with explosive energy inflicting 109,433 Arcane damage and knocking back all players within 20 yards.
+
+Applies Overwhelming Power to anyone hit.
+* [439488] Unleash Energy | cast 1.6s | MDT: -
+  > 1.6 sec cast
+  > The Echo of Doragosa unleashes powerful arcane energy, inflicting 27,358 Arcane damage to all players and opening Arcane Rifts in nearby locations.
+* [1279418] Arcane Rift | instant | MDT: -
+  > The excess power coalesces into a rift of arcane energy, inflicting 24,813 Arcane damage every 1 sec to players within. This rift occasionally releases Uncontrolled Energy.
+* [1282251] Astral Blast | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > The Echo of Doragosa blasts the target player with powerful arcane energy, inflicting 82,074 Arcane damage and applying Overwhelming Power.
+* [1282252] Astral Blast | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The Echo of Doragosa blasts the target player with powerful arcane energy, inflicting 82,074 Arcane damage and applying Overwhelming Power.
+
+### Dungeon: Seat of the Triumvirate [11] | Total Forces: 568
+-- Merciless Subjugator | NPC 124171 | Trash | HP 1.97m | Lv 91 | Humanoid | Forces 10 | CC: -
+* [1262506] Leeching Void | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Absorb 99,251 incoming healing.
+Drains health from the target every 2 sec, healing up to 5 nearby allies for 5% of their health.
+
+* [1262509] Chains of Subjugation | cast 1.6s | MDT: -
+  > 60 yd range
+  > 1.6 sec cast
+  > Inflicts 16,415 Shadow damage to chained enemy every 1.5 sec and reduces their movement speed by 40%.
+
+* [1277343] Chains of Subjugation | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > Inflicts 16,415 Shadow damage to chained enemy every 1.5 sec and reduces their movement speed by 40%.
+
+-- Rift Warden | NPC 122571 | Trash | HP 2.89m | Lv 91 | Aberration | Forces 20 | CC: -
+* [1264505] Enveloping Darkness | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Void energy erupts from the unit every 4 sec.
+* [1264532] Void Expulsion | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Void expulses from the Rift Warden, inflicting 32,829 Shadow damage to all enemies and additional 68,396 Shadow damage to enemies within 5 yards of impact.
+* [1264569] Void Expulsion | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Void expulses from the Rift Warden, inflicting 32,829 Shadow damage to all enemies and additional 68,396 Shadow damage to enemies within 5 yards of impact.
+* [1280330] Rift Essence | cast 2.3s | MDT: magic
+  > 100 yd range
+  > 2.3 sec cast
+  > Afflicts target players with essence of the void rift, increasing their Shadow damage taken by 20%.
+-- Ruthless Riftstalker | NPC 122413 | Trash | HP 1.59m | Lv 90 | Humanoid | Forces 9 | CC: -
+* [1262519] Backstab | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Create clones to stab 2 random enemies in the back, inflicting 8,207 Physical damage and causing them to bleed, inflicting additional 21,886 Physical damage every 2 sec for 8 sec.
+* [1277339] Shadowmend | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Caster teleports to a nearby location and begins healing itself with void energy, recovering 2% of their max health every 1 sec.
+* [1277340] Shadowmend | instant | MDT: interruptible
+  > Channeled
+  > Caster teleports to a nearby location and begins healing itself with void energy, recovering 2% of their max health every 1 sec.
+-- Ravenous Umbralfin | NPC 255320 | Trash | HP 1.44m | Lv 90 | Beast | Forces 8 | CC: -
+* [1264670] Devouring Frenzy | instant | MDT: -
+  > Instant
+  > Melee attacks heals the caster for 6,839 of their maximum health.
+* [1264678] Devouring Frenzy | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Melee attacks heals the caster for 6,839 of their maximum health.
+-- Umbral War-Adept | NPC 122421 | Trash | HP 2.73m | Lv 91 | Humanoid | Forces 15 | CC: -
+* [1269183] Void Burst | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Slams the weapon into the ground and causes void energy to burst from the ground after 3 sec, inflicting 49,245 Shadow damage to enemies hit.
+* [1280326] Void Bash | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Knocks an enemy back.
+Inflicts 60,188 Shadow damage to an enemy.
+-- Dire Voidbender | NPC 122404 | Trash | HP 1.44m | Lv 90 | Humanoid | Forces 8 | CC: -
+* [1262526] Abyssal Enhancement | cast 3.1s | MDT: interruptible,magic
+  > 3.1 sec cast
+  > Infuses the weapon with void energy, causing melee attacks to unleash void energy on target enemy and nearby players, inflicting Shadow damage.
+* [1262527] Abyssal Enhancement | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > Infuses the weapon with void energy, causing melee attacks to unleash void energy on target enemy and nearby players, inflicting Shadow damage.
+-- Void-Infused Destroyer | NPC 252756 | Trash | HP 2.73m | Lv 91 | Mechanical | Forces 15 | CC: -
+* [1262335] Void Cleave | cast 3.5s | MDT: -
+  > 50 yd range
+  > 3.5 sec cast
+  > Inflicts 109,433 Shadow damage to all enemies in front of the caster.
+* [1262429] Eruption | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Blasts target players with void energy, inflicting 38,301 Shadow damage and additional 10,943 Shadow damage every 1 sec for 8 sec to all players within 6 yards of impact and knocking them into the air.
+* [1262441] Eruption | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Blasts target players with void energy, inflicting 38,301 Shadow damage and additional 10,943 Shadow damage every 1 sec for 8 sec to all players within 6 yards of impact and knocking them into the air.
+-- Grand Shadow-Weaver | NPC 122423 | Trash | HP 2.20m | Lv 91 | Humanoid | Forces 15 | CC: -
+* [1262508] Void Infusion | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Infuses the target with Void energy, inflicting 19,150 Shadow damage every 1 sec for 5 sec.
+* [1264286] Gate of the Abyss | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Summons a gate to the void that unleashes Umbral Waves.
+-- Viceroy Nezhar | NPC 122056 | BOSS (enc 2811) | HP 11.07m | Lv 92 | Humanoid | Forces 0 | CC: -
+* [244750] Mind Blast | cast 1.6s | MDT: interruptible
+  > 100 yd range
+  > 1.6 sec cast
+  > Viceroy Nezhar hurls a bolt of void energy at his target, inflicting 95,753 Shadow damage.
+* [246913] Void Phased | instant | MDT: -
+  > Instant
+  > Holds the target in stasis, making them immune to damage.
+* [1263528] Repulse | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Viceroy Nezhar unleashes a repulsing force that knocks all players back.
+* [1263529] Collapsing Void | cast 7.0s | MDT: -
+  > 7 sec cast
+  > At 100 energy, Nezhar teleports to the center of the room, knocking all players back while continuously pushing them with Repulsing Force. Void energy begins to collapse towards Nezhar, forming a Void Storm after 9 sec.
+* [1263532] Void Storm | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Raging storm that inflicts 24,621 Shadow damage every 2 sec for 10 sec. 
+
+Additionally, players inside the storm are suffer an additional 49,245 Shadow damage every 1 sec.
+* [1263538] Umbral Tentacles | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Nezhar summons void tentacles from underneath the ground.
+* [1263542] Mass Void Infusion | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Viceroy Nezhar infuses players with void energy, inflicting 16,415 Shadow damage every 1 sec for 5 sec.
+-- Zuraal the Ascended | NPC 122313 | BOSS (enc 2811) | HP 8.86m | Lv 92 | Humanoid | Forces 0 | CC: -
+* [244579] Decimate | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Zuraal infuses his fist with void energy and lashes out, inflicting 43,772 Shadow damage to their target and creating a pool of Void Sludge at their location.
+* [1263282] Decimate | cast 3.9s | MDT: -
+  > 100 yd range
+  > 3.9 sec cast
+  > Zuraal infuses his fist with void energy and lashes out, inflicting 43,772 Shadow damage to their target and creating a pool of Void Sludge at their location.
+* [1263297] Crashing Void | cast 3.9s | MDT: -
+  > 60 yd range
+  > 3.9 sec cast
+  > Upon reaching 100 energy, Zuraal begins to gather void energy around himself, pulling all players and Coalesced Void in. Zuraal unleashes the gathered void energy after 5 sec, inflicting 54,716 Shadow damage to all players and knocking them back.
+* [1263399] Oozing Slam | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Zuraal slams the ground with void energy, inflicting 32,829 Shadow damage to all players and inflicting additional 10,943 Shadow damage every 1 sec for 6 sec.
+
+The slam also spawns Coalesced Void in nearby locations.
+* [1263440] Void Slash | instant | MDT: -
+  > Channeled
+  > Zuraal unleashes three powerful swipes at his target, inflicting 82,074  Physical damage twice with another final strike inflicting 68,396 Shadow damage.
+
+* [1263484] Void Slash | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Zuraal unleashes three powerful swipes at his target, inflicting 82,074  Physical damage twice with another final strike inflicting 68,396 Shadow damage.
+
+* [1263492] Void Slash | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Zuraal unleashes three powerful swipes at his target, inflicting 82,074  Physical damage twice with another final strike inflicting 68,396 Shadow damage.
+
+* [1263494] Void Slash | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Zuraal unleashes three powerful swipes at his target, inflicting 82,074  Physical damage twice with another final strike inflicting 68,396 Shadow damage.
+
+* [1268916] Null Palm | cast 2.7s | MDT: -
+  > 100 yd range
+  > 2.7 sec cast
+  > Zuraal releases a cresting wave of chaotic magic, inflicting 109,433 Shadow damage to all players in front of himself.
+
+-- Saprish | NPC 122316 | BOSS (enc 2811) | HP 23.73m | Lv 92 | Humanoid | Forces 0 | CC: -
+* [246943] Dark Bond | instant | MDT: -
+  > Instant
+  > Damage dealt is shared between Saprish and his pets.
+* [1263523] Overload | cast 3.1s | MDT: -
+  > 100 yd range
+  > 3.1 sec cast
+  > Saprish releases a massive blast, inflicting 27,358 Shadow damage to all players and 19,150 Shadow damage every 2 sec for 8 sec.
+
+This blast ignites all Void Bombs, inflicting 13,678 Shadow damage to all players and applying Seeping Void.
+* [1280065] Phase Dash | cast 4.7s | MDT: -
+  > 100 yd range
+  > 4.7 sec cast
+  > Saprish creates void shades that dash towards each player, inflicting 13,678 Shadow damage to all players within 8 yards of impact. This effect detonates all Void Bomb hit, triggering Umbral Nova.
+
+-- Darkfang | NPC 122319 | BOSS (enc 2811) | HP 23.73m | Lv 92 | Beast | Forces 0 | CC: -
+* [245742] Shadow Pounce | instant | MDT: bleed
+  > 100 yd range
+  > Instant
+  > Darkfang pounces on a player, inflicting 16,415 Physical damage and additional 13,678 Physical damage every 1 sec for 5 sec.
+* [246943] Dark Bond | instant | MDT: -
+  > (see [246943] above)
+-- Famished Broken | NPC 122322 | Trash | HP 608k | Lv 90 | Humanoid | Forces 1 | CC: -
+* [1269468] Rupture | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Inflicts 41,037 Shadow damage to enemies within 2 yards of the impact.
+* [1269469] Rupture | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Inflicts 5,472 Shadow damage to enemies within 100 yards.
+* [1269470] Rupture | instant | MDT: -
+  > Instant
+  > On death, void energy ejects from unit's body.
+-- Shadowguard Champion | NPC 122403 | Trash | HP 1.67m | Lv 90 | Humanoid | Forces 3 | CC: -
+* [1262517] Relentless Pursuit | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Charges towards target enemy and unleashes a powerful slash when they are 10 yards away, inflicting 41,037 Physical damage and causing them to bleed for additional 41,037 Physical damage every 5.2 sec for 4 sec. This effect stacks.
+* [1264036] Battle Rage | instant | MDT: enrage
+  > 50 yd range
+  > Instant
+  > Increases the caster's attack speed by 50% for 15 sec.
+-- Dark Conjurer | NPC 122405 | Trash | HP 1.29m | Lv 90 | Humanoid | Forces 7 | CC: -
+* [1262510] Umbral Bolt | cast 1.9s | MDT: interruptible
+  > 100 yd range
+  > 1.9 sec cast
+  > Inflicts 32,829 Shadow damage to an enemy.
+* [1262522] Pulsing Void | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > Pulses void energy while in combat, inflicting 8,207 Shadow damage every 2 sec to all enemies within 60 yards.
+* [1262523] Summon Voidcaller | cast 3.1s | MDT: interruptible
+  > 100 yd range
+  > 3.1 sec cast
+  > Reach into the void, summons a Bound Voidlord to assist in combat.
+-- Bound Voidcaller | NPC 122412 | Trash | HP 759k | Lv 90 | Aberration | Forces 0 | CC: -
+-- Coalesced Void | NPC 122716 | Trash | HP 349k | Lv 90 | Aberration | Forces 0 | CC: -
+-- Umbral Tentacle | NPC 122827 | Trash | HP 209k | Lv 90 | Aberration | Forces 0 | CC: -
+* [249082] Unstable Entrance | instant | MDT: -
+  > Instant
+  > Void tentacle tears into reality, inflicting 6,839 Shadow damage to all players.
+* [1268733] Mind Flay | instant | MDT: -
+  > 100 yd range
+  > Channeled
+  > The Umbral Tentacle assaults a player's mind, inflicting 19,150 Shadow damage every 2 sec for 10 sec.
+
+-- L'ura | NPC 124729 | BOSS (enc 2811) | HP 22.02m | Lv 92 | Not specified | Forces 0 | CC: -
+* [1264159] Disintegrate | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > L'ura channels revolving void beams, inflicting 95,753 Shadow damage to players struck.
+* [1264196] Disintegrate | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > L'ura channels revolving void beams, inflicting 95,753 Shadow damage to players struck.
+* [1265419] Notes of Despair | instant | MDT: -
+  > Channeled
+  > L'ura sings her dark song, inflicting 2,051 Shadow damage to all players every 0.3 sec for 1.5 sec. This song creates multiple Note of Despair.
+* [1265420] Note of Despair | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > L'ura sings her dark song, inflicting 2,051 Shadow damage to all players every 0.3 sec for 1.5 sec. This song creates multiple Note of Despair.
+* [1265421] Dirge of Despair | cast 3.1s | MDT: -
+  > 100 yd range
+  > 3.1 sec cast
+  > L'ura performs the Dirge of Despair, immediately inflicting 27,358 Shadow damage to all players. This song causes all Note of Despair to radiates 2,735 Shadow damage every 2 sec until they are silenced.
+* [1265426] Discordant Beam | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > L'ura blasts target players with sonic energy, inflicting 32,829 Physical damage to all players in the line and silencing any Note of Despair hit. This damage ignores armor.
+* [1265463] Discordant Beam | cast 5.4s | MDT: -
+  > 100 yd range
+  > 5.4 sec cast
+  > L'ura blasts target players with sonic energy, inflicting 32,829 Physical damage to all players in the line and silencing any Note of Despair hit. This damage ignores armor.
+* [1265689] Grim Chorus | cast 4.3s | MDT: -
+  > 4.3 sec cast
+  > L'ura shifts the Notes of Despair and begins a Grim Chorus for 20 sec, inflicting 68,396 to players within 23 yards of each active Note of Despair.
+Each active Note of Despair afflicts players with Anguish every 2 sec until the Notes of Despair are destroyed.
+* [1265999] Siphon Void | cast 0.8s | MDT: -
+  > 100 yd range
+  > 0.78 sec cast
+  > Alleria drains the power of L'ura, stunning her and increasing her damage taken by 200% for 20 sec.
+* [1266001] Backlash | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > L'ura breaks out of Alleria's hold and unleashes a wave of void energy that inflicts 49,245 Shadow damage to all players, knocking them back.
+* [1266003] Symphony of the Eternal Night | cast 7.8s | MDT: -
+  > 100 yd range
+  > 7.8 sec cast
+  > L'ura channels the Eternal Night, attempting to instantly kill all players.
+* [1267207] Abyssal Lance | instant | MDT: -
+  > Instant
+  > L'ura passively tears open a rift to the void every 4 sec. After 3 rifts are opened, L'ura summons an Abyssal Lance from each of them, inflicting 27,358 Shadow damage to her target for each lance. This effect closes the rifts.
+* [1267274] Void Portal | instant | MDT: -
+  > Instant
+  > L'ura passively tears open a rift to the void every 4 sec. After 3 rifts are opened, L'ura summons an Abyssal Lance from each of them, inflicting 27,358 Shadow damage to her target for each lance. This effect closes the rifts.
+* [1268598] Abyssal Lance | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > L'ura passively tears open a rift to the void every 4 sec. After 3 rifts are opened, L'ura summons an Abyssal Lance from each of them, inflicting 27,358 Shadow damage to her target for each lance. This effect closes the rifts.
+* [1268646] Abyssal Lance | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > L'ura passively tears open a rift to the void every 4 sec. After 3 rifts are opened, L'ura summons an Abyssal Lance from each of them, inflicting 27,358 Shadow damage to her target for each lance. This effect closes the rifts.
+* [1268647] Abyssal Lance | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > L'ura passively tears open a rift to the void every 4 sec. After 3 rifts are opened, L'ura summons an Abyssal Lance from each of them, inflicting 27,358 Shadow damage to her target for each lance. This effect closes the rifts.
+-- Shadewing | NPC 125340 | BOSS (enc 2811) | HP 23.73m | Lv 92 | Beast | Forces 0 | CC: -
+* [246943] Dark Bond | instant | MDT: -
+  > (see [246943] above)
+* [248829] Swoop | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Shadewing swoops down on a random player, inflicting 32,829 Physical damage. After reaching their destination, Shadewing releases a Dread Screech.
+
+* [248830] Swoop | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Shadewing swoops down on a random player, inflicting 32,829 Physical damage. After reaching their destination, Shadewing releases a Dread Screech.
+
+* [248831] Dread Screech | cast 3.9s | MDT: interruptible
+  > 3.9 sec cast
+  > Shadewing releases a piercing screech, inflicting 54,716 Shadow damage and disorienting all players for 4 sec.
+
+-- Depravation Wave Stalker | NPC 255551 | Trash | HP 198k | Lv 90 | Not specified | Forces 0 | CC: -
+-- Void Tentacle | NPC 256424 | Trash | HP 304k | Lv 90 | Aberration | Forces 0 | CC: -
+* [1269081] Void Slam | cast 0.5s | MDT: -
+  > 100 yd range
+  > 0.54 sec cast
+  > Slams the ground that triggers a shockwave of void energy, inflicting 68,396 Shadow damage to all enemies and knocking them back.
+-- Shadowguard Champion | NPC 256574 | Trash | HP 1.67m | Lv 90 | Humanoid | Forces 0 | CC: -
+* [1262517] Relentless Pursuit | instant | MDT: -
+  > (see [1262517] above)
+* [1264036] Battle Rage | instant | MDT: enrage
+  > (see [1264036] above)
+
+### Dungeon: Pit of Saron [150] | Total Forces: 643
+-- Deathwhisper Necrolyte | NPC 252551 | Trash | HP 1.37m | Lv 90 | Undead | Forces 15 | CC: -
+* [1258448] Necromantic Infusion | instant | MDT: magic
+  > Instant
+  > The caster infuses an ally with power, increasing their haste by 50% for 12 sec.
+-- Risen Soldier | NPC 252602 | Trash | HP 334k | Lv 90 | Undead | Forces 0 | CC: -
+* [1258450] Charging Slash | instant | MDT: -
+  > Instant
+  > The caster charges to a player and slashes them, inflicting 21,886 Physical damage.
+* [1258451] Charging Slash | instant | MDT: -
+  > The caster charges to a player and slashes them, inflicting 21,886 Physical damage.
+-- Arcanist Cadaver | NPC 252603 | Trash | HP 1.37m | Lv 90 | Undead | Forces 0 | CC: -
+* [1258448] Necromantic Infusion | instant | MDT: magic
+  > (see [1258448] above)
+* [1271479] Netherburst | cast 3.9s | MDT: interruptible
+  > 3.9 sec cast
+  > The caster unleashes a burst of arcane power, inflicting 68,396 Arcane damage to players within 60 yards.
+-- Gloombound Shadebringer | NPC 252567 | Trash | HP 1.37m | Lv 90 | Undead | Forces 7 | CC: -
+* [1258431] Shadow Bolt | cast 1.9s | MDT: interruptible
+  > 60 yd range
+  > 1.9 sec cast
+  > Inflicts 32,829 Shadow damage to an enemy.
+-- Quarry Tormentor | NPC 252561 | Trash | HP 1.67m | Lv 90 | Undead | Forces 5 | CC: -
+* [1258433] Tormenting Blade | instant | MDT: -
+  > The caster inflicts additional Shadow damage with each weapon strike if their target's health is above 65%.
+* [1258434] Curse of Torment | instant | MDT: curse
+  > 60 yd range
+  > Instant
+  > The caster causes a player to absorb 54,588 healing and suffer 10,943 Shadow damage every 1 sec for 20 sec.
+-- Dreadpulse Lich | NPC 252563 | Trash | HP 2.28m | Lv 91 | Undead | Forces 15 | CC: -
+* [1258798] Dread Pulse | instant | MDT: -
+  > Under 50% health, the caster pulses shadowy energy every 2 sec that inflicts 12,311 Shadow damage to players within 60 yards.
+* [1258802] Dread Pulse | instant | MDT: -
+  > Under 50% health, the caster pulses shadowy energy every 2 sec that inflicts 12,311 Shadow damage to players within 60 yards.
+* [1258820] Torrent of Misery | instant | MDT: -
+  > Channeled
+  > The caster barrages a player with shadowy energy for 6 sec, inflicting 3,420 Shadow damage every 1 sec. This effect stacks.
+* [1258826] Torrent of Misery | instant | MDT: -
+  > The caster barrages a player with shadowy energy for 6 sec, inflicting 3,420 Shadow damage every 1 sec. This effect stacks.
+* [1271074] Icy Blast | cast 3.1s | MDT: interruptible
+  > 60 yd range
+  > 3.1 sec cast
+  > The caster inflicts 101,225 Frost damage to their current target.
+-- Rotting Ghoul | NPC 252558 | Trash | HP 1.52m | Lv 90 | Undead | Forces 5 | CC: -
+* [1258459] Rotting Strikes | instant | MDT: disease
+  > The caster rots the target with each melee strike, reducing their maximum health by 1% for 5 sec. This effect stacks.
+-- Ymirjar Graveblade | NPC 252610 | Trash | HP 2.73m | Lv 91 | Humanoid | Forces 11 | CC: -
+* [1258439] Frostbane Slash | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > The caster violently strikes its current target, inflicting 123,112 Physical damage and 27,358 Frost damage. This strike increases Frost damage taken by 100% for 8 sec.
+* [1258445] Frostbane Slash | instant | MDT: -
+  > The caster violently strikes its current target, inflicting 123,112 Physical damage and 27,358 Frost damage. This strike increases Frost damage taken by 100% for 8 sec.
+* [1278950] Melee | instant | MDT: -
+  > The caster inflicts Physical damage to its current target
+* [1278963] Dark Rupture | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > The caster stomps to rupture darkness underneath a player, inflicting 82,074 Shadow damage to players within 5 yards of the rupture.
+* [1278967] Dark Rupture | instant | MDT: -
+  > The caster stomps to rupture darkness underneath a player, inflicting 82,074 Shadow damage to players within 5 yards of the rupture.
+-- Leaping Geist | NPC 252559 | Trash | HP 759k | Lv 90 | Undead | Forces 2 | CC: -
+* [1258464] Leaping Maul | instant | MDT: -
+  > Instant
+  > The caster leaps to a player's location and lashes outward with its claws, inflicting 19,150 Physical damage to players within 3 yards.
+-- Plungetalon Gargoyle | NPC 252606 | Trash | HP 1.22m | Lv 90 | Undead | Forces 6 | CC: -
+* [1258997] Plungegrip | instant | MDT: interruptible
+  > The caster applies Stoneskin and pulls a player upward, inflicting 5,472 Physical damage every 1 sec for 12 sec.
+
+Upon interruption, the caster drops them. If the caster finishes channeling, they stun the victim for 5 sec.
+* [1271543] Stoneskin | instant | MDT: -
+  > The caster absorbs 263,014 damage. While protected, they are immune to silencing and crowd controlling effects.
+-- Lumbering Plaguehorror | NPC 252555 | Trash | HP 1.82m | Lv 90 | Undead | Forces 6 | CC: -
+* [1259116] Blight Splatter | instant | MDT: -
+  > Blight spews from the caster, causing players within it to suffer 27,358 Nature damage every 1 sec.
+* [1259132] Plague Frenzy | cast 1.6s | MDT: enrage
+  > 1.6 sec cast
+  > The caster ejects Plague Spew towards players and enrages for 24 sec, increasing its haste by 25% and causing Blight Splatter more frequently.
+-- Iceborn Proto-Drake | NPC 257190 | Trash | HP 1.82m | Lv 91 | Dragonkin | Forces 9 | CC: -
+* [1271009] Icy Strikes | instant | MDT: -
+  > Attacks from this creature inflict additional Frost damage.
+* [1278986] Frost Breath | cast 3.5s | MDT: -
+  > 3.5 sec cast
+  > The caster breathes frost in a frontal cone, inflicting 109,433 Frost damage to players hit.
+-- Wrathbone Enforcer | NPC 252565 | Trash | HP 1.67m | Lv 90 | Undead | Forces 5 | CC: -
+* [1258435] Sunderstrike | instant | MDT: -
+  > Instant
+  > The caster inflicts Physical damage to its target and sunders their armor, increasing their Physical damage taken by 15% for 8 sec. This effect stacks.
+-- Rimebone Coldwraith | NPC 252566 | Trash | HP 1.37m | Lv 90 | Undead | Forces 7 | CC: -
+* [1258436] Ice Bolt | cast 1.9s | MDT: interruptible
+  > 60 yd range
+  > 1.9 sec cast
+  > Inflicts 32,829 Frost damage to an enemy.
+* [1258437] Permeating Cold | instant | MDT: magic
+  > 60 yd range
+  > Instant
+  > The caster slows the movement speed of a player by 40% and inflicts 12,995 Frost damage every 1 sec for 15 sec.
+-- Glacieth | NPC 252564 | Trash | HP 5.47m | Lv 91 | Elemental | Forces 20 | CC: -
+* [1259188] Cryoburst | cast 3.9s | MDT: -
+  > 3.9 sec cast
+  > The caster launches icy shards at players, inflicting 41,037 Frost damage to players within 5 yards. The impact forms a Cryopatch.
+* [1259202] Cryoburst | instant | MDT: -
+  > The caster launches icy shards at players, inflicting 41,037 Frost damage to players within 5 yards. The impact forms a Cryopatch.
+* [1259205] Cryopatch | instant | MDT: -
+  > A slippery icy patch forms, inflicting 13,678 Frost damage every 2 sec to players standing on it.
+* [1259226] Focused Guard | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > The caster raises their shield, reducing damage from the front by 99% and inflicting 10,943 Frost damage to players within 60 yards every 1.5 sec for 12 sec.
+
+While guarding, attacks done to the caster from behind have 100% increased Critical Strike chance.
+* [1278754] Focused Guard | instant | MDT: -
+  > The caster raises their shield, reducing damage from the front by 99% and inflicting 10,943 Frost damage to players within 60 yards every 1.5 sec for 12 sec.
+
+While guarding, attacks done to the caster from behind have 100% increased Critical Strike chance.
+-- Krick | NPC 252621 | BOSS (enc 2658) | HP 13.92m | Lv 92 | Undead | Forces 0 | CC: -
+* [1264027] Shade Shift | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Krick releases a burst of dark energy and teleports to a ritual circle. This burst inflicts 21,886 Shadow damage to all players and an additional 5,472 Shadow damage every 1 sec for 12 sec.
+
+This ritual summons Shades of Krick nearby.
+* [1264246] Shade Shift | instant | MDT: -
+  > Krick releases a burst of dark energy and teleports to a ritual circle. This burst inflicts 21,886 Shadow damage to all players and an additional 5,472 Shadow damage every 1 sec for 12 sec.
+
+This ritual summons Shades of Krick nearby.
+* [1264363] Get 'Em, Ick! | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Krick teleports atop Ick, compelling Ick to enter a Lumbering Fixation.
+* [1278893] Death Bolt | cast 7.8s | MDT: interruptible
+  > 7.8 sec cast
+  > Krick fires a massive shadow bolt at a player that inflicts 98,490 Shadow damage.
+* [1279667] Shadow Lance | instant | MDT: -
+  > Instant
+  > While riding atop Ick, Krick throws dark energy at a player that inflicts 16,415 Shadow damage.
+* [1279668] Shadow Lancer | instant | MDT: -
+  > While riding atop Ick, Krick throws dark energy at a player that inflicts 16,415 Shadow damage.
+-- Ick | NPC 252625 | BOSS (enc 2658) | HP 13.92m | Lv 92 | Undead | Forces 0 | CC: -
+* [1264287] Blight Smash | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Ick smashes his target, inflicting 150,470 Physical damage and forming Blight.
+* [1264299] Blight | instant | MDT: -
+  > Ick's blight pools inflict 41,037 Nature damage every 1 sec.
+* [1264336] Plague Expulsion | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > Ick disgorges a wave of necrotic filth, inflicting 32,829 Nature damage to all players and launching Plague Globs towards them.
+* [1264349] Plague Globs | instant | MDT: -
+  > Globules of necrotic filth impact the ground, inflicting 68,396 Nature damage to players within 3 yards and forming Blight.
+* [1264453] Lumbering Fixation | cast 1.6s | MDT: -
+  > Ick fixates on a player for 5 sec, increasing his attack speed by 100% and ignoring other players at all costs. While fixating, he launches Plague Globs.
+
+Ick periodically changes which player he fixates upon.
+* [1264461] Plague Globs | instant | MDT: -
+  > Globules of necrotic filth impact the ground, inflicting 68,396 Nature damage to players within 3 yards and forming Blight.
+-- Forgemaster Garfrost | NPC 252635 | BOSS (enc 2658) | HP 11.87m | Lv 92 | Undead | Forces 0 | CC: -
+* [1261299] Throw Saronite | cast 1.6s | MDT: -
+  > 1.6 sec cast
+  > Garfrost throws saronite ore at players, inflicting 41,037 Physical damage to players within 10 yards of impact.
+
+The ore explodes into Ore Chunks when destroyed.
+* [1261315] Melee | instant | MDT: -
+  > Inflicts Physical damage to the target.
+* [1261546] Orebreaker | cast 3.5s | MDT: -
+  > 3.5 sec cast
+  > Garfrost unleashes a devastating mace slam on players within 5 yards of his primary target, inflicting 191,507 Physical damage and stunning them for 8 sec.
+
+If the slam strikes saronite ore, it no longer stuns, instead destroying the ore.
+* [1261799] Saronite Sludge | instant | MDT: -
+  > The smashed saronite oozes a harmful substance, inflicting 27,358 Shadow damage to players within it.
+* [1261806] Siphoning Chill | instant | MDT: -
+  > The Forgemaster's frozen core siphons heat from players, inflicting 10,259 Frost damage to all players every 2 sec.
+* [1261808] Siphoning Chill | instant | MDT: -
+  > The Forgemaster's frozen core siphons heat from players, inflicting 10,259 Frost damage to all players every 2 sec.
+* [1261847] Cryostomp | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > The Forgemaster's stomp causes an icy reverberation, inflicting 34,198 Physical damage to all players and sending out Cryoshards.
+
+This reverberation also destroys all saronite ore.
+* [1261921] Cryoshards | instant | MDT: magic
+  > Shards of ice slam into players, increasing their Frost damage taken by 50% and slowing them by 15% for 12 sec.
+* [1262029] Glacial Overload | cast 3.9s | MDT: -
+  > 3.9 sec cast
+  > Garfrost's overloaded forge pulses cold for 3.5 sec, increasing all player's Frost damage taken by 75% every 0.5 sec for 14 sec. This effect stacks.
+
+Saronite ore protects players from this effect.
+* [1272433] Ore Chunks | instant | MDT: -
+  > Chunks of saronite ore rain down, inflicting 82,074 Physical damage to players within 4 yards of each impact.
+-- Scourgelord Tyrannus | NPC 252648 | BOSS (enc 2658) | HP 11.71m | Lv 92 | Humanoid | Forces 0 | CC: -
+* [1262582] Scourgelord's Brand | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > Tyrannus knocks away his primary target with a powerful slash, branding them. This brand increases Shadow damage taken by 200% for 6 sec. Afterward, Tyrannus casts Scourgelord's Reckoning.
+* [1262596] Scourgelord's Brand | instant | MDT: -
+  > Tyrannus knocks away his primary target with a powerful slash, branding them. This brand increases Shadow damage taken by 200% for 6 sec. Afterward, Tyrannus casts Scourgelord's Reckoning.
+* [1263406] Army of the Dead | cast 3.9s | MDT: -
+  > 3.9 sec cast
+  > Scourgelord Tyrannus raises Rotlings from Bone Piles.
+* [1263671] Scourgelord's Reckoning | cast 1.6s | MDT: -
+  > 1.6 sec cast
+  > Tyrannus leaps at his primary target's location, delivering a heaving necrotic strike. This maneuver impacts players within 10 yards of the landing zone, inflicting 27,358 Physical damage and 82,074 Shadow damage.
+* [1263756] Death's Grasp | instant | MDT: -
+  > Channeled
+  > Hands of the dead emerge at the location of players, inflicting 82,074 Shadow damage to players within 6 yards and slowing them by 40% for 3 sec.
+* [1263766] Death's Grasp | instant | MDT: -
+  > Hands of the dead emerge at the location of players, inflicting 82,074 Shadow damage to players within 6 yards and slowing them by 40% for 3 sec.
+* [1276648] Bone Infusion | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Scourgelord Tyrannus stomps necrotic energy into the ground, inflicting 21,886 Shadow damage to all players and an additional 8,207 Shadow damage every 1 sec for 8 sec.
+-- Rimefang | NPC 252653 | BOSS (enc 2658) | HP 12.66m | Lv 92 | Undead | Forces 0 | CC: -
+* [1262739] Frost Spit | cast 1.6s | MDT: -
+  > 1.6 sec cast
+  > Rimefang spits frost at a player that inflicts 15,047 Frost damage.
+* [1262745] Rime Blast | cast 4.7s | MDT: -
+  > 4.7 sec cast
+  > Rimefang blasts a player with ice, inflicting 32,829 Frost damage to players within 6 yards and applying Frostbite. Any Bone Piles within the radius become frozen, preventing them from producing undead minions.
+* [1262750] Rime Blast | instant | MDT: -
+  > Rimefang blasts a player with ice, inflicting 32,829 Frost damage to players within 6 yards and applying Frostbite. Any Bone Piles within the radius become frozen, preventing them from producing undead minions.
+* [1263716] Frostbite | instant | MDT: -
+  > Rimefang chills his victim to the bone, inflicting 8,207 Frost damage every 1 sec for 8 sec.
+* [1276948] Ice Barrage | instant | MDT: -
+  > Channeled
+  > Rimefang spits icy chunks towards players for 4.5 sec, inflicting 82,074 Frost damage to players within 6 yards of each impact.
+* [1276973] Ice Barrage | instant | MDT: -
+  > Rimefang spits icy chunks towards players for 4.5 sec, inflicting 82,074 Frost damage to players within 6 yards of each impact.
+-- Rotling | NPC 254684 | Trash | HP 316k | Lv 90 | Undead | Forces 0 | CC: -
+-- Scourge Plaguespreader | NPC 254691 | Trash | HP 949k | Lv 90 | Undead | Forces 0 | CC: -
+* [1262941] Plague Bolt | cast 1.9s | MDT: interruptible
+  > 40 yd range
+  > 1.9 sec cast
+  > The Scourge Plaguespreader hurls putrid magic at a player that inflicts 32,829 Nature damage.
+* [1263000] Festering Pulse | instant | MDT: -
+  > The Scourge Plaguespreader's decaying presence inflicts 17,099 Nature damage to all players every 2 sec.
+-- Shade of Krick | NPC 255037 | BOSS (enc 2658) | HP 367k | Lv 90 | Undead | Forces 0 | CC: -
+* [1264186] Shadowbind | instant | MDT: interruptible,curse
+  > Channeled
+  > Krick's shade channels dark magic into a player, inflicting 13,268 Shadow damage every 1 sec and slowing their movement speed by 35%.
+* [1271678] Shade Bomb | instant | MDT: -
+  > Krick's shade explodes after 1 min, destroying itself. This inflicts 136,790 Shadow damage to all players and an additional 27,358 Shadow damage every 1 sec for 10 sec. This effect stacks.
+
+### Dungeon: Skyreach [151] | Total Forces: 431
+-- Soaring Chakram Master | NPC 76132 | Trash | HP 1.52m | Lv 90 | Humanoid | Forces 5 | CC: -
+* [1254666] Ricocheting Chakram | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Throws a wind chakram at target enemy that ricochets to 2 other nearby enemies, inflicting 21,886 Nature damage to all players hit.
+-- Driving Gale-Caller | NPC 78932 | Trash | HP 1.37m | Lv 90 | Humanoid | Forces 7 | CC: -
+* [1255377] Repel | cast 3.6s | MDT: interruptible
+  > 3.6 sec cast
+  > Inflicts 49,245 Nature damage to all enemies and knocks them back.
+-- Raging Squall | NPC 250992 | Trash | HP 911k | Lv 90 | Elemental | Forces 1 | CC: -
+* [1254676] Wind Claws | instant | MDT: -
+  > Instant
+  > Melee attacks also inflict 5,472 Nature damage.
+* [1254677] Wind Claws | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Inflicts 5,472 Nature damage to an enemy.
+* [1254678] Wrathful Wind | instant | MDT: enrage
+  > Instant
+  > Caster becomes enraged, increasing its Haste by 30% and pulses a powerful gust of wind that inflicts 8,207 Nature damage every 2 sec on all players.
+* [1254679] Wrathful Wind | instant | MDT: -
+  > Instant
+  > Caster becomes enraged, increasing its Haste by 30% and pulses a powerful gust of wind that inflicts 8,207 Nature damage every 2 sec on all players.
+* [1255922] Wind Blast | instant | MDT: -
+  > 12 yd range
+  > Instant
+  > Inflicts 82,074 nature damage to enemies within 8 yards of impact.
+-- Outcast Servant | NPC 75976 | Trash | HP 911k | Lv 90 | Humanoid | Forces 1 | CC: -
+-- Blinding Sun Priestess | NPC 79462 | Trash | HP 1.37m | Lv 90 | Humanoid | Forces 5 | CC: -
+* [152953] Blinding Light | cast 3.9s | MDT: interruptible
+  > 100 yd range
+  > 3.9 sec cast
+  > The caster creates an intense flash of light that stuns all enemies for 5 sec.
+* [1273356] Solar Barrier | instant | MDT: magic
+  > 60 yd range
+  > Instant
+  > Caster puts Solar Barrier on nearby allies, absorbing 173,688 incoming damage and causing them to radiates solar energy that inflicts 5,472 Fire damage every 2 sec.
+-- Initiate of the Rising Sun | NPC 79466 | Trash | HP 1.22m | Lv 90 | Humanoid | Forces 7 | CC: -
+* [1254669] Solar Bolt | cast 1.9s | MDT: interruptible,poison,disease,curse,bleed,enrage
+  > 100 yd range
+  > 1.9 sec cast
+  > Inflict 32,829 Fire damage to target enemy.
+-- Adept of the Dawn | NPC 79467 | Trash | HP 1.52m | Lv 90 | Humanoid | Forces 7 | CC: -
+* [1254671] Fiery Talon | instant | MDT: -
+  > Instant
+  > Melee attacks has a chance to sear the target, inflicting 5,472 Fire damage every 1 sec.
+* [1254672] Fiery Talon | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Melee attacks has a chance to sear the target, inflicting 5,472 Fire damage every 1 sec.
+-- Herald of Sunrise | NPC 78933 | Trash | HP 2.35m | Lv 91 | Elemental | Forces 15 | CC: -
+* [1254355] Solar Orb | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Summon a Solar Orb in a nearby location.
+* [1258217] Solar Fire | instant | MDT: -
+  > Channeled
+  > Strike nearby areas with solar fire, inflicting Fire damage to enemies within 4 yards of impact.
+* [1258220] Solar Fire | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Strike nearby areas with solar fire, inflicting Fire damage to enemies within 4 yards of impact.
+-- Solar Construct | NPC 76087 | Trash | HP 2.28m | Lv 91 | Mechanical | Forces 12 | CC: -
+* [1253446] Solar Flame | cast 1.6s | MDT: -
+  > 45 yd range
+  > 1.6 sec cast
+  > Inflicts 27,358 Fire damage to the target every 1.5 sec for 6 sec.
+* [1253448] Solar Nova | cast 2.7s | MDT: -
+  > 2.7 sec cast
+  > Inflicts 90,282 Fire damage to enemies within 8 yards.
+-- Skyreach Sun Talon | NPC 79093 | Trash | HP 608k | Lv 90 | Beast | Forces 2 | CC: -
+* [1254689] Bloodcrazed | instant | MDT: -
+  > 100 yd range
+  > Channeled
+  > Fixates on a target. Melee attack heals the caster for 10% of their max health.
+* [1254690] Bloodcrazed | instant | MDT: -
+  > Instant
+  > Fixates on a target. Melee attack heals the caster for 10% of their max health.
+-- Sun Talon Tamer | NPC 76154 | Trash | HP 1.56m | Lv 90 | Humanoid | Forces 5 | CC: -
+* [1254686] Mark of Death | cast 1.9s | MDT: -
+  > 100 yd range
+  > 1.9 sec cast
+  > Charges towards target enemy, inflicting 19,150 Physical damage and mark them for death, causing nearby Skyreach Sun Talons to become Bloodcrazed and fixate on the target enemy.
+* [1254687] Mark of Death | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Charges towards target enemy, inflicting 19,150 Physical damage and mark them for death, causing nearby Skyreach Sun Talons to become Bloodcrazed and fixate on the target enemy.
+-- Ranjit | NPC 75964 | BOSS (enc 966) | HP 11.07m | Lv 92 | Humanoid | Forces 0 | CC: -
+* [153757] Fan of Blades | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Ranjit throws razor sharp blades in all directions, inflicting 27,358 Physical damage and causing them to bleed, inflicting 16,415 Physical damage every 2 sec for 6 sec.
+* [156793] Chakram Vortex | cast 3.0s | MDT: -
+  > 100 yd range
+  > 3 sec cast
+  > Ranjit throws a powerful wind chakram to the center of the platform, inflicting 68,396 Nature damage to players within 10 yards of the impact area. The chakram continues to spin, inflicting 41,037 Nature damage to players it hits and knocking them back.
+
+The chakram forms raging wind vortexes that trail around the platform, inflicting 41,037 Nature damage to any enemy hit and knocking them in the air.
+* [1252690] Gale Surge | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Ranjit blasts target players with a powerful gust of wind, inflicting 38,301 Nature damage and knocking them back and leaves behind a Coalesced Wind.
+
+* [1252691] Gale Surge | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Ranjit blasts target players with a powerful gust of wind, inflicting 38,301 Nature damage and knocking them back and leaves behind a Coalesced Wind.
+
+* [1252733] Gale Surge | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Ranjit blasts target players with a powerful gust of wind, inflicting 38,301 Nature damage and knocking them back and leaves behind a Coalesced Wind.
+
+* [1255472] Dive | instant | MDT: -
+  > Instant
+  > Dives towards the platform, inflicting 68,396 Nature damage to all enemies within 12 yards of impact and knocking them back.
+* [1258140] Coalesced Wind | instant | MDT: -
+  > Instant
+  > Unleashes a powerful gust of wind that inflicts 54,716 Nature damage to target player and knocking them back.
+* [1258152] Wind Chakram | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Ranjit hurls a wind chakram in front of him, inflicting 82,074 Nature damage to all players caught in its path.
+* [1258160] Wind Chakram | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Ranjit hurls a wind chakram in front of him, inflicting 82,074 Nature damage to all players caught in its path.
+* [1281396] Chakram Vortex | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Ranjit throws a powerful wind chakram to the center of the platform, inflicting 68,396 Nature damage to players within 10 yards of the impact area. The chakram continues to spin, inflicting 41,037 Nature damage to players it hits and knocking them back.
+
+The chakram forms raging wind vortexes that trail around the platform, inflicting 41,037 Nature damage to any enemy hit and knocking them in the air.
+-- Araknath | NPC 76141 | BOSS (enc 966) | HP 11.07m | Lv 92 | Mechanical | Forces 0 | CC: -
+* [154110] Fiery Smash | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Araknath raises one of its arms and smashes the ground on that side, inflicting 68,395 Fire damage to all players in the impact area and increases their damage taken from Fiery Smash by 300% for 1 min. This effect stacks.
+* [154113] Fiery Smash | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Araknath raises one of its arms and smashes the ground on that side, inflicting 68,395 Fire damage to all players in the impact area and increases their damage taken from Fiery Smash by 300% for 1 min. This effect stacks.
+* [154132] Fiery Smash | instant | MDT: -
+  > Instant
+  > Araknath raises one of its arms and smashes the ground on that side, inflicting 68,395 Fire damage to all players in the impact area and increases their damage taken from Fiery Smash by 300% for 1 min. This effect stacks.
+* [154135] Supernova | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Araknath releases a burst of solar energy that inflicts 46,509 Fire damage to all players.
+* [154149] Energize | instant | MDT: -
+  > 100 yd range
+  > Channeled
+  > Lesser constructs surrounding the arena focus light rays at Araknath, healing it for 1% every 0.5 sec and granting it Solar Infusion every 0.5 sec.
+
+Players blocking light rays suffer 10,943 Fire damage every 1 sec.
+* [1252877] Solar Infusion | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Light rays that connect with Araknath infuse it with solar energy, inflicting 4,103 Fire damage to all players and increasing Supernova's damage done by 5%. This effect stacks. 
+
+Solar Infusion is consumed after empowering Supernova.
+* [1258205] Solar Infusion | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The solar beam inflicts 10,943 Fire damage every 1 sec to players blocking it.
+* [1283770] Defensive Protocol | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Araknath is in a defensive stance, rooting itself and emitting blistering heat, inflicting 68,396 Fire damage every 1 sec to players standing within 5 yards.
+-- Skyreach Sun Construct Prototype | NPC 76142 | Trash | HP 11.07m | Lv 90 | Mechanical | Forces 0 | CC: -
+* [154159] Energize | instant | MDT: -
+  > 200 yd range
+  > Channeled
+  > Energizes Sun Construct Prototypes with light from the focusing Iris above the Spire.
+* [1281874] Heat Exhaustion | cast 3.1s | MDT: -
+  > 100 yd range
+  > 3.1 sec cast
+  > The lesser constructs exhaust heat in front of them after focusing energy into Araknath, inflicting 54,716 Fire damage to players in the impact area. 
+* [1287905] Light Ray | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The solar beam inflicts 10,943 Fire damage every 1 sec to players blocking it.
+-- Rukhran | NPC 76143 | BOSS (enc 966) | HP 8.54m | Lv 92 | Beast | Forces 0 | CC: -
+* [159381] Searing Quills | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Rukhran unleashes waves of flaming quills, inflicting 60,938 Fire damage every 1 sec to players in line of sight for 3 sec.
+* [159382] Searing Quills | cast 3.9s | MDT: -
+  > 100 yd range
+  > 3.9 sec cast
+  > The caster flaps their feathers wildly, sending out Quills in all directions for 3 sec.
+* [1253510] Sunbreak | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Rukhran calls down a burst of solar energy that inflicts 41,037 Fire damage to all players and summons a Sunwing.
+* [1253519] Burning Claws | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Rukhran lashes their current target with burning claws, inflicting 109,433 Physical damage and 41,037 Fire damage. Also casues the the target to burn, inflicting 16,415 Fire damage every 2 sec for 8 sec.
+* [1253520] Burning Claws | instant | MDT: -
+  > Instant
+  > Rukhran lashes their current target with burning claws, inflicting 109,433 Physical damage and 41,037 Fire damage. Also casues the the target to burn, inflicting 16,415 Fire damage every 2 sec for 8 sec.
+-- Dread Raven | NPC 76149 | Trash | HP 2.73m | Lv 91 | Beast | Forces 15 | CC: -
+* [1254566] Dire Screech | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > Lets out a terrible screech, inflicting 13,678 Sonic damage to all players every 0.5 sec for 1 sec.
+* [1254569] Dire Screech | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Lets out a terrible screech, inflicting 13,678 Sonic damage to all players every 0.5 sec for 1 sec.
+* [1258174] Dread Wind | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Inflicts 41,037 Nature damage to target enemy and knocking them back.
+-- Blooded Bladefeather | NPC 76205 | Trash | HP 1.67m | Lv 90 | Humanoid | Forces 5 | CC: -
+* [1254670] Rushing Winds | instant | MDT: magic
+  > Instant
+  > Caster envelops themselves with Rushing Winds, increasing their Haste by 30% for 15 sec.
+-- Sunwings | NPC 76227 | Trash | HP 1.01m | Lv 90 | Elemental | Forces 0 | CC: -
+* [1253367] Solar Flare | instant | MDT: -
+  > Instant
+  > The Sunwing fixates on a random player and pulses its fiery energy at the cost of its health, burning 10% of its maximum health and inflicting 13,678 Fire damage to all players every 2 sec.
+* [1253368] Burning Pursuit | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The Sunwing fixates on a random player and pulses its fiery energy at the cost of its health, burning 10% of its maximum health and inflicting 13,678 Fire damage to all players every 2 sec.
+* [1253416] Blaze of Glory | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > The Sunwing erupts in a blaze of glory upon defeat, inflicting 82,074 Fire damage to players within 8 yards of the impact area.
+
+Smoldering Eggs caught in the blast remerge as a Sunwing.
+
+* [1253511] Burning Pursuit | instant | MDT: -
+  > 100 yd range
+  > Channeled
+  > The Sunwing fixates on a random player and pulses its fiery energy at the cost of its health, burning 10% of its maximum health and inflicting 13,678 Fire damage to all players every 2 sec.
+-- High Sage Viryx | NPC 76266 | BOSS (enc 966) | HP 10.28m | Lv 92 | Humanoid | Forces 0 | CC: -
+* [153954] Cast Down | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > High Sage Viryx summons a Solar Zealot above a random player that will attempt to carry them off the balcony and drop them to their death below.
+* [154396] Solar Blast | cast 2.3s | MDT: interruptible
+  > 100 yd range
+  > 2.3 sec cast
+  > High Sage Viryx blasts their current target with solar energy, inflicting 123,112 Fire damage.
+* [1253538] Scorching Ray | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > High Sage Viryx scorches several players with focused sunlight, inflicting 27,358 Fire damage and an additional 13,678  Fire damage every 1 sec for 5 sec.
+* [1253840] Lens Flare | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > High Sage Viryx commands the solar crystals to focus their intense energy on a player, inflicting 54,716 Fire damage to enemies within 6 yards of impact and leaving behind Blazing Ground.
+
+-- Arakkoa Magnifying Glass | NPC 76285 | Trash | HP 304k | Lv 92 | Mechanical | Forces 0 | CC: -
+* [154043] Blazing Ground | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Lens Flare creates areas of intense heat that inflict 27,358 Fire damage every 1 sec to players standing in the area.
+* [1253543] Scorching Ray | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > High Sage Viryx scorches several players with focused sunlight, inflicting 27,358 Fire damage and an additional 13,678  Fire damage every 1 sec for 5 sec.
+-- Adorned Bladetalon | NPC 79303 | Trash | HP 2.58m | Lv 91 | Humanoid | Forces 12 | CC: -
+* [1254380] Shear | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Shears the target with a strong gust of wind, inflicting 82,074 Nature damage and reduce their armor by 20% for 20 sec. This effect stacks.
+* [1254460] Blade Rush | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Dashes towards random enemies, inflicting 32,829 Physical damage and causing them to bleed for 27,358 Physical damage every 2 sec for 6 sec.
+* [1254475] Blade Rush | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > Dashes towards random enemies, inflicting 32,829 Physical damage and causing them to bleed for 27,358 Physical damage every 2 sec for 6 sec.
+-- Solar Orb | NPC 251880 | Trash | HP 10.28m | Lv 90 | Not specified | Forces 0 | CC: -
+* [1254329] Solar Flare | cast 3.9s | MDT: -
+  > 3.9 sec cast
+  > Unleashes solar flare every 5.2 sec, inflicting 21,886 Fire damage to all enemies and healing all allies for 8% of their max health.
+* [1254332] Solar Flare | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Unleashes solar flare every 5.2 sec, inflicting 21,886 Fire damage to all enemies and healing all allies for 8% of their max health.
+
+### Dungeon: Windrunner Spire [152] | Total Forces: 591
+-- Restless Steward | NPC 232070 | Trash | HP 1.37m | Lv 90 | Undead | Forces 7 | CC: -
+* [1216135] Spirit Bolt | cast 1.9s | MDT: interruptible
+  > 60 yd range
+  > 1.9 sec cast
+  > Inflicts 32,829 Shadow damage to an enemy.
+* [1216298] Soul Torment | instant | MDT: magic
+  > The caster inflicts 13,678 Shadow damage to a player every 1 sec for 15 sec.
+* [1253700] Soul Torment | instant | MDT: -
+  > Instant
+  > The caster inflicts 13,678 Shadow damage to a player every 1 sec for 15 sec.
+-- Dutiful Groundskeeper | NPC 232071 | Trash | HP 1.67m | Lv 90 | Undead | Forces 4 | CC: -
+-- Spellguard Magus | NPC 232113 | Trash | HP 2.13m | Lv 91 | Undead | Forces 15 | CC: -
+* [1216250] Arcane Salvo | instant | MDT: -
+  > Channeled
+  > The caster launches a salvo of magical energy, inflicting 11,626 Arcane damage to a player with each bolt.
+* [1216253] Arcane Salvo | instant | MDT: -
+  > The caster launches a salvo of magical energy, inflicting 11,626 Arcane damage to a player with each bolt.
+* [1253683] Spellguard's Protection | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Under 50% health, the caster creates a protective bubble, reducing the damage done to allies within it by 99%.
+* [1253686] Spellguard's Protection | instant | MDT: -
+  > Under 50% health, the caster creates a protective bubble, reducing the damage done to allies within it by 99%.
+-- Windrunner Soldier | NPC 232116 | Trash | HP 1.67m | Lv 90 | Undead | Forces 5 | CC: -
+* [1216462] Precise Cut | instant | MDT: -
+  > Instant
+  > The caster cuts a vital organ, inflicting Physical damage and reducing healing taken by 10% for 6 sec.
+-- Fervent Apothecary | NPC 232173 | Trash | HP 1.37m | Lv 90 | Undead | Forces 5 | CC: -
+* [473644] Phial Toss | instant | MDT: -
+  > Instant
+  > The caster throws a poison phial towards a player, inflicting 82,074 Nature damage to players within 3 yards of impact and creating a Shattered Phial.
+* [473647] Phial Toss | instant | MDT: -
+  > The caster throws a poison phial towards a player, inflicting 82,074 Nature damage to players within 3 yards of impact and creating a Shattered Phial.
+* [473649] Shattered Phial | instant | MDT: -
+  > The shattered phial spills poison, inflicting 27,358 Nature damage every 1 sec to players within it.
+-- Ardent Cutthroat | NPC 232171 | Trash | HP 1.52m | Lv 90 | Undead | Forces 6 | CC: -
+* [473794] Poison Blades | cast 3.1s | MDT: interruptible
+  > 3.1 sec cast
+  > The caster coats their blades with poison, causing attacks to inflict 13,678 Nature damage every 1 sec. This effect stacks.
+* [473795] Poison Blades | instant | MDT: poison
+  > The caster coats their blades with poison, causing attacks to inflict 13,678 Nature damage every 1 sec. This effect stacks.
+* [473864] Shadowrive | instant | MDT: -
+  > Instant
+  > The caster teleports to a player and strikes, inflicting 32,829 Physical damage.
+* [473868] Shadowrive | instant | MDT: -
+  > The caster teleports to a player and strikes, inflicting 32,829 Physical damage.
+-- Zealous Reaver | NPC 232232 | Trash | HP 1.67m | Lv 90 | Undead | Forces 4 | CC: -
+* [473640] Fierce Slash | instant | MDT: -
+  > Instant
+  > The caster inflicts Physical damage to its target.
+-- Devoted Woebringer | NPC 232175 | Trash | HP 2.13m | Lv 91 | Undead | Forces 15 | CC: -
+* [473657] Shadow Bolt | cast 1.9s | MDT: interruptible
+  > 60 yd range
+  > 1.9 sec cast
+  > Inflicts 32,829 Shadow damage to an enemy.
+* [473663] Pulsing Shriek | instant | MDT: interruptible
+  > Channeled
+  > The caster shields themselves, absorbing 409,408 damage and preventing silencing effects. They shriek for 16 sec, inflicting 17,099 Shadow damage every 2 sec to players within 60 yards.
+* [473668] Pulsing Shriek | instant | MDT: -
+  > The caster shields themselves, absorbing 409,408 damage and preventing silencing effects. They shriek for 16 sec, inflicting 17,099 Shadow damage every 2 sec to players within 60 yards.
+* [473672] Pulsing Shriek | instant | MDT: -
+  > Instant
+  > The caster shields themselves, absorbing 409,408 damage and preventing silencing effects. They shriek for 16 sec, inflicting 17,099 Shadow damage every 2 sec to players within 60 yards.
+-- Flesh Behemoth | NPC 232176 | Trash | HP 3.95m | Lv 91 | Undead | Forces 20 | CC: -
+* [473776] Fetid Spew | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > The caster launches bile at players, inflicting 10,943 Nature damage every 1 sec for 8 sec to players within 4 yards of the victims.
+
+Additionally, Fetid Bile forms at the caster's location.
+* [473786] Fetid Spew | instant | MDT: -
+  > The caster launches bile at players, inflicting 10,943 Nature damage every 1 sec for 8 sec to players within 4 yards of the victims.
+
+Additionally, Fetid Bile forms at the caster's location.
+* [473789] Fetid Bile | instant | MDT: -
+  > The caster's bile pool inflicts 43,772 Nature damage every 1 sec to players within. 
+* [1277799] Brutal Chop | cast 2.7s | MDT: -
+  > 2.7 sec cast
+  > The caster inflicts 191,507 Physical damage to its current target.
+-- Territorial Dragonhawk | NPC 232056 | Trash | HP 1.37m | Lv 90 | Beast | Forces 7 | CC: -
+* [1216848] Fire Spit | instant | MDT: -
+  > 60 yd range
+  > Channeled
+  > The caster spits fireballs at a player for 7.0 sec, inflicting 15,047 Fire damage every 0.6 sec.
+* [1216860] Bolstering Flames | instant | MDT: magic
+  > Instant
+  > The caster bolsters themselves with flaming energy, absorbing 210,907 damage and increasing their haste by 30% for 20 sec.
+* [1266745] Fire Spit | instant | MDT: -
+  > The caster spits fireballs at a player for 7.0 sec, inflicting 15,047 Fire damage every 0.6 sec.
+-- Spindleweb Hatchling | NPC 234673 | Trash | HP 304k | Lv 90 | Beast | Forces 1 | CC: -
+* [1216834] Acidic Demise | instant | MDT: -
+  > Acid leaks from the caster's corpse, inflicting 27,358 Nature damage to players within it every 1 sec.
+-- Creeping Spindleweb | NPC 232067 | Trash | HP 1.52m | Lv 90 | Beast | Forces 7 | CC: -
+* [1216822] Poison Spray | instant | MDT: -
+  > Instant
+  > The caster sprays poison at players, inflicting 21,886 Nature damage and an additional 10,943 Nature damage every 1 sec for 12 sec.
+* [1216825] Poison Spray | instant | MDT: poison
+  > The caster sprays poison at players, inflicting 21,886 Nature damage and an additional 10,943 Nature damage every 1 sec for 12 sec.
+* [1216834] Acidic Demise | instant | MDT: -
+  > (see [1216834] above)
+-- Apex Lynx | NPC 232063 | Trash | HP 2.58m | Lv 91 | Beast | Forces 15 | CC: -
+* [1216985] Puncturing Bite | cast 2.3s | MDT: bleed
+  > 2.3 sec cast
+  > The caster punctures the flesh of their target, inflicting 109,433 Physical damage and causing them to bleed for 16,415 Physical damage every 1 sec for 8 sec.
+* [1217010] Ferocious Pounce | cast 2.7s | MDT: -
+  > 2.7 sec cast
+  > The caster pounces onto a player, inflicting 47,876 Physical damage to players within 3 yards.
+* [1217021] Ferocious Pounce | instant | MDT: -
+-- Pesty Lashling | NPC 238099 | Trash | HP 304k | Lv 90 | Elemental | Forces 1 | CC: -
+* [1277761] Sporecharged | instant | MDT: -
+  > The Bloated Lasher's spores empower the Pesty Lashling, causing their attacks to inflict additional Nature damage for 8 sec.
+-- Bloated Lasher | NPC 236894 | Trash | HP 3.34m | Lv 91 | Elemental | Forces 17 | CC: -
+* [1216819] Fungal Bolt | cast 1.9s | MDT: interruptible
+  > 60 yd range
+  > 1.9 sec cast
+  > Inflicts 32,829 Nature damage to an enemy.
+* [1216963] Spore Dispersal | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > The caster disperses spores into the air, inflicting 12,311 Nature damage to all players every 1 sec for 10 sec.
+
+Nearby Pesty Lashlings gain Sporecharged and awaken if dormant.
+-- Scouting Trapper | NPC 238049 | Trash | HP 1.38m | Lv 80 | Undead | Forces 5 | CC: -
+-- Swiftshot Archer | NPC 232119 | Trash | HP 1.37m | Lv 90 | Undead | Forces 7 | CC: -
+* [1216419] Shoot | cast 1.9s | MDT: -
+  > 60 yd range
+  > 1.9 sec cast
+  > Inflicts 21,886 Physical damage to an enemy.
+* [1216449] Arrow Rain | instant | MDT: -
+  > Channeled
+  > The caster fires a volley of arrows into the air, inflicting 68,396 Physical damage to players within 3 yards of impact.
+* [1216454] Arrow Rain | instant | MDT: -
+  > The caster fires a volley of arrows into the air, inflicting 68,396 Physical damage to players within 3 yards of impact.
+-- Phalanx Breaker | NPC 232122 | Trash | HP 2.43m | Lv 91 | Undead | Forces 15 | CC: -
+* [471643] Interrupting Screech | cast 3.9s | MDT: -
+  > 3.9 sec cast
+  > The caster screeches, interrupting casts for 4 sec and inflicting 35,565 Sonic damage to all players within 60 yards. 
+* [471648] Break Ranks | cast 3.9s | MDT: -
+  > 3.9 sec cast
+  > The caster charges towards a player, inflicting 95,753 Physical damage to players hit and knocking them away.
+* [471650] Break Ranks | instant | MDT: -
+  > The caster charges towards a player, inflicting 95,753 Physical damage to players hit and knocking them away.
+-- Loyal Worg | NPC 232283 | Trash | HP 1.52m | Lv 90 | Beast | Forces 5 | CC: -
+* [1253739] Shred Flesh | instant | MDT: bleed
+  > Instant
+  > The creature shreds the flesh of its target, causing them to bleed for 16,415 Physical damage every 1 sec and absorb 49,625 healing for 20 sec.
+-- Lingering Marauder | NPC 232147 | Trash | HP 1.67m | Lv 90 | Undead | Forces 6 | CC: -
+* [1216637] Gore Whirl | instant | MDT: -
+  > Channeled
+  > The caster spins violently for 8 sec, inflicting 8,207 Physical damage every 0.4 sec to players within 6 yards.
+* [1216643] Gore Whirl | instant | MDT: -
+  > The caster spins violently for 8 sec, inflicting 8,207 Physical damage every 0.4 sec to players within 6 yards.
+-- Spectral Axethrower | NPC 232148 | Trash | HP 1.37m | Lv 90 | Undead | Forces 7 | CC: -
+* [468659] Throw Axe | cast 2.3s | MDT: bleed
+  > 60 yd range
+  > 2.3 sec cast
+  > Inflicts 21,886 Physical damage to an enemy.
+Inflicts 8,207 Physical damage to an enemy every 1 sec for 6 sec.
+-- Phantasmal Mystic | NPC 232146 | Trash | HP 2.43m | Lv 91 | Undead | Forces 15 | CC: -
+* [1216459] Ephemeral Bloodlust | cast 1.9s | MDT: enrage
+  > 1.9 sec cast
+  > The caster sends its allies into a frenzy, increasing their haste by 35% for 15 sec.
+* [1216592] Chain Lightning | cast 2.3s | MDT: interruptible
+  > Unlimited range
+  > 2.3 sec cast
+  > The caster sends lightning into a player, inflicting 32,829 Nature damage. The lightning also jumps to another player closest to the victim.
+* [1270618] Flame Nova | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > The caster unleashes a nova of flame, inflicting 41,037 Fire damage to players within 60 yards.
+-- Emberdawn | NPC 231606 | BOSS (enc 2656) | HP 11.65m | Lv 92 | Beast | Forces 0 | CC: -
+* [465904] Burning Gale | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Emberdawn conjures a flaming windstorm that inflicts 10,943 Fire damage every 1 sec to all players and pushes them for 16 sec.
+* [466064] Searing Beak | cast 2.3s | MDT: -
+  > Unlimited range
+  > 2.3 sec cast
+  > Emberdawn pecks her current target, inflicting 150,470 Physical damage and an additional 27,358 Fire damage every 1 sec for 8 sec. 
+* [466091] Searing Beak | instant | MDT: -
+  > Emberdawn pecks her current target, inflicting 150,470 Physical damage and an additional 27,358 Fire damage every 1 sec for 8 sec. 
+* [466556] Flaming Updraft | cast 1.2s | MDT: -
+  > 100 yd range
+  > 1.2 sec cast
+  > Emberdawn spits fire at a player, inflicting 13,678 Fire damage every 1 sec for 6 sec. Upon expiration, the fire forms into a flaming patch that inflicts 41,037 Fire damage every 1.5 sec to players within it. 
+
+The patch's central updraft inflicts 68,396 Fire damage to players who touch it, knocking them away.
+* [466559] Flaming Updraft | instant | MDT: -
+  > Emberdawn spits fire at a player, inflicting 13,678 Fire damage every 1 sec for 6 sec. Upon expiration, the fire forms into a flaming patch that inflicts 41,037 Fire damage every 1.5 sec to players within it. 
+
+The patch's central updraft inflicts 68,396 Fire damage to players who touch it, knocking them away.
+* [467040] Burning Gale | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Emberdawn unleashes a blast of fire from her body, inflicting 68,396 Fire damage to all players and knocking them back.
+
+Additionally, all Ignited Embers  are knocked away from Emberdawn. 
+* [1217763] Fire Breath | instant | MDT: -
+  > 25 Energy
+  > Instant
+  > Emberdawn breathes a cone of fire towards a player, inflicting 109,433 Fire damage to players hit.
+* [1217795] Burning Gale | instant | MDT: -
+  > Channeled
+* [1252548] Fiery Landing | instant | MDT: -
+  > Emberdawn inflicts 2,735 Fire damage to players within 18 yards upon landing.
+-- Kalis | NPC 231626 | BOSS (enc 2656) | HP 7.91m | Lv 92 | Undead | Forces 0 | CC: -
+* [472724] Shadow Bolt | cast 1.9s | MDT: interruptible
+  > 1.9 sec cast
+  > Kalis inflicts 32,829 Shadow damage to a player.
+* [472736] Debilitating Shriek | instant | MDT: -
+  > Channeled
+  > Kalis continually releases piercing shrieks, inflicting 13,678 Shadow damage to all players every 2 sec and increasing their damage taken from Debilitating Shriek by 10% for 3 sec. This effect stacks.
+
+Latch's Heaving Yank interrupts this ability.
+* [474105] Curse of Darkness | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Kalis curses players, causing Dark Entities to fixate upon them for 12 sec.
+* [1219491] Debilitating Shriek | instant | MDT: -
+  > Kalis continually releases piercing shrieks, inflicting 13,678 Shadow damage to all players every 2 sec and increasing their damage taken from Debilitating Shriek by 10% for 3 sec. This effect stacks.
+
+Latch's Heaving Yank interrupts this ability.
+* [1219551] Broken Bond | instant | MDT: -
+  > When either Kalis or Latch falls in battle, the other becomes incensed, increasing their damage done by 50% every 5 sec.
+-- Latch | NPC 231629 | BOSS (enc 2656) | HP 9.18m | Lv 92 | Undead | Forces 0 | CC: -
+* [472745] Splattering Spew | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Latch spews bile onto players, inflicting 32,829 Nature damage to players within 5 yards of each impact and applying Splattered.
+
+Gunk Splatter forms at the impact locations.
+* [472758] Splattering Spew | instant | MDT: -
+  > Latch spews bile onto players, inflicting 32,829 Nature damage to players within 5 yards of each impact and applying Splattered.
+
+Gunk Splatter forms at the impact locations.
+* [472777] Gunk Splatter | instant | MDT: -
+  > Latch's bile coats the ground, inflicting 41,037 Nature damage every 1.5 sec to players within it and increasing their damage taken from Splattering Spew by 100%.
+* [472795] Heaving Yank | cast 5.4s | MDT: -
+  > 5.4 sec cast
+  > Latch throws a hook towards a player, pulling the first target hit to his location. If a player is struck, Latch follows up with Heaving Chop.
+* [472888] Bone Hack | cast 1.6s | MDT: -
+  > 1.6 sec cast
+  > Latch chops his primary target, inflicting 109,433 Physical damage every 0.75 sec for 3 sec.
+* [474065] Bone Hack | instant | MDT: -
+  > Latch chops his primary target, inflicting 109,433 Physical damage every 0.75 sec for 3 sec.
+* [474075] Heaving Chop | instant | MDT: -
+  > Instant
+  > Latch strikes the hooked player, inflicting 54,716 Physical damage and stunning them for 4 sec.
+* [1219551] Broken Bond | instant | MDT: -
+  > (see [1219551] above)
+* [1282272] Splattered | instant | MDT: -
+  > Latch's bile inflicts 6,839 Nature damage to players hit every 1 sec for 10 sec.
+-- Commander Kroluk | NPC 231631 | BOSS (enc 2656) | HP 9.49m | Lv 92 | Undead | Forces 0 | CC: -
+* [467620] Rampage | cast 1.6s | MDT: -
+  > 1.6 sec cast
+  > Commander Kroluk focuses his destructive urge on his current target, repeatedly thrashing them and inflicting 54,716 Physical damage every 0.5 sec for 5 sec.
+* [467621] Rampage | instant | MDT: -
+  > Commander Kroluk focuses his destructive urge on his current target, repeatedly thrashing them and inflicting 54,716 Physical damage every 0.5 sec for 5 sec.
+* [468221] Rallying Bellow | instant | MDT: -
+  > Instant
+  > Commander Kroluk unleashes a bloodthirsty warcry, inflicting 47,876 Physical damage to all players and summoning a warparty to fight alongside him.
+* [468924] Bladestorm | instant | MDT: -
+  > Commander Kroluk enters a battle-trance, fixating on a player and inflicting 41,037 Physical damage every 1 sec to players within 7 yards.
+
+Commander Kroluk continues to Bladestorm until his warparty is defeated.
+* [470963] Bladestorm | instant | MDT: -
+  > Instant
+  > Commander Kroluk enters a battle-trance, fixating on a player and inflicting 41,037 Physical damage every 1 sec to players within 7 yards.
+
+Commander Kroluk continues to Bladestorm until his warparty is defeated.
+* [471038] Bladestorm | instant | MDT: -
+  > Commander Kroluk enters a battle-trance, fixating on a player and inflicting 41,037 Physical damage every 1 sec to players within 7 yards.
+
+Commander Kroluk continues to Bladestorm until his warparty is defeated.
+* [472043] Rallying Bellow | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Commander Kroluk unleashes a bloodthirsty warcry, inflicting 47,876 Physical damage to all players and summoning a warparty to fight alongside him.
+* [472053] Reckless Leap | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Commander Kroluk recklessly leaps towards the furthest player, inflicting 41,037 Physical damage and an additional 10,943 Physical damage every 1 sec for 12 sec to players within 12 yards of the impact location. 
+
+The force of the impact causes Falling Rubble.
+* [472054] Reckless Leap | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Commander Kroluk recklessly leaps towards the furthest player, inflicting 41,037 Physical damage and an additional 10,943 Physical damage every 1 sec for 12 sec to players within 12 yards of the impact location. 
+
+The force of the impact causes Falling Rubble.
+* [472081] Reckless Leap | instant | MDT: -
+  > Commander Kroluk recklessly leaps towards the furthest player, inflicting 41,037 Physical damage and an additional 10,943 Physical damage every 1 sec for 12 sec to players within 12 yards of the impact location. 
+
+The force of the impact causes Falling Rubble.
+* [1214874] Violent Manifestation | instant | MDT: -
+  > Commander Kroluk's manifestation inflicts 2,735 Arcane damage to players within 18 yards, knocking them away.
+* [1250851] Shield Wall | instant | MDT: -
+  > Commander Kroluk fortifies himself, reducing his damage taken by 99%.
+* [1253026] Intimidating Shout | cast 3.9s | MDT: -
+  > 200 yd range
+  > 3.9 sec cast
+  > Commander Kroluk bellows an intimidating shout, causing players who stand alone to run in fear and suffer 27,778 Shadow damage every 1 sec for 6 sec.
+* [1253270] Reckless Leap | instant | MDT: -
+  > Commander Kroluk recklessly leaps towards the furthest player, inflicting 41,037 Physical damage and an additional 10,943 Physical damage every 1 sec for 12 sec to players within 12 yards of the impact location. 
+
+The force of the impact causes Falling Rubble.
+* [1253272] Intimidating Shout | cast 3.9s | MDT: -
+  > 200 yd range
+  > 3.9 sec cast
+  > Commander Kroluk bellows an intimidating shout, causing players who stand alone to run in fear and suffer 27,778 Shadow damage every 1 sec for 6 sec.
+* [1271676] Bladestorm | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Commander Kroluk enters a battle-trance, fixating on a player and inflicting 41,037 Physical damage every 1 sec to players within 7 yards.
+
+Commander Kroluk continues to Bladestorm until his warparty is defeated.
+* [1283335] Rampage | cast 1.6s | MDT: -
+  > 1.6 sec cast
+  > Commander Kroluk focuses his destructive urge on his current target, repeatedly thrashing them and inflicting 54,716 Physical damage every 0.5 sec for 5 sec.
+* [1283357] Falling Rubble | instant | MDT: -
+  > Falling debris rains from the ceiling, inflicting 82,074 Nature damage to players within 4 yards of each impact location.
+-- Restless Heart | NPC 231636 | BOSS (enc 2656) | HP 12.66m | Lv 92 | Aberration | Forces 0 | CC: -
+* [468429] Bullseye Windblast | cast 5.4s | MDT: -
+  > 5.4 sec cast
+  > The Restless Heart fires an arrow at a location in its chamber, inflicting 109,433 Nature damage to players within 20 yards of impact and forming Billowing Wind.
+
+* [468442] Billowing Wind | instant | MDT: -
+  > A ring of violent wind expands, inflicting 27,358 Nature damage every 1 sec to players who touch it and stunning them for 4 sec.
+* [472556] Arrow Rain | instant | MDT: -
+  > Channeled
+  > The Restless Heart shoots a rain of arrows, inflicting 68,396 Nature damage to players within 3 yards of each impact and forming Turbulent Arrows.
+* [472662] Tempest Slash | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > The Restless Heart knocks away its primary target, inflicting 177,828 Physical damage and increasing their Physical damage taken by 40% for 10 sec.
+
+Afterward, The Restless Heart fires a Gust Shot.
+* [472672] Bolt Gale | instant | MDT: -
+  > The Restless Heart fires a salvo of arrows towards a player for 5 sec, inflicting 10,943 Nature damage every 0.5 sec to players in a frontal cone.
+* [474528] Bolt Gale | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > The Restless Heart fires a salvo of arrows towards a player for 5 sec, inflicting 10,943 Nature damage every 0.5 sec to players in a frontal cone.
+* [1216042] Squall Leap | instant | MDT: -
+  > Instant
+  > Stormy energy lashes outward when the Restless Heart leaps, inflicting 24,621 Nature damage to all players and an additional 6,155 Nature damage every 1 sec.
+
+Contacting Turbulent Arrows removes this affliction.
+* [1253977] Turbulent Arrows | instant | MDT: -
+  > The windy arrow detonates upon contact with a player, inflicting 6,839 Nature damage and knocking them upwards.
+
+The detonation removes Squall Leap.
+* [1253978] Gust Shot | instant | MDT: -
+  > The Restless Heart marks players with wind-infused arrows. After 6 sec, the arrows unleash a wind gust, inflicting 24,621 Nature damage to players within 8 yards and an additional 7,522 Nature damage every 1 sec for 8 sec.
+* [1253986] Gust Shot | instant | MDT: -
+  > Instant
+  > The Restless Heart marks players with wind-infused arrows. After 6 sec, the arrows unleash a wind gust, inflicting 24,621 Nature damage to players within 8 yards and an additional 7,522 Nature damage every 1 sec for 8 sec.
+* [1283371] Squall Leap | instant | MDT: -
+  > Stormy energy lashes outward when the Restless Heart leaps, inflicting 24,621 Nature damage to all players and an additional 6,155 Nature damage every 1 sec.
+
+Contacting Turbulent Arrows removes this affliction.
+-- Flaming Updraft | NPC 232118 | Trash | HP 253k | Lv 90 | Not specified | Forces 0 | CC: -
+* [465957] Ignited Embers | instant | MDT: -
+  > Flaming Updraft inflicts 68,396 Fire damage, and throws players up into the air. 
+* [467120] Ignited Embers | instant | MDT: -
+  > Instant
+  > Fiery remains inflict 41,037 Fire damage every 1.5 sec to players within. The patch's central updraft inflicts inflicts 68,396 Fire damage to players who touch it, knocking them away.
+
+* [470212] Flaming Twisters | instant | MDT: -
+  > Ignited Embers react to the winds from Burning Gale, ejecting fiery tornadoes that inflict 68,396 Fire damage to players struck and stun players hit for 2 sec before tossing them away.
+* [472118] Ignited Embers | instant | MDT: -
+  > Fiery remains inflict 41,037 Fire damage every 1.5 sec to players within. The patch's central updraft inflicts inflicts 68,396 Fire damage to players who touch it, knocking them away.
+
+-- Phalanx Breaker | NPC 232121 | Trash | HP 158k | Lv 91 | Undead | Forces 0 | CC: -
+* [1282478] Melee | instant | MDT: -
+  > The caster inflicts Physical damage to its current target
+-- Haunting Grunt | NPC 258868 | Trash | HP 131k | Lv 90 | Humanoid | Forces 4 | CC: -
+* [467815] Intercepting Charge | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The Haunting Grunt charges toward their current target and inflicts 32,830 Physical damage.
+
+### Dungeon: Magister's Terrace [153] | Total Forces: 585
+-- Arcane Magister | NPC 232369 | Trash | HP 1.37m | Lv 90 | Humanoid | Forces 7 | CC: -
+* [468962] Arcane Bolt | cast 1.9s | MDT: interruptible
+  > 40 yd range
+  > 1.9 sec cast
+  > Inflicts 32,830 Arcane damage to an enemy.
+* [468966] Polymorph | cast 2.7s | MDT: interruptible,magic
+  > 40 yd range
+  > 2.7 sec cast
+  > Transforms the enemy into a helpless Mana Wyrm that cannot cast spells or attack and movement speed is reduced by 60% for up to 6 sec.
+* [1245046] Blink | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Teleports the mage forward.
+-- Animated Codex | NPC 234089 | Trash | HP 10k | Lv 90 | Elemental | Forces 2 | CC: -
+-- Blazing Pyromancer | NPC 251861 | Trash | HP 2.43m | Lv 91 | Humanoid | Forces 12 | CC: -
+* [1254294] Pyroblast | cast 3.1s | MDT: interruptible
+  > 50 yd range
+  > 3.1 sec cast
+  > Inflicts 109,433 Fire damage.
+* [1254301] Flamestrike | cast 2.7s | MDT: -
+  > 40 yd range
+  > 2.7 sec cast
+  > Inflicts 95,753 Fire damage and creates a patch of flame that inflicts 13,678 Fire damage every 1 sec to players in the area.
+* [1254336] Ignition | cast 1.6s | MDT: -
+  > 1.6 sec cast
+  > Sunblade Pyromancer engulfs herself in flames inflicting 8,207 Fire damage every 1 sec to all players within 50 yds.
+* [1254338] Ignition | instant | MDT: -
+  > 50 yd range
+  > Instant
+  > Sunblade Pyromancer engulfs herself in flames inflicting 8,207 Fire damage every 1 sec to all players within 50 yds.
+-- Runed Spellbreaker | NPC 240973 | Trash | HP 2.73m | Lv 91 | Humanoid | Forces 12 | CC: -
+* [1244907] Runic Glaive | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Hurls an Arcane infused glaive at a target inflicting 19,151 Arcane damage and an additional 10,943 Arcane damage every 1 sec for 10 sec. The glaive bounces to 1 additional nearby player.
+* [1283901] Shield Slam | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Slams the shield on the ground, causing arcane explosions that inflicts 68,396 Arcane damage to enemies hit.
+* [1283905] Shield Slam | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Slams the shield on the ground, causing arcane explosions that inflicts 68,396 Arcane damage to enemies hit.
+-- Voidling | NPC 234069 | Trash | HP 608k | Lv 90 | Aberration | Forces 1 | CC: -
+* [1248229] Void Infusion | instant | MDT: -
+  >  
+  > Void Bomb explodes after 5 sec, inflicting 32,830 Shadow damage to players within 4 yards. Every unit within 4 yards have their damage done increased by 15% and absorb the next 248,126 healing. 
+* [1255434] Void Gash | instant | MDT: magic
+  > 10 yd range
+  > Instant
+  > Melee attacks inflict an additional 1,368 Shadow damage.
+-- Hollowsoul Shredder | NPC 234065 | Trash | HP 1.44m | Lv 90 | Aberration | Forces 5 | CC: -
+* [1227020] Dimensional Shred | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > Teleports behind its target and viciously strikes them inflicting 19,151 Shadow damage.
+* [1248229] Void Infusion | instant | MDT: -
+  > (see [1248229] above)
+-- Dreaded Voidwalker | NPC 234064 | Trash | HP 1.67m | Lv 90 | Aberration | Forces 7 | CC: -
+* [1248229] Void Infusion | instant | MDT: -
+  > (see [1248229] above)
+* [1248327] Shadow Bolt | cast 1.9s | MDT: interruptible
+  > 40 yd range
+  > 1.9 sec cast
+  > Inflicts 32,830 Shadow damage to an enemy.
+-- Shadowrift Voidcaller | NPC 234068 | Trash | HP 2.43m | Lv 91 | Aberration | Forces 12 | CC: -
+* [1217087] Consuming Shadows | instant | MDT: -
+  > 200 yd range
+  > Instant
+  > Devouring Voidcaller inflicts 27,358 Shadow damage to all players within line of sight and heals for 100% of the damage inflicted.
+* [1255462] Call of the Void | instant | MDT: -
+  > Channeled
+  > Devouring Voidcaller sends a call to the void summoning a void beast nearby every 0.5 sec for 3 sec.
+* [1265977] Consuming Shadows | cast 2.3s | MDT: -
+  > 100 Energy
+  > 2.3 sec cast
+  > Devouring Voidcaller inflicts 27,358 Shadow damage to all players within line of sight and heals for 100% of the damage inflicted.
+-- Devouring Tyrant | NPC 234066 | Trash | HP 2.73m | Lv 91 | Aberration | Forces 12 | CC: -
+* [1248138] Void Bomb | instant | MDT: -
+  > Void Bomb explodes after 5 sec, inflicting 32,830 Shadow damage to players within 4 yards. Every unit within 4 yards have their damage done increased by 15% and absorb the next 248,126 healing. 
+* [1248219] Void Bomb | instant | MDT: -
+  > Void Bomb explodes after 5 sec, inflicting 32,830 Shadow damage to players within 4 yards. Every unit within 4 yards have their damage done increased by 15% and absorb the next 248,126 healing. 
+* [1248229] Void Infusion | instant | MDT: -
+  > (see [1248229] above)
+* [1264687] Devouring Strike | cast 1.9s | MDT: -
+  > 40 yd range
+  > 1.9 sec cast
+  > Assaults the target with consuming void inflicting 54,716 Shadow damage and absorbing 248,126 incoming healing.
+-- Void Terror | NPC 249086 | Trash | HP 1.37m | Lv 90 | Aberration | Forces 7 | CC: -
+* [1245068] Consuming Void | instant | MDT: magic
+  > 50 yd range
+  > Instant
+  > Void Infuser unleashes consuming void upon a random player inflicting 5,472 Shadow damage every 0.5 sec for 15 sec.
+* [1248229] Void Infusion | instant | MDT: -
+  > (see [1248229] above)
+* [1264693] Terror Wave | cast 3.1s | MDT: interruptible
+  > 20 yd range
+  > 3.1 sec cast
+  > Unleashes a surge of void energy inflicting 0 Shadow damage to players within 50 yds causing them to flee in fear for 3 sec.
+-- Arcanotron Custos | NPC 231861 | BOSS (enc 2659) | HP 12.66m | Lv 92 | Mechanical | Forces 0 | CC: -
+* [474345] Refueling Protocol | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Upon running out of energy Arcanotron Custos begins recharging, drawing Energy Orbs toward itself and increasing damage taken by 20% for 20 sec.
+* [474496] Repulsing Slam | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > Arcanotron Custos strikes it's current target with destructive force inflicting 82,074 Arcane damage and knocking them back.
+* [1214038] Ethereal Shackles | instant | MDT: magic
+  > Unlimited range
+  > Instant
+  > Arcanotron Custos suppresses the movement of several players, inflicting 24,621 Arcane damage every 3 sec and rooting them for 15 sec. 
+* [1214081] Arcane Expulsion | cast 2.3s | MDT: -
+  > Arcanotron Custos expels Arcane energy creating a pool of Arcane Residue at its feet, inflicting 41,037 damage to all players and knocking them back.
+* [1243905] Unstable Energy | instant | MDT: -
+  > Inflicts 13,678 Arcane damage every 1 second for 3 sec. This effect stacks.
+-- Seranel Sunlash | NPC 231863 | BOSS (enc 2659) | HP 11.07m | Lv 92 | Not specified | Forces 0 | CC: -
+* [1224903] Suppression Zone | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Seranel slams his shield into the ground, inflicting 109,433 Arcane damage to players within 8 yards and conjuring a Suppression Zone at the impact area.
+
+The Suppression Zone silences and pacifies players standing within and purges magical effects.
+
+* [1225015] Suppression Zone | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Seranel slams his shield into the ground, inflicting 109,433 Arcane damage to players within 8 yards and conjuring a Suppression Zone at the impact area.
+
+The Suppression Zone silences and pacifies players standing within and purges magical effects.
+
+* [1225135] Feedback | instant | MDT: -
+  > The Suppression Zone consumes Runic Mark from the target, causing them to emit a barrage of arcane missiles. Each missile inflicts 82,075 Arcane damage to players within 3 yards of the impact area, silencing and pacifying them for 3 sec.
+* [1225193] Wave of Silence | cast 3.9s | MDT: -
+  > 3.9 sec cast
+  > Seranel readies a Wave of Silence, inflicting 41,037 Arcane damage to all players and pacifying any player outside of the Suppression Zone for 8 sec.
+* [1225201] Wave of Silence | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Seranel readies a Wave of Silence, inflicting 41,037 Arcane damage to all players and pacifying any player outside of the Suppression Zone for 8 sec.
+* [1225205] Wave of Silence | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Seranel readies a Wave of Silence, inflicting 41,037 Arcane damage to all players and pacifying any player outside of the Suppression Zone for 8 sec.
+* [1225792] Runic Mark | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Seranel hurls an Arcane infused glaive at a target inflicting 16,414 Arcane damage and an additional 13,678 Arcane damage every 1 sec to players within 4 yards. The glaive bounces to 1 nearby players.
+* [1225796] Runic Mark | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Seranel hurls an Arcane infused glaive at a target inflicting 16,414 Arcane damage and an additional 13,678 Arcane damage every 1 sec to players within 4 yards. The glaive bounces to 1 nearby players.
+* [1246446] Null Reaction | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The Runic Mark violently reacts to the removal, inflicting 27,358 Arcane damage to all players and reducing their movement speed by 25% for 3 sec. This effect stacks.
+* [1248689] Hastening Ward | instant | MDT: magic
+  > Seranel surrounds himself in a hastening ward, increasing his attack speed by 100% and his auto attacks to inflict an additional 13,678 Arcane damage for 15 sec.
+* [1271317] Hastening Ward | instant | MDT: -
+  > 300 yd range
+  > Instant
+  > Seranel surrounds himself in a hastening ward, increasing his attack speed by 100% and his auto attacks to inflict an additional 13,678 Arcane damage for 15 sec.
+-- Gemellus | NPC 231864 | BOSS (enc 2659) | HP 17.40m | Lv 92 | Not specified | Forces 0 | CC: -
+* [1223847] Triplicate | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > At the start of the encounter and upon reaching 50% remaining health Gemullus self replicates, creating 2 clones of itself.
+* [1223936] Synaptic Nexus | instant | MDT: -
+  > Instant
+  > All Gemellus function as a collective, sharing health.
+* [1224104] Void Secretions | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Cosmic Sting forms a pool of secretions, inflicting 41,037 Shadow damage every 1 sec to players standing within.
+* [1224299] Astral Grasp | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Gemellus channels a shadowy tendril at a player, inflicting 10,943 Shadow damage every 1 sec and pulling the player towards them for 8 sec.
+* [1224401] Cosmic Radiation | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Gemellus radiates players pulled within its grasp, inflicting 49,245 Shadow damage every 1 sec.
+* [1253707] Neural Link | instant | MDT: -
+  > Instant
+  > Gemellus forms a neural link with a player, absorbing damage equal to 20% of its maximum health. The player they are linked to receives 20% more damage for 12 sec.
+
+Players who touch the Gemellus who linked with them before Neural Link expires disrupts the connection, removing Gemellus' damage absorb.
+* [1253709] Neural Link | cast 1.6s | MDT: -
+  > 300 yd range
+  > 1.6 sec cast
+  > Gemellus forms a neural link with a player, absorbing damage equal to 20% of its maximum health. The player they are linked to receives 20% more damage for 12 sec.
+
+Players who touch the Gemellus who linked with them before Neural Link expires disrupts the connection, removing Gemellus' damage absorb.
+* [1284954] Cosmic Sting | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Gemellus stings a player with Cosmic Void, inflicting 32,830 Shadow damage and creating a pool of Void Secretions at their location. Inflicts an additional 13,678 Shadow damage every 1 sec for 6 sec.
+* [1284958] Cosmic Sting | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Gemellus stings a player with Cosmic Void, inflicting 32,830 Shadow damage and creating a pool of Void Secretions at their location. Inflicts an additional 13,678 Shadow damage every 1 sec for 6 sec.
+-- Degentrius | NPC 231865 | BOSS (enc 2659) | HP 12.66m | Lv 92 | Aberration | Forces 0 | CC: -
+* [1215087] Unstable Void Essence | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > Degentrius launches unstable void energy that bounces to 4 locations, inflicting 27,358 Shadow damage to any player at the point of impact.
+
+If no player is in the area the unstable void essence erupts in Void Destruction.
+* [1215897] Devouring Entropy | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Degentrius corrupts several players with Void energy, inflicting 8,207 Shadow damage every 1 sec. Each afflicted player receives a different duration.
+
+Upon expiration, Entropy Orbs launch from the player's location.
+* [1269631] Entropy Orb | instant | MDT: -
+  > Volatile masses inflict 41,037 Shadow damage to players struck and additionaly reduce their movement speed by 70% for 5 sec.
+* [1271066] Entropy Blast | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Degentrius unleashes an Entropy Blast at its primary target inflicting Physical damage.
+* [1280113] Hulking Fragment | cast 2.3s | MDT: -
+  > Unlimited range
+  > 2.3 sec cast
+  > Degentrius smashes a massive fragment into their current target, inflicting 95,753 Shadow damage to players within 8 yards.
+
+The force of the impact knocks away other players within 8 yards of their target.
+* [1280119] Hulking Fragment | instant | MDT: -
+  > Degentrius smashes a massive fragment into their current target, inflicting 95,753 Shadow damage to players within 8 yards.
+
+The force of the impact knocks away other players within 8 yards of their target.
+* [1284627] Umbral Splinters | instant | MDT: magic
+  > Embedded splinters from Hulking Fragment inflict 10,943 Shadow damage every 1 sec for 30 sec. This effect stacks.
+
+Upon removal, the splinters dissolve, leaving behind Stygian Ichor.
+* [1284633] Stygian Ichor | instant | MDT: -
+  > The dissolved splinters form a pool on the ground for 40 sec, inflicting 5,472 Shadow damage every 0.5 sec to players within.
+-- Brightscale Wyrm | NPC 232106 | Trash | HP 304k | Lv 90 | Beast | Forces 1 | CC: -
+* [467068] Energy Infusion | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > The unleashed energy increases all damage and healing done by 1% for 30 sec.
+* [1254595] Energy Release | instant | MDT: -
+  > 50 yd range
+  > Instant
+  > Releases energy upon death inflicting 5,472 Arcane damage to players within 50 yds.
+-- Arcane Sentry | NPC 234062 | Trash | HP 3.65m | Lv 91 | Mechanical | Forces 16 | CC: -
+* [473258] Crowd Dispersal | cast 2.3s | MDT: -
+  > 100 Energy
+  > 2.3 sec cast
+  > Arcane Sentry attempts to disperse the crowd inflicting 49,245 Arcane damage and knocking back all players within 50 yds.
+* [1282050] Arcane Beam | cast 2.3s | MDT: -
+  > 60 yd range
+  > 2.3 sec cast
+  > Inflicts 13,678 Arcane damage to target enemy every 1 sec and leaves behind Arcane Residue at their location.
+* [1282051] Arcane Beam | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > Inflicts 13,678 Arcane damage to target enemy every 1 sec and leaves behind Arcane Residue at their location.
+* [1282053] Arcane Residue | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > 27,358 Arcane damage inflicted every 1 sec.
+* [1282055] Ethereal Shackles | cast 1.6s | MDT: magic
+  > 60 yd range
+  > 1.6 sec cast
+  > Inflicts 24,621 Arcane damage to target enemy every 3 sec for 15 sec and roots them in place.
+-- Vigilant Librarian | NPC 234067 | Trash | HP 1.52m | Lv 80 | Humanoid | Forces 0 | CC: -
+-- Sunblade Enforcer | NPC 234124 | Trash | HP 1.52m | Lv 90 | Humanoid | Forces 5 | CC: -
+* [1252910] Arcane Blade | instant | MDT: -
+  > The caster enchants their weapon, causing their melee attacks to inflict an additional 21,886 Arcane damage to their target.
+* [1253224] Charge | instant | MDT: -
+  > 30 yd range
+  > Instant
+  > The caster charges to the target.
+* [1265561] Arcane Blade | instant | MDT: magic
+  > Instant
+  > The caster enchants their weapon, causing their melee attacks to inflict an additional 21,886 Arcane damage to their target.
+-- Lightward Healer | NPC 234486 | Trash | HP 1.29m | Lv 90 | Humanoid | Forces 5 | CC: -
+* [1254306] Power Word: Shield | instant | MDT: magic
+  > 40 yd range
+  > Instant
+  > Protects a nearby injured ally absorbing 20% of their health in damage.
+* [1255187] Holy Fire | instant | MDT: magic
+  > 40 yd range
+  > Instant
+  > Sets a player ablaze in Holy Fire inflicting 13,678 Holy damage and an additional 13,678 Holy damage every 1 sec for 15 sec.
+-- Gemellus | NPC 239636 | BOSS (enc 2659) | HP 17.40m | Lv 92 | Not specified | Forces 0 | CC: -
+* [1223936] Synaptic Nexus | instant | MDT: -
+  > (see [1223936] above)
+* [1224104] Void Secretions | instant | MDT: -
+  > (see [1224104] above)
+* [1224299] Astral Grasp | cast 3.1s | MDT: -
+  > (see [1224299] above)
+* [1224401] Cosmic Radiation | instant | MDT: -
+  > (see [1224401] above)
+* [1253707] Neural Link | instant | MDT: -
+  > (see [1253707] above)
+* [1253709] Neural Link | cast 1.6s | MDT: -
+  > (see [1253709] above)
+* [1284954] Cosmic Sting | cast 3.1s | MDT: -
+  > (see [1284954] above)
+* [1284958] Cosmic Sting | instant | MDT: -
+  > (see [1284958] above)
+-- Void-Infused Brightscale | NPC 241354 | Trash | HP 276k | Lv 88 | Beast | Forces 1 | CC: -
+-- Celestial Drifter | NPC 241397 | BOSS (enc 2659) | HP 1.82m | Lv 92 | Not specified | Forces 0 | CC: -
+* [1248015] Astral Scouting | instant | MDT: -
+  > Instant
+  > Scanning for threats.
+-- Unstable Voidling | NPC 255376 | Trash | HP 228k | Lv 90 | Aberration | Forces 0 | CC: -
+* [1248229] Void Infusion | instant | MDT: -
+  > (see [1248229] above)
+* [1264951] Void Eruption | instant | MDT: -
+  > 50 yd range
+  > Instant
+  > Inflicts 2,735 Shadow damage to all players within 50 yds.
+-- Hollowsoul Shredder | NPC 257447 | Trash | HP 1.44m | Lv 90 | Aberration | Forces 5 | CC: -
+* [1227020] Dimensional Shred | instant | MDT: -
+  > (see [1227020] above)
+* [1248229] Void Infusion | instant | MDT: -
+  > (see [1248229] above)
+-- Spellwoven Familiar | NPC 259387 | Trash | HP 1.06m | Lv 90 | Elemental | Forces 1 | CC: -
+* [1279994] Blink | instant | MDT: -
+  > Instant
+  > The caster teleports towards a nearby location and releases a surge of energy inflicting 16,415 Arcane damage to players within 60 yards.
+* [1279995] Blink | instant | MDT: -
+  > Instant
+  > The caster teleports towards a nearby location and releases a surge of energy inflicting 16,415 Arcane damage to players within 60 yards.
+
+### Dungeon: Maisara Caverns [154] | Total Forces: 607
+-- Frenzied Berserker | NPC 248684 | Trash | HP 1.75m | Lv 90 | Humanoid | Forces 5 | CC: -
+* [1255765] Blood Frenzy | instant | MDT: enrage
+  > Instant
+  > The caster enrages, increasing their damage done by 20% and increasing their attack speed by 30% for 20 sec.
+* [1255966] Regeneratin' | instant | MDT: -
+  > Instant
+  > The caster regenerates 2% of their maximum health every 5 sec.
+-- Keen Headhunter | NPC 242964 | Trash | HP 1.52m | Lv 90 | Humanoid | Forces 7 | CC: -
+* [1255964] Throw Spear | cast 1.5s | MDT: -
+  > 5-45 yd range
+  > 1.5 sec cast
+  > Inflicts 35,565 Physical damage to an enemy.
+* [1255966] Regeneratin' | instant | MDT: -
+  > (see [1255966] above)
+* [1266381] Hooked Snare | cast 1.9s | MDT: interruptible
+  > 60 yd range
+  > 1.9 sec cast
+  > The caster flings a net, rooting the target for 4 sec and inflicting 7,522 Physical damage every 0.5 sec for 4 sec.
+-- Dread Souleater | NPC 248686 | Trash | HP 2.28m | Lv 91 | Humanoid | Forces 15 | CC: -
+* [1257088] Necrotic Wave | cast 1.6s | MDT: -
+  > 40 yd range
+  > 1.6 sec cast
+  > The caster unleashes a wave of necrotic energy which arcs between players, inflicting 13,678 Shadow damage and absorbing the next 36,909 healing received.
+* [1257155] Rain of Toads | cast 1.2s | MDT: -
+  > 1.2 sec cast
+  > The caster causes a torrent of toads to rain down, inflicting 68,396 Nature damage to players within 3 yards of each impact.
+* [1257160] Rain of Toads | instant | MDT: -
+  > The caster causes a torrent of toads to rain down, inflicting 68,396 Nature damage to players within 3 yards of each impact.
+-- Ritual Hexxer | NPC 248685 | Trash | HP 1.37m | Lv 90 | Humanoid | Forces 7 | CC: -
+* [1256008] Hex | cast 3.1s | MDT: interruptible,magic
+  > 30 yd range
+  > 3.1 sec cast
+  > The caster transforms a player into a frog, rendering it unable to attack or cast spells for 6 sec.
+
+* [1256015] Shadow Bolt | cast 1.9s | MDT: interruptible
+  > 40 yd range
+  > 1.9 sec cast
+  > Inflicts 32,829 Shadow damage to an enemy.
+-- Hexbound Eagle | NPC 249020 | Trash | HP 1.44m | Lv 90 | Beast | Forces 3 | CC: -
+* [1256586] Diseased Claws | instant | MDT: -
+  > The caster's melee attacks inflict an additional 5,472 Plague damage.
+* [1257780] Shredding Talons | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The caster soars towards a player and unleashes a series of slashes with its talons, inflicting 30,094 Physical damage to players in a frontal cone every 1 sec for 5 sec.
+* [1257781] Shredding Talons | instant | MDT: -
+  > Channeled
+  > The caster soars towards a player and unleashes a series of slashes with its talons, inflicting 30,094 Physical damage to players in a frontal cone every 1 sec for 5 sec.
+* [1257782] Shredding Talons | instant | MDT: -
+  > Instant
+  > The caster soars towards a player and unleashes a series of slashes with its talons, inflicting 30,094 Physical damage to players in a frontal cone every 1 sec for 5 sec.
+-- Hex Guardian | NPC 253302 | Trash | HP 2.43m | Lv 91 | Undead | Forces 15 | CC: -
+* [1258475] Magma Surge | cast 2.7s | MDT: -
+  > 100 yd range
+  > 2.7 sec cast
+  > The caster lets loose a surge of flame, inflicting 46,508 Fire damage to players within a frontal line.
+* [1258482] Searing Presence | instant | MDT: -
+  > The caster's presence sears all players within 60 yards, inflicting 5,472 Fire damage every 1 sec for as long as the caster remains in combat.
+* [1258806] Ritual Firebrand | cast 1.9s | MDT: magic
+  > 1.9 sec cast
+  > The caster brands several players with a ritual mark, causing a gout of flame to erupt underneath them every 4 sec for 12 sec that inflicts 68,396 Fire damage to players within 5 yards.
+-- Warding Mask | NPC 249002 | Trash | HP 456k | Lv 90 | Undead | Forces 2 | CC: -
+* [1257328] Sear | instant | MDT: -
+  > 20 yd range
+  > Instant
+  > Inflicts 9,574 Fire damage to an enemy.
+-- Bramblemaw Bear | NPC 249022 | Trash | HP 1.59m | Lv 90 | Beast | Forces 5 | CC: -
+* [1256561] Crunch Armor | instant | MDT: -
+  > Melee Range
+  > Instant
+  > The caster crushes their target's armor, inflicting 34,198 Physical damage and increasing their damage taken by 10% for 10 sec.
+-- Mire Laborer | NPC 248693 | Trash | HP 987k | Lv 90 | Humanoid | Forces 1 | CC: -
+-- Hulking Juggernaut | NPC 248678 | Trash | HP 2.73m | Lv 91 | Beast | Forces 15 | CC: -
+* [1256047] Deafening Roar | cast 2.7s | MDT: -
+  > 2.7 sec cast
+  > The caster unleashes a powerful roar, interrupting casts for 3 sec and inflicting 49,245 Sonic damage to all players within 60 yards.
+* [1256059] Rending Gore | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Inflicts 109,433 Physical damage to an enemy.
+Inflicts 16,415 Physical damage to an enemy every 1 sec for 12 sec.
+-- Umbral Shadowbinder | NPC 254740 | Trash | HP 1.37m | Lv 90 | Humanoid | Forces 5 | CC: -
+* [1263292] Shrink | cast 0.8s | MDT: interruptible
+  > 40 yd range
+  > 0.78 sec cast
+  > The caster shrinks their target, inflicting 10,943 Shadow damage for 0.5 sec for 8 sec and greatly reducing their size. If the target comes into contact with a full-sized player, the target is stunned for 4 sec.
+* [1263336] Shadow Burst | instant | MDT: -
+  > 40 yd range
+  > Instant
+  > The caster unleashes a burst of energy, inflicting 68,396 Shadow damage to players within 8 yards of impact.
+* [1265832] Shadow Burst | instant | MDT: -
+  > The caster unleashes a burst of energy, inflicting 68,396 Shadow damage to players within 8 yards of impact.
+-- Restless Gnarldin | NPC 249030 | Trash | HP 2.73m | Lv 91 | Undead | Forces 15 | CC: -
+* [1257895] Ancestral Crush | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > The caster smashes the ground, inflicting 82,074 Shadowstrike damage to players within 10 yards and forming an area of necrotic energy that inflicts 13,678 Shadow damage every 0.5 sec to players within it for 45 sec.
+* [1257898] Ancestral Crush | instant | MDT: -
+  > The caster smashes the ground, inflicting 82,074 Shadowstrike damage to players within 10 yards and forming an area of necrotic energy that inflicts 13,678 Shadow damage every 0.5 sec to players within it for 45 sec.
+* [1259274] Spectral Strikes | instant | MDT: -
+  > The caster's melee attacks inflict an additional 5,472 Shadow damage to players within 60 yards.
+* [1259631] Staggering Blow | cast 3.0s | MDT: -
+  > 100 yd range
+  > 3 sec cast
+  > The caster strikes their target with a hefty blow, inflicting 136,790 Physical damage and reducing the target's movement speed by 50% for 8 sec.
+-- Reanimated Warrior | NPC 248692 | Trash | HP 1.59m | Lv 90 | Undead | Forces 2 | CC: -
+* [1257716] Reanimation | instant | MDT: interruptible
+  > Channeled
+  > The caster begins to reanimate, reviving with 50% of their max health if the channel completes.
+* [1257914] Undying Resolve | instant | MDT: -
+  > The caster increases their damage done by 5% for 30 sec. This effect stacks.
+* [1257920] Dread Slash | instant | MDT: -
+  > The caster inflicts 54,716 Physical damage to their current target and gains an application of Undying Resolve.
+-- Grim Skirmisher | NPC 248690 | Trash | HP 911k | Lv 90 | Undead | Forces 2 | CC: -
+* [1270079] Grim Ward | instant | MDT: magic
+  > The caster exchanges their health for an absorption shield equal to the same amount. The shield bursts when removed, inflicting 19,150 Shadow damage to players within 60 yards.
+* [1270085] Grim Ward | instant | MDT: -
+  > The caster exchanges their health for an absorption shield equal to the same amount. The shield bursts when removed, inflicting 19,150 Shadow damage to players within 60 yards.
+-- Tormented Shade | NPC 249036 | Trash | HP 1.37m | Lv 90 | Undead | Forces 7 | CC: -
+* [1259255] Spirit Rend | cast 1.9s | MDT: interruptible,magic
+  > 40 yd range
+  > 1.9 sec cast
+  > Inflicts 16,415 Shadow damage to an enemy.
+Inflicts 4,377 Shadow damage to an enemy every 1 sec for 8 sec.
+-- Rokh'zal | NPC 253683 | Trash | HP 3.80m | Lv 91 | Humanoid | Forces 10 | CC: -
+* [1259786] Ritual Sacrifice | instant | MDT: -
+  > Unlimited range
+  > Channeled
+  > The caster prepares a target for sacrifice, stunning them for 1 sec and placing them atop a sacrifical altar.
+* [1262241] Invoke Shadow | cast 1.9s | MDT: -
+  > Unlimited range
+  > 1.9 sec cast
+  > The caster summons a shadow of themselves that casts Umbral Vortex.
+-- Bound Defender | NPC 249025 | Trash | HP 2.58m | Lv 91 | Undead | Forces 15 | CC: -
+* [1257546] Vigilant Defense | instant | MDT: -
+  > Channeled
+  > The caster raises a shield, deflecting all ranged attacks and spells and blocking all melee attacks from the front.
+* [1259274] Spectral Strikes | instant | MDT: -
+  > (see [1259274] above)
+* [1259651] Soulstorms | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > The caster summons two whirling storms that inflict 41,037 Shadow damage to players struck and knock them upwards.
+* [1259664] Soulstorms | instant | MDT: -
+  > The caster summons two whirling storms that inflict 41,037 Shadow damage to players struck and knock them upwards.
+-- Hollow Soulrender | NPC 249024 | Trash | HP 2.28m | Lv 91 | Undead | Forces 15 | CC: -
+* [1259677] Rend Souls | instant | MDT: -
+  > 100 yd range
+  > Channeled
+  > The caster channels on nearby spirits every 2 sec for 6 sec, lighting their soul aflame and causing them to burst inflicting 82,074 Shadow damage to players within 8 yards.
+* [1264327] Shadowfrost Blast | cast 1.9s | MDT: interruptible
+  > 40 yd range
+  > 1.9 sec cast
+  > The caster inflicts 68,396 Shadowfrost damage to their target.
+* [1271623] Frost Nova | cast 2.5s | MDT: magic
+  > 100 yd range
+  > 2.5 sec cast
+  > The caster blasts their target with a rime of frost, inflicting 43,772 Frost damage to players within 8 yards and rooting them for 5 sec.
+-- Muro'jin | NPC 247570 | BOSS (enc 2658) | HP 8.54m | Lv 92 | Humanoid | Forces 0 | CC: -
+* [1243752] Icy Slick | instant | MDT: -
+  > Triggered Freezing Traps leave behind a frozen patch that inflicts 13,678 Frost damage every 1 sec to players within and causes them to slide.
+* [1249789] Revive Pet | cast 7.8s | MDT: -
+  > 7.8 sec cast
+  > Muro'jin revives Nekraxx, returning them to life with 35% of their health.
+* [1249989] Coordinated Assault | instant | MDT: -
+  > Muro'jin hurls an axe at players knocked up by Carrion Swoop, inflicting 95,753 Physical damage and knocking them further upwards.
+* [1260648] Barrage | instant | MDT: -
+  > Muro'jin fixes his aim on a player for 5 sec, firing a spray of venomous arrows in a frontal cone toward them every 0.5 sec. The volley inflicts 10,943 Plague damage to players struck and applies Vilebranch Sting.
+* [1260709] Vilebranch Sting | instant | MDT: magic
+  > Muro'jin's venom-tipped arrows inhibit targets, reducing their movement speed by 5% for 10 sec. This effect stacks.
+* [1260731] Freezing Trap | cast 1.6s | MDT: -
+  > 1.6 sec cast
+  > Muro'jin throws traps at players which remain for 40 sec. Upon contact, these incapacitate the triggering player for 8 sec. Damage may break the effect.
+* [1266480] Flanking Spear | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > Muro'jin harpoons behind his current target and hurls a massive spear. The spear inflicts 164,149 Physical damage and knocks the target away, applying Open Wound.
+* [1266485] Flanking Spear | instant | MDT: -
+  > Muro'jin harpoons behind his current target and hurls a massive spear. The spear inflicts 164,149 Physical damage and knocks the target away, applying Open Wound.
+* [1266488] Open Wound | instant | MDT: bleed
+  > Muro'jin's Flanking Spear causes the target to bleed profusely, inflicting 21,886 Physical damage every 1 sec for 10 sec.
+-- Nekraxx | NPC 247572 | BOSS (enc 2658) | HP 8.54m | Lv 92 | Beast | Forces 0 | CC: -
+* [1243900] Fetid Quillstorm | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Nekraxx soars to a location and releases a surge of dark energy, inflicting 68,396 Shadow damage to players within 10 yards and flinging quills which inflict 68,396 Shadow damage to players within 3 yards.
+* [1246666] Infected Pinions | cast 1.2s | MDT: disease
+  > 1.2 sec cast
+  > Nekraxx pierces all players with festering feathers, inflicting 6,839 Plague damage every 1 sec for 30 sec.
+* [1249478] Carrion Swoop | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Nekraxx charges toward a marked player, inflicting 47,876 Shadow damage to players in her path and knocking them upwards.
+
+If Nekraxx strikes a player incapacitated by Freezing Trap, the trap shatters instead, stunning Nekraxx for 5 sec.
+* [1249479] Carrion Swoop | cast 3.5s | MDT: -
+  > 3.5 sec cast
+  > Nekraxx charges toward a marked player, inflicting 47,876 Shadow damage to players in her path and knocking them upwards.
+
+If Nekraxx strikes a player incapacitated by Freezing Trap, the trap shatters instead, stunning Nekraxx for 5 sec.
+* [1249638] Carrion Swoop | instant | MDT: -
+  > Nekraxx charges toward a marked player, inflicting 47,876 Shadow damage to players in her path and knocking them upwards.
+
+If Nekraxx strikes a player incapacitated by Freezing Trap, the trap shatters instead, stunning Nekraxx for 5 sec.
+* [1249947] Bestial Wrath | instant | MDT: -
+  > Instant
+  > Muro'jin's defeat sends Nekraxx into a frenzy, increasing her damage done by 20% every 4 sec. This effect stacks.
+* [1249948] Bestial Wrath | instant | MDT: -
+  > Muro'jin's defeat sends Nekraxx into a frenzy, increasing her damage done by 20% every 4 sec. This effect stacks.
+* [1256247] Fetid Quillstorm | instant | MDT: -
+  > Nekraxx soars to a location and releases a surge of dark energy, inflicting 68,396 Shadow damage to players within 10 yards and flinging quills which inflict 68,396 Shadow damage to players within 3 yards.
+
+* [1256387] Carrion Swoop | instant | MDT: -
+  > Instant
+  > Nekraxx charges toward a marked player, inflicting 47,876 Shadow damage to players in her path and knocking them upwards.
+
+If Nekraxx strikes a player incapacitated by Freezing Trap, the trap shatters instead, stunning Nekraxx for 5 sec.
+-- Vordaza | NPC 248595 | BOSS (enc 2658) | HP 9.11m | Lv 92 | Humanoid | Forces 0 | CC: -
+* [1250708] Necrotic Convergence | instant | MDT: interruptible
+  > Channeled
+  > Vordaza protects herself with Deathshroud and unleashes waves of necrotic energy which inflict 12,311 Shadow damage to all players every 2 sec for up to 1 min. This effect grows in intensity over time.
+* [1251204] Wrest Phantoms | instant | MDT: -
+  > Channeled
+  > Vordaza wrests fresh sacrifices to do her bidding, manifesting Unstable Phantoms that seek out players.
+* [1251554] Drain Soul | cast 0.8s | MDT: -
+  > 0.78 sec cast
+  > Vordaza siphons the life essence from her current target, inflicting 27,358 Shadow damage and absorbing the next 24,813 healing received every 1 sec for 4 sec.
+* [1251567] Drain Soul | instant | MDT: -
+  > Vordaza siphons the life essence from her current target, inflicting 27,358 Shadow damage and absorbing the next 24,813 healing received every 1 sec for 4 sec.
+* [1251598] Deathshroud | instant | MDT: -
+  > Instant
+  > Vordaza wraps herself in a necrotic barrier, becoming immune to interrupt effects and absorbing the next 955,287 damage for 1 min.
+* [1251811] Final Pursuit | instant | MDT: -
+  > The phantom seeks out a player until defeated. When it reaches its target or collides with another Unstable Phantom, it bursts, inflicting 136,790 Shadow damage to players within 3 yards.
+* [1251813] Lingering Dread | instant | MDT: -
+  > The phantom screams when slain, inflicting 13,678 Shadow damage to all players.
+* [1251833] Soulrot | instant | MDT: -
+  > Upon defeat Unstable Phantoms leave behind a pool of necrotic residue for 20 sec, inflicting 27,358 Shadow damage every 1.5 sec to players within.
+* [1252054] Unmake | cast 1.9s | MDT: -
+  > Unlimited range
+  > 1.9 sec cast
+  > Vordaza unleashes a frontal surge of soulflaying force for 4.5 sec, inflicting 32,829 Shadow damage every 0.5 sec to players caught in the blast and pushing them away.
+* [1252130] Unmake | instant | MDT: -
+  > Vordaza unleashes a frontal surge of soulflaying force for 4.5 sec, inflicting 32,829 Shadow damage every 0.5 sec to players caught in the blast and pushing them away.
+* [1252611] Coalesced Death | instant | MDT: -
+  > Vordaza's ritual forms masses of soul ichor that flow across the dais, inflicting 68,396 Shadow damage to players struck.
+* [1263735] Necrotic Convergence | instant | MDT: -
+  > Vordaza protects herself with Deathshroud and unleashes waves of necrotic energy which inflict 12,311 Shadow damage to all players every 2 sec for up to 1 min. This effect grows in intensity over time.
+* [1264987] Withering Miasma | instant | MDT: -
+  > A withering miasma saturates the cavern, inflicting 7,522 Shadow damage to all players every 2 sec.
+* [1264989] Withering Miasma | instant | MDT: -
+  > A withering miasma saturates the cavern, inflicting 7,522 Shadow damage to all players every 2 sec.
+* [1266706] Haunting Remains | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Final Pursuit's burst haunts players struck, increasing their damage taken from Final Pursuit by 200% for 20 sec.
+* [1277556] Necrotic Convergence | instant | MDT: -
+  > Vordaza protects herself with Deathshroud and unleashes waves of necrotic energy which inflict 12,311 Shadow damage to all players every 2 sec for up to 1 min. This effect grows in intensity over time.
+-- Rak'tul | NPC 248605 | BOSS (enc 2658) | HP 13.45m | Lv 92 | Undead | Forces 0 | CC: -
+* [1248879] Deathgorged Vessel | instant | MDT: -
+  > Rak'tul's engorged form releases soul energy every 6 sec, inflicting 29,547 Shadow damage to all players and ejecting Volatile Essences.
+* [1248980] Volatile Essence | instant | MDT: -
+  > Released soul energy bursts upon impact, inflicting 54,716 Shadow damage to players within 2 yards.
+* [1251023] Spiritbreaker | instant | MDT: -
+  > Unlimited range
+  > Channeled
+  > Rak'tul pummels his target twice, inflicting 95,753 Physical damage with each strike. He then delivers a final empowered blow, inflicting 75,235 Shadow damage and launching the target high into the air.
+
+The final blow leaves behind a patch of Spectral Decay.
+* [1251024] Spiritbreaker | instant | MDT: -
+  > Rak'tul pummels his target twice, inflicting 95,753 Physical damage with each strike. He then delivers a final empowered blow, inflicting 75,235 Shadow damage and launching the target high into the air.
+
+The final blow leaves behind a patch of Spectral Decay.
+* [1252675] Crush Souls | instant | MDT: -
+  > Rak'tul repeatedly leaps and slams down, inflicting 54,716 Shadow damage to players within 5 yards. Each impact plants a Soulbind Totem.
+* [1252676] Crush Souls | cast 3.5s | MDT: -
+  > 3.5 sec cast
+  > Rak'tul repeatedly leaps and slams down, inflicting 54,716 Shadow damage to players within 5 yards. Each impact plants a Soulbind Totem.
+* [1252704] Crush Souls | instant | MDT: -
+  > Rak'tul repeatedly leaps and slams down, inflicting 54,716 Shadow damage to players within 5 yards. Each impact plants a Soulbind Totem.
+* [1253765] Spiritbreaker | instant | MDT: -
+  > Rak'tul pummels his target twice, inflicting 95,753 Physical damage with each strike. He then delivers a final empowered blow, inflicting 75,235 Shadow damage and launching the target high into the air.
+
+The final blow leaves behind a patch of Spectral Decay.
+* [1253779] Spectral Decay | instant | MDT: -
+  > The pooling essence inflicts 16,415 Shadow damage every 1 sec to players within and increases their damage taken by 30%.
+* [1253788] Soulrending Roar | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Rak'tul roars with tremendous force, awakening the Restless Masses and applying Withering Soul to all players. This affliction tears players' souls asunder, flinging them across the Echoing Span and severing them from the realm of the living.
+
+Soul Expulsion leaves Rak'tul momentarily in a trance.
+* [1253844] Withering Soul | instant | MDT: -
+  > Instant
+  > While in an incorporeal form, the target suffers 1,368 Shadow damage every 1 sec. This effect stacks every 4 sec.
+
+Returning to the realm of the living removes this effect.
+* [1253909] Soul Expulsion | instant | MDT: -
+  > Channeled
+  > Soulrending Roar sends Rak'tul into a stupor, stunning him for 45 sec. Souls periodically erupt from his form, inflicting 75,235 Shadow damage to players within 4 yards of each impact.
+* [1259810] Shattered Totem | instant | MDT: -
+  > Rak'tul's roar shatters each remaining Soulbind Totem, inflicting 68,396 Shadow damage to all players for each totem shattered.
+* [1266188] Shadow Realm | instant | MDT: -
+  > The shadow realm inflicts 27,358 Shadow damage every 0.5 sec to players in a corporeal form and reduces their movement speed by 50%.
+* [1279517] Soul Expulsion | instant | MDT: -
+  > Soulrending Roar sends Rak'tul into a stupor, stunning him for 45 sec. Souls periodically erupt from his form, inflicting 75,235 Shadow damage to players within 4 yards of each impact.
+-- Unstable Phantom | NPC 250443 | Trash | HP 1.27m | Lv 91 | Undead | Forces 0 | CC: -
+* [1251775] Final Pursuit | instant | MDT: -
+  > The phantom seeks out a player until defeated. When it reaches its target or collides with another Unstable Phantom, it bursts, inflicting 136,790 Shadow damage to players within 3 yards.
+-- Soulbind Totem | NPC 251047 | Trash | HP 253k | Lv 90 | Not specified | Forces 0 | CC: -
+* [1252777] Soulbind | instant | MDT: -
+  > Channeled
+  > The totem ensnares a player, inflicting 5,472 Shadow damage every 1 sec and pulling them toward the totem.
+* [1252816] Chill of Death | instant | MDT: -
+  > The totem inflicts 27,358 Shadow damage every 0.5 sec to players within 3 yards.
+-- Zil'jan | NPC 253458 | Trash | HP 608k | Lv 91 | Humanoid | Forces 7 | CC: -
+* [1259882] Ritual Drums | instant | MDT: -
+  > Channeled
+  > Zil'jan furiously strikes ritual drums, sending lanes of explosions that inflict 0 Shadow damage to players struck and knock them away.
+
+Zil'jan's strikes inflict 27,358 Sonic damage to players within 70 yards.
+* [1259887] Ritual Drums | instant | MDT: -
+  > Zil'jan furiously strikes ritual drums, sending lanes of explosions that inflict 0 Shadow damage to players struck and knock them away.
+
+Zil'jan's strikes inflict 27,358 Sonic damage to players within 70 yards.
+* [1262900] Ritual Drums | instant | MDT: -
+  > Zil'jan furiously strikes ritual drums, sending lanes of explosions that inflict 0 Shadow damage to players struck and knock them away.
+
+Zil'jan's strikes inflict 27,358 Sonic damage to players within 70 yards.
+-- Gloomwing Bat | NPC 253473 | Trash | HP 1.37m | Lv 90 | Beast | Forces 5 | CC: -
+* [1259182] Piercing Screech | cast 1.6s | MDT: interruptible
+  > 100 yd range
+  > 1.6 sec cast
+  > The caster screeches, releasing a pulse of Sonic energy that inflicts 41,037 Physical damage to any players struck.
+* [1259183] Piercing Screech | instant | MDT: -
+  > The caster screeches, releasing a pulse of Sonic energy that inflicts 41,037 Physical damage to any players struck.
+-- Death's Grasp | NPC 253701 | Trash | HP 228k | Lv 90 | Not specified | Forces 0 | CC: -
+* [1259794] Ritual Sacrifice | instant | MDT: -
+  > The caster prepares a target for sacrifice, stunning them for 1 sec and placing them atop a sacrifical altar.
+-- Rokh'zal | NPC 254233 | Trash | HP 3.95m | Lv 91 | Humanoid | Forces 0 | CC: -
+* [1259772] Umbral Vortex | cast 1.6s | MDT: -
+  > 1.6 sec cast
+  > The caster inflicts 19,150 Shadow damage to players within 8 yards every 5.2 sec for 10 sec and pulls them towards their location.
+* [1259777] Umbral Vortex | instant | MDT: -
+  > The caster inflicts 19,150 Shadow damage to players within 8 yards every 5.2 sec for 10 sec and pulls them towards their location.
+
+### Dungeon: Nexus Point Xenas [155] | Total Forces: 596
+-- Shadowguard Defender | NPC 241643 | Trash | HP 1.55m | Lv 90 | Humanoid | Forces 5 | CC: -
+* [1249645] Null Sunder | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > Melee attacks inflict 5,472 Shadow damage and reduce armor by 3%. Absorbs the next 24,813 healing received for 12 sec. This effect stacks.
+* [1252218] Leech Veil | cast 1.0s | MDT: -
+  > 100 yd range
+  > 1 sec cast
+  > At 45% health, latches to an ally's shadow, hiding within and draining life to heal. The effect ends early if the shield on the leech victim is broken.
+* [1282745] Null Sunder | instant | MDT: -
+  > Instant
+  > Melee attacks inflict 5,472 Shadow damage and reduce armor by 3%. Absorbs the next 24,813 healing received for 12 sec. This effect stacks.
+-- Reformed Voidling | NPC 248501 | Trash | HP 638k | Lv 90 | Aberration | Forces 1 | CC: -
+* [1252218] Leech Veil | cast 1.0s | MDT: -
+  > (see [1252218] above)
+-- Corewright Arcanist | NPC 241644 | Trash | HP 1.46m | Lv 90 | Humanoid | Forces 5 | CC: -
+* [1249815] Transference | cast 1.9s | MDT: magic
+  > 40 yd range
+  > 1.9 sec cast
+  > Imbues a target with a rerouting essence causing all incoming healing received by the target to be redirected to the caster.
+* [1249818] Arcane Zap | instant | MDT: -
+  > 30 yd range
+  > Instant
+  > Inflicts 21,886 Arcane damage to an enemy.
+* [1252218] Leech Veil | cast 1.0s | MDT: -
+  > (see [1252218] above)
+* [1277451] Arcane Zap | instant | MDT: -
+  > Melee Range
+  > Instant
+  > Melee attacks inflict 21,886 Arcane damage.
+* [1278882] Arcane Zap | cast 1.2s | MDT: -
+  > 30 yd range
+  > 1.2 sec cast
+* [1285445] Arcane Explosion | instant | MDT: interruptible
+  > Channeled
+  > Inflicts 24,621 Arcane damage to all enemies every 2 sec.
+* [1285450] Arcane Explosion | instant | MDT: -
+  > Instant
+  > Inflicts 24,621 Arcane damage to all enemies every 2 sec.
+-- Hollowsoul Scrounger | NPC 241645 | Trash | HP 1.22m | Lv 90 | Aberration | Forces 3 | CC: -
+* [1227020] Dimensional Shred | instant | MDT: -
+  > (see [1227020] above)
+* [1252204] Leech Veil | cast 1.0s | MDT: -
+  > 1 sec cast
+  > At 45% health, latches to an ally's shadow, hiding within and draining life to heal. The effect ends early if the shield on the leech victim is broken.
+* [1252218] Leech Veil | cast 1.0s | MDT: -
+  > (see [1252218] above)
+-- Flux Engineer | NPC 241647 | Trash | HP 1.52m | Lv 90 | Humanoid | Forces 7 | CC: -
+* [1257124] Mana Battery | instant | MDT: -
+  > Instant
+* [1269283] Suppression Field | instant | MDT: -
+  > 40 yd range
+  > Instant
+  > Places a suppression field on an enemy, decreasing movement by 50% and pulsing out 13,678 Arcane damage every 1 sec for 10 sec. Additionally, if the enemy moves while being suppressed, they explode, inflicting 2,778 Arcane damage to themselves and all allies within 6 yards.
+
+* [1282950] Suppression Field | instant | MDT: -
+  > Places a suppression field on an enemy, decreasing movement by 50% and pulsing out 13,678 Arcane damage every 1 sec for 10 sec. Additionally, if the enemy moves while being suppressed, they explode, inflicting 2,778 Arcane damage to themselves and all allies within 6 yards.
+
+-- Nexus Adept | NPC 248708 | Trash | HP 759k | Lv 90 | Humanoid | Forces 7 | CC: -
+* [1271094] Umbra Bolt | cast 1.9s | MDT: interruptible
+  > 45 yd range
+  > 1.9 sec cast
+  > Inflicts 32,829 Shadow damage to an enemy.
+-- Circuit Seer | NPC 248373 | Trash | HP 2.19m | Lv 91 | Humanoid | Forces 15 | CC: -
+* [1249801] Arcing Mana | instant | MDT: -
+  > Channeled
+  > The caster arcs beams of energy at players for 7.5 sec, inflicting 546 Arcane damage every 0.5 sec. This effect stacks.
+
+* [1249806] Arcing Mana | instant | MDT: -
+  > The caster arcs beams of energy at players for 7.5 sec, inflicting 546 Arcane damage every 0.5 sec. This effect stacks.
+
+
+* [1257100] Circuit Sense | instant | MDT: -
+  > Instant
+  > Erratic arcane energy arcs onto nearby devices, causing them to surge.
+* [1257103] Erratic Surge | instant | MDT: -
+  > Instant
+  > Energy surges off the caster inflicting 4,103 Arcane damage to enemies within 3 yards of the surge.
+
+* [1257105] Erratic Zap | instant | MDT: -
+  > Chaotic energies surge into the ground, inflicting 62,923 Arcane damage to players within 4 yards of the impact and stunning them for 2 sec.
+-- Cursed Voidcaller | NPC 248706 | Trash | HP 608k | Lv 90 | Aberration | Forces 3 | CC: -
+* [1252218] Leech Veil | cast 1.0s | MDT: -
+  > (see [1252218] above)
+* [1281636] Creeping Void | instant | MDT: curse
+  > 60 yd range
+  > Instant
+  > Causes all enemies within 60 yards to take 10% increased Shadow damage for 15 sec.
+Inflicts 8,207 Shadow damage to enemies within 60 yards.
+-- Dreadflail | NPC 248506 | Trash | HP 2.58m | Lv 91 | Aberration | Forces 8 | CC: -
+* [1252218] Leech Veil | cast 1.0s | MDT: -
+  > (see [1252218] above)
+* [1252436] Void Lash | cast 1.9s | MDT: -
+  > Melee Range
+  > 1.9 sec cast
+  > The caster's mainhand and offhand strike all enemies in a cone in front of the caster for 8.3 sec, inflicting 27,358 Shadow damage every strike.
+* [1252437] Void Lash | instant | MDT: -
+  > Melee Range
+  > Instant
+  > The caster's mainhand strikes all enemies in a cone in front of the caster, inflicting Shadow damage.
+* [1252438] Void Lash | instant | MDT: -
+  > Melee Range
+  > Instant
+  > The caster's offhand strikes all enemies in a cone in front of the caster, inflicting Shadow damage.
+* [1252621] Flailstorm | instant | MDT: -
+  > Instant
+  > Fixates on a random enemy and spins their flails inflicting 27,358 Shadow damage every 1 sec to enemies within 8 yards of the caster.
+* [1252622] Flailstorm | cast 1.2s | MDT: -
+  > 100 yd range
+  > 1.2 sec cast
+  > Fixates on a random enemy and spins their flails inflicting 27,358 Shadow damage every 1 sec to enemies within 8 yards of the caster.
+* [1252628] Flailstorm | instant | MDT: -
+  > 200 yd range
+  > Instant
+  > Fixates on a random enemy and spins their flails inflicting 27,358 Shadow damage every 1 sec to enemies within 8 yards of the caster.
+-- Duskfright Herald | NPC 241660 | Trash | HP 1.94m | Lv 91 | Aberration | Forces 15 | CC: -
+* [1252062] Entropic Leech | cast 2.6s | MDT: -
+  > 75 yd range
+  > 2.6 sec cast
+  > The herald imbues a random target with entropic essence absorbing the next 99,251 healing and leeching 12,311 health every 1 sec for 12 sec.
+* [1252076] Dark Beckoning | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > The caster calls out to dark entities that travel outwards in erratic patterns, inflicting 34,738 Shadow damage to all enemies every 3 sec for 9 sec. The entities knock up the first target caught in its path, inflicting 68,396 Shadow damage.
+* [1252134] Dark Beckoning | instant | MDT: -
+  > The caster calls out to dark entities that travel outwards in erratic patterns, inflicting 34,738 Shadow damage to all enemies every 3 sec for 9 sec. The entities knock up the first target caught in its path, inflicting 68,396 Shadow damage.
+* [1254096] Forfeit Essence | instant | MDT: -
+  > Unlimited range
+  > Channeled
+  > Funnels health into an ally.
+* [1259359] Devour the Unworthy | cast 0.5s | MDT: -
+  > Unlimited range
+  > 0.45 sec cast
+  > Nyssara channels the void to consume any surviving subordinates, restoring her own strength every 1.2 sec for 2.3 sec  and triggers a burst of void energy, inflicting 15 Shadow damage to all players.
+-- Grand Nullifier | NPC 251853 | Trash | HP 1.52m | Lv 90 | Aberration | Forces 7 | CC: -
+* [1252218] Leech Veil | cast 1.0s | MDT: -
+  > (see [1252218] above)
+* [1258681] Nullify | cast 3.9s | MDT: interruptible
+  > 60 yd range
+  > 3.9 sec cast
+  > The caster conjures a blast of void energy at the target, inflicting 109,432 Shadow damage.
+* [1258684] Void Ritual | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The caster beckons the void, hurling droplets of pure shadow onto nearby ground, inflicting 6,839 Shadow damage to all enemies within 2 yards of the impact.
+* [1264295] Nullblast | cast 2.3s | MDT: -
+  > 30 yd range
+  > 2.3 sec cast
+  > Fire a blast of void at an enemy, inflicting Shadow damage.
+* [1281634] Dusk Frights | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Fears enemies within 5 yards of the impact for 5 sec.
+Immobilizes all enemies within 5 yards of the impact for 5 sec.
+* [1281637] Dusk Frights | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Fears enemies within 5 yards of the impact for 5 sec.
+Immobilizes all enemies within 5 yards of the impact for 5 sec.
+-- Null Sentinel | NPC 248502 | Trash | HP 2.43m | Lv 91 | Aberration | Forces 15 | CC: -
+* [1252218] Leech Veil | cast 1.0s | MDT: -
+  > (see [1252218] above)
+* [1252406] Dreadbellow | cast 3.5s | MDT: -
+  >  
+  > The sentinel unleashes a dark roar, knocking back all players and inflicting 8,207 Shadow damage to them every 1 sec for 12 sec.
+
+* [1252414] Nullwark Blast | instant | MDT: -
+  > 30 yd range
+  > Instant
+  > The Null Sentinel charges its shield with void and aims it at a player, inflicting 49,245 Shadow damage and an additional 19,150 Shadow damage every 2 sec for 12 sec.
+
+* [1252417] Nullwark Blast | cast 1.2s | MDT: -
+  > The Null Sentinel charges its shield with void and aims it at a player, inflicting 49,245 Shadow damage and an additional 19,150 Shadow damage every 2 sec for 12 sec.
+* [1252429] Nullwark Blast | instant | MDT: -
+  > 60 yd range
+  > Instant
+  > The Null Sentinel charges its shield with void and aims it at a player, inflicting 49,245 Shadow damage and an additional 19,150 Shadow damage every 2 sec for 12 sec.
+-- Lingering Image | NPC 241642 | Trash | HP 2.22m | Lv 91 | Humanoid | Forces 15 | CC: -
+* [1257701] Searing Rend | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Lashes out with a precise, double-slash aimed at his current target. Each strike inflicts 60,188 Physical damage with an additional 9,574 Holy damage every 1 sec for 6 sec to any enemies within range and carves a Radiant Scar into the ground.
+* [1257736] Searing Rend | instant | MDT: -
+  > 200 yd range
+  > Instant
+  > Lashes out with a precise, double-slash aimed at his current target. Each strike inflicts 60,188 Physical damage with an additional 9,574 Holy damage every 1 sec for 6 sec to any enemies within range and carves a Radiant Scar into the ground.
+
+* [1257745] Searing Rend | instant | MDT: -
+  > Lashes out with a precise, double-slash aimed at his current target. Each strike inflicts 60,188 Physical damage with an additional 9,574 Holy damage every 1 sec for 6 sec to any enemies within range and carves a Radiant Scar into the ground.
+* [1257746] Radiant Scar | instant | MDT: -
+  > A jagged brand of divine energy inflicts 27,358 Holy damage every 1 sec to players within the area.
+* [1264354] Luciferin Flare | cast 3.5s | MDT: -
+  > 50 yd range
+  > 3.5 sec cast
+  > Unleashes a swarm of dazzling light, inflicting 41,037 Holy damage to all enemies in front of the caster and blinding them for 5 sec.
+* [1281657] Blistering Smite | cast 2.3s | MDT: -
+  > 100 yd range
+  > 2.3 sec cast
+  > Inflicts 21,886 Holy damage to an enemy.
+Inflicts 13,678 Holy damage to an enemy every 1 sec for 6 sec.
+-- Radiant Swarm | NPC 254932 | Trash | HP 532k | Lv 90 | Not specified | Forces 2 | CC: -
+* [1263775] Fixate | instant | MDT: -
+  > 40 yd range
+  > Channeled
+  > Chases down a random target, ignoring everyone else for 8 sec.
+* [1282944] Cluster Weakness | instant | MDT: -
+  > Instant
+  > Increases damage taken from area of effect attacks by 20%.
+-- Lightwrought | NPC 254926 | Trash | HP 1.29m | Lv 90 | Elemental | Forces 7 | CC: -
+* [1263892] Holy Bolt | cast 1.9s | MDT: interruptible
+  > 60 yd range
+  > 1.9 sec cast
+  > Inflicts 32,829 Holy damage to a random enemy.
+* [1277557] Burning Radiance | instant | MDT: magic
+  > 60 yd range
+  > Instant
+  > The caster bursts with a holy radiance searing up to 2 nearby enemies, inflicting 13,678 Holy damage every 1 sec for 8 sec.
+-- Flarebat | NPC 254928 | Trash | HP 2.22m | Lv 90 | Beast | Forces 3 | CC: -
+* [1263783] Holy Echo | instant | MDT: magic
+  > Instant
+  > Unstable light energies cause the caster to burst on death, inflicting 21,439 Holy damage to enemies and healing allies for 10% within 12 yards.
+* [1263785] Holy Echo | instant | MDT: -
+  > Instant
+  > Unstable light energies cause the caster to burst on death, inflicting 21,439 Holy damage to enemies and healing allies for 10% within 12 yards.
+-- Kasreth | NPC 241539 | BOSS (enc 2658) | HP 9.97m | Lv 92 | Humanoid | Forces 0 | CC: -
+* [1250553] Arcane Zap | instant | MDT: -
+  > 30 yd range
+  > Instant
+  > Kasreth zaps the player, inflicting 27,358 Arcane damage.
+* [1251626] Leyline Array | instant | MDT: -
+  > A dangerous flow of Arcane power links between conduits inflicting 82,074 Arcane damage when crossed and reducing their movement speed by 20% for 8 sec. This effect stacks.
+
+* [1251767] Reflux Charge | instant | MDT: -
+  > Instant
+  > Kasreth hurls a refluxing circuit on a random player inflicting 13,678 Arcane damage every 1 sec. 
+Provides immunity while standing in Leyline Array as the circuit recoils and clears the effect, stunning the player for 1 sec.
+* [1251772] Reflux Charge | cast 1.6s | MDT: -
+  > 100 yd range
+  > 1.6 sec cast
+  > Kasreth hurls a refluxing circuit on a random player inflicting 13,678 Arcane damage every 1 sec. 
+Provides immunity while standing in Leyline Array as the circuit recoils and clears the effect, stunning the player for 1 sec.
+* [1257509] Corespark Detonation | cast 3.9s | MDT: -
+  > 100 yd range
+  > 3.9 sec cast
+  > Upon reaching 100 energy, Kasreth overcharges a spark in the core engine and launches it at a random location, inflicting 68,396 Arcane damage to all players within 14 yards of the impact. The detonation causes a Flux Collapse, leaving behind Arcane Spills, and Sparkburn clings to all players.
+* [1257512] Corespark Detonation | instant | MDT: -
+  > Instant
+  > Upon reaching 100 energy, Kasreth overcharges a spark in the core engine and launches it at a random location, inflicting 68,396 Arcane damage to all players within 14 yards of the impact. The detonation causes a Flux Collapse, leaving behind Arcane Spills, and Sparkburn clings to all players.
+* [1257524] Corespark Detonation | instant | MDT: -
+  > Instant
+  > Upon reaching 100 energy, Kasreth overcharges a spark in the core engine and launches it at a random location, inflicting 68,396 Arcane damage to all players within 14 yards of the impact. The detonation causes a Flux Collapse, leaving behind Arcane Spills, and Sparkburn clings to all players.
+* [1264040] Flux Collapse | instant | MDT: -
+  > Broken pipes leak excess power, inflicting 27,358 Arcane damage to enemies within 2 yards of the impact. Causes an Arcane Spill to form for 1.3 min.
+
+* [1264042] Arcane Spill | instant | MDT: -
+  > Residual arcane energy lingers on the ground, inflicting 32,829 Arcane damage every 1 sec to players standing within.
+* [1264048] Flux Collapse | instant | MDT: -
+  > Instant
+  > Broken pipes leak excess power, inflicting 27,358 Arcane damage to enemies within 2 yards of the impact. Causes an Arcane Spill to form for 1.3 min.
+
+* [1265894] Corespark Detonation | cast 2.1s | MDT: -
+  > 100 yd range
+  > 2.1 sec cast
+  > Kasreth overcharges a spark in the core engine.
+* [1276485] Sparkburn | instant | MDT: -
+  > An arcane discharge clings to players absorbing the next 99,251 healing and inflicts 8,207 Arcane damage every 1 sec.
+* [1282915] Reflux Charge | instant | MDT: -
+  > Kasreth hurls a refluxing circuit on a random player inflicting 13,678 Arcane damage every 1 sec. 
+Provides immunity while standing in Leyline Array as the circuit recoils and clears the effect, stunning the player for 1 sec.
+-- Corewarden Nysarra | NPC 241542 | BOSS (enc 2658) | HP 31.64m | Lv 92 | Aberration | Forces 0 | CC: -
+* [1247937] Umbral Lash | cast 0.7s | MDT: -
+  > Nysarra leaps to her primary target and unleashes consecutive slashes on them, inflicting 41,037 Shadow damage with every strike and causing Void Gash on the final one.
+* [1248007] Umbral Lash | instant | MDT: -
+  > 200 yd range
+  > Instant
+  > Nysarra leaps to her primary target and unleashes consecutive slashes on them, inflicting 41,037 Shadow damage with every strike and causing Void Gash on the final one.
+
+* [1249014] Eclipsing Step | instant | MDT: -
+  > Instant
+  > Nysarra slips into the shadows and strikes at random players, inflicting 41,037 Shadow damage and additional 10,943 Shadow damage every 1 sec for 8 sec to all players within 14 yards.
+* [1249027] Eclipsing Step | cast 1.9s | MDT: -
+  > 1.9 sec cast
+  > Nysarra slips into the shadows and strikes at random players, inflicting 41,037 Shadow damage and additional 10,943 Shadow damage every 1 sec for 8 sec to all players within 14 yards.
+* [1252875] Eclipsing Step | instant | MDT: -
+  > Nysarra slips into the shadows and strikes at random players, inflicting 41,037 Shadow damage and additional 10,943 Shadow damage every 1 sec for 8 sec to all players within 14 yards.
+* [1252883] Devour the Unworthy | cast 2.6s | MDT: -
+  > Unlimited range
+  > 2.6 sec cast
+  > Nyssara channels the void to consume any surviving subordinates, restoring her own strength every 0.5 sec for 5 sec and triggers a burst of void energy inflicting 41,037 Shadow damage to all players.
+* [1254096] Forfeit Essence | instant | MDT: -
+  > (see [1254096] above)
+* [1259359] Devour the Unworthy | cast 0.5s | MDT: -
+  > (see [1259359] above)
+* [1271433] Lightscar Flare | instant | MDT: -
+  > A fractured image of Lothraxion strikes at Nysarra, causing her wound to flare and stunning her for 18 sec. Players caught in the image's blast suffer 41,037 Holy damage and are disoriented for 5 sec.
+
+Standing in the wound's flare increases the target's healing done by 30% and damage dealt to Nysarra by 300% but inflicts 19,150 Holy damage every 1 sec until she recovers.
+-- Lothraxion | NPC 241546 | BOSS (enc 2658) | HP 12.66m | Lv 92 | Humanoid | Forces 0 | CC: -
+* [1253855] Brilliant Dispersion | cast 3.1s | MDT: -
+  > 3.1 sec cast
+  > Lothraxion unleashes radiant swarms toward several players, blasting players within 8 yards of the impact for 32,829 Holy damage and searing an additional 10,943 Holy damage every 1 sec for 6 sec. 
+Fractured Images scatter, erupting with Mirrored Rend to enemies within 5 yards of their creation.
+* [1253950] Searing Rend | cast 2.3s | MDT: -
+  > 2.3 sec cast
+  > Lothraxion lashes out with a precise, double-slash aimed at his current target, with each strike inflicting 68,396 Physical damage and an additional 10,943 Holy damage every 1 sec for 6 sec. Carves Radiant Scars into the ground.
+* [1255208] Searing Rend | instant | MDT: -
+  > Unlimited range
+  > Instant
+  > Lothraxion lashes out with a precise, double-slash aimed at his current target, with each strike inflicting 68,396 Physical damage and an additional 10,943 Holy damage every 1 sec for 6 sec. Carves Radiant Scars into the ground.
+
+* [1255310] Radiant Scar | instant | MDT: -
+  > A jagged brand of divine energy inflicts 27,358 Holy damage every 1 sec to players within the area.
+* [1255335] Searing Rend | instant | MDT: -
+  > Lothraxion lashes out with a precise, double-slash aimed at his current target, with each strike inflicting 68,396 Physical damage and an additional 10,943 Holy damage every 1 sec for 6 sec. Carves Radiant Scars into the ground.
+
+* [1255503] Brilliant Dispersion | instant | MDT: -
+  > Lothraxion unleashes radiant swarms toward several players, blasting players within 8 yards of the impact for 32,829 Holy damage and searing an additional 10,943 Holy damage every 1 sec for 6 sec. 
+Fractured Images scatter, erupting with Mirrored Rend to enemies within 5 yards of their creation.
+* [1257595] Divine Guile | cast 5.8s | MDT: -
+  > 5.8 sec cast
+  > Upon reaching 100 energy, Lothraxion disguises himself amongst his Fractured Images as they all channel light energy into the core, inflicting 19,150 Holy damage every 2 sec until Lothraxion is interrupted.
+* [1257613] Divine Guile | instant | MDT: -
+  > Upon reaching 100 energy, Lothraxion disguises himself amongst his Fractured Images as they all channel light energy into the core, inflicting 19,150 Holy damage every 2 sec until Lothraxion is interrupted.
+* [1271511] Core Exposure | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Inflicts 41,037 Holy damage to all players and increases Holy damage taken by 20% for 1 min.
+* [1282791] Mirrored Rend | instant | MDT: -
+  > 200 yd range
+  > Instant
+  > Coming in contact with a Fractured Image rends the target, knocking them away and inflicting 27,358 Holy damage with an additional 5,472 Holy damage every 1 sec. This effect stacks and leaves behind Radiant Scars.
+-- Smudge | NPC 248769 | Trash | HP 152k | Lv 90 | Elemental | Forces 0 | CC: -
+* [1257268] Forfeit Essence | cast 3.1s | MDT: -
+  > 12 yd range
+  > 3.1 sec cast
+  > Funnels health into an ally.
+-- [DNT] Conduit Stalker | NPC 250299 | Trash | HP 253k | Lv 90 | Not specified | Forces 0 | CC: -
+* [1251579] Leyline Array | instant | MDT: -
+  > A dangerous flow of Arcane power links between conduits inflicting 82,074 Arcane damage when crossed and reducing their movement speed by 20% for 8 sec. This effect stacks.
+
+-- Null Guardian | NPC 251024 | Trash | HP 557k | Lv 91 | Aberration | Forces 0 | CC: -
+* [1282663] Melee | instant | MDT: -
+  > Melee Range
+  > Instant
+  > The caster's offhand strikes all enemies in a cone in front of the caster, inflicting 41,037 Shadow damage.
+* [1282664] Melee | instant | MDT: -
+  > Melee Range
+  > Instant
+  > The caster's mainhand strikes all enemies in a cone in front of the caster, inflicting 41,037 Shadow damage.
+* [1282665] Void Lash | cast 1.9s | MDT: -
+  > Melee Range
+  > 1.9 sec cast
+  > The Dreadflail empowers its weapons, causing melee attacks to inflict 41,037 Shadow damage in a cone in front of it for 8.3 sec.
+* [1282678] Flailstorm | cast 1.2s | MDT: -
+  > 100 yd range
+  > 1.2 sec cast
+  > Fixates on a random enemy and spins their flails inflicting 27,358 Shadow damage every 1 sec to enemies within 8 yards of the caster.
+* [1282679] Flailstorm | instant | MDT: -
+  > Instant
+  > The Dreadflail fixates on a random enemy and spins their flails inflicting 8,207 Shadow damage every 0.5 sec to enemies within 7 yards of the caster.
+-- Wretched Supplicant | NPC 251031 | Trash | HP 326k | Lv 91 | Aberration | Forces 0 | CC: -
+* [1282722] Nullify | cast 3.9s | MDT: interruptible
+  > 60 yd range
+  > 3.9 sec cast
+  > The Grand Nullifier conjures a blast of void energy at the target, inflicting 109,432 Shadow damage.
+* [1282723] Dusk Frights | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > The Grand Nullifier calls several frights to a void zone, fearing players within 5 yards of the impact for 5 sec.
+-- Fractured Image | NPC 251568 | Trash | HP 121k | Lv 92 | Humanoid | Forces 0 | CC: -
+* [1255310] Radiant Scar | instant | MDT: -
+  > (see [1255310] above)
+* [1255533] Flicker | instant | MDT: -
+  > Fractured Images periodically flicker to new locations, inflicting 54,716 Holy damage and knocking away players in its path.
+* [1257601] Divine Guile | cast 0.4s | MDT: interruptible
+  > Unlimited range
+  > 0.39 sec cast
+  > Upon reaching 100 energy, Lothraxion disguises himself amongst his Fractured Images as they all channel light energy into the core, inflicting 19,150 Holy damage every 2 sec until Lothraxion is interrupted.
+* [1269220] Mirrored Rend | instant | MDT: -
+  > 200 yd range
+  > Instant
+  > Coming in contact with a Fractured Image rends the target, knocking them away and inflicting 27,358 Holy damage with an additional 5,472 Holy damage every 1 sec. This effect stacks and leaves behind Radiant Scars.
+* [1269222] Flicker | instant | MDT: -
+  > Fractured Images periodically flicker to new locations, inflicting 54,716 Holy damage and knocking away players in its path.
+* [1271956] Mirrored Rend | instant | MDT: -
+  > Coming in contact with a Fractured Image rends the target, knocking them away and inflicting 27,358 Holy damage with an additional 5,472 Holy damage every 1 sec. This effect stacks and leaves behind Radiant Scars.
+-- Nullifier | NPC 251852 | Trash | HP 552k | Lv 90 | Aberration | Forces 0 | CC: -
+-- Voidcaller | NPC 251878 | Trash | HP 1.38m | Lv 90 | Aberration | Forces 0 | CC: -
+-- Mana Battery | NPC 252825 | Trash | HP 228k | Lv 90 | Not specified | Forces 0 | CC: -
+* [1257126] Corespark Overload | cast 9.3s | MDT: -
+  > 9.3 sec cast
+  > The battery overloads and explodes inflicting 16,415 Arcane damage every 1 sec for 10 sec.
+-- Corespark Conduit | NPC 252852 | Trash | HP 729k | Lv 90 | Not specified | Forces 0 | CC: -
+-- Corewarden Nysarra | NPC 254227 | Trash | HP 72.90m | Lv 92 | Aberration | Forces 0 | CC: -
+* [1271388] Umbral Lash | cast 1.2s | MDT: -
+  > 1.2 sec cast
+  > Nysarra leaps to her primary target and unleashes consecutive slashes on them, inflicting 41,037 Shadow damage with every strike and causing Void Gash on the final one.
+-- Broken Pipe | NPC 254459 | Trash | HP 151k | Lv 90 | Not specified | Forces 0 | CC: -
+* [1262088] Flux Collapse | instant | MDT: -
+  > 100 yd range
+  > Instant
+  > Leaks excess power, inflicting 27,358 Arcane damage to enemies within 3 yards of the impact and causing an Arcane Spill to form for 25 sec.
+
+* [1262630] Arcane Spill | instant | MDT: -
+  > Residual arcane energy lingers on the ground, inflicting 27,358 Arcane damage every 1 sec to enemies standing within.
+-- Corespark Pylon | NPC 254485 | Trash | HP 269k | Lv 90 | Not specified | Forces 0 | CC: -
+* [1262084] Flux Collapse | instant | MDT: -
+  > Instant
+  > Leaks excess power, inflicting 27,358 Arcane damage to enemies within 3 yards of the impact and causing an Arcane Spill to form for 25 sec.
+
+* [1262088] Flux Collapse | instant | MDT: -
+  > (see [1262088] above)
+* [1262630] Arcane Spill | instant | MDT: -
+  > (see [1262630] above)
+-- Fractured Image | NPC 255179 | Trash | HP 113k | Lv 91 | Humanoid | Forces 0 | CC: -
+* [1264429] Lightscar Flare | cast 3.3s | MDT: -
+  > 3.3 sec cast
+  > A fractured image of Lothraxion strikes at Nysarra, causing her wound to flare and stunning her for 18 sec. Players caught in the image's blast suffer 41,037 Holy damage and are disoriented for 5 sec.
+
+Standing in the wound's flare increases the target's healing done by 30% and damage dealt to Nysarra by 300% but inflicts 19,150 Holy damage every 1 sec until she recovers.
+* [1265984] Lightscar Flare | instant | MDT: -
+  > A fractured image of Lothraxion strikes at Nysarra, causing her wound to flare and stunning her for 18 sec. Players caught in the image's blast suffer 41,037 Holy damage and are disoriented for 5 sec.
+
+Standing in the wound's flare increases the target's healing done by 30% and damage dealt to Nysarra by 300% but inflicts 19,150 Holy damage every 1 sec until she recovers.
+-- Mana Battery | NPC 259569 | Trash | HP 269k | Lv 90 | Not specified | Forces 0 | CC: -
+* [1257126] Corespark Overload | cast 9.3s | MDT: -
+  > (see [1257126] above)
+-- Core Technician | NPC 249711 | Trash | HP 535k | Lv 90 | Humanoid | Forces 0 | CC: -
