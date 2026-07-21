@@ -38,3 +38,4 @@ TTSSpeakTest.lua
 ReorderPerfLab.lua
 ActiveFrameLab.lua
 MDTMobDataExport.lua
+GeRoInput.lua
