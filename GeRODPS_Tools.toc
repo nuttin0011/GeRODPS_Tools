@@ -39,3 +39,4 @@ ReorderPerfLab.lua
 ActiveFrameLab.lua
 MDTMobDataExport.lua
 GeRoInput.lua
+KeyBindTimingTest.lua
