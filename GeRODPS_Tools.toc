@@ -40,3 +40,5 @@ ActiveFrameLab.lua
 MDTMobDataExport.lua
 GeRoInput.lua
 KeyBindTimingTest.lua
+CheckItemSlot.lua
+PixelColorProbe.lua
