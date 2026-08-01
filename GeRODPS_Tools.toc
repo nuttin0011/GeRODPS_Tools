@@ -42,3 +42,4 @@ GeRoInput.lua
 KeyBindTimingTest.lua
 CheckItemSlot.lua
 PixelColorProbe.lua
+InstanceNameProbe.lua
