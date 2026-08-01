@@ -21,7 +21,11 @@
     ── สิ่งที่เก็บลง DB ────────────────────────────────────────────────────
       GeRODPS_ToolsDB.instanceNames        = { [instanceID] = "ชื่อจาก client" }
       GeRODPS_ToolsDB.instanceNamesMeta    = { locale, build, version, when, total, named }
+      GeRODPS_ToolsDB.instanceNamesDone    = true   -- ทำแล้ว login รอบหน้าไม่ทำซ้ำ
       id ที่ client ตอบว่างหรือ nil → **ไม่ใส่ลง table** (ฝั่งนอกจะได้รู้ว่าควรตัดทิ้ง)
+
+    รันซ้ำอัตโนมัติเฉพาะตอน "คำตอบมีโอกาสเปลี่ยน" = client เปลี่ยน build / version / locale
+    นอกนั้นเงียบสนิท (บังคับรันใหม่ได้จากปุ่มในหน้าต่าง)
 
     ⚠ ไฟล์นี้ generate จาก InstanceNames.txt (scratchpad/gen_probe.py) — เลข ID ในนี้
       คือ "โจทย์" ไม่ใช่คำตอบ. ถ้าเพิ่ม ID ใหม่ใน .txt แล้วอยากให้ probe ถามด้วย ให้ gen ใหม่
@@ -117,6 +121,8 @@ function TOOL.RunInstanceNameProbe()
         total   = #IDS,
         named   = named,
     }
+    -- mark ว่าทำแล้ว → login รอบหน้าไม่ต้องทำซ้ำ (ดู NeedsProbe ท้ายไฟล์)
+    GeRODPS_ToolsDB.instanceNamesDone = true
     return #IDS, named
 end
 
@@ -193,17 +199,32 @@ end
 TOOL.RegisterTool("Instance Name Probe (ถามชื่อ instance จาก client)", TOOL.ShowInstanceNameProbe)
 
 -- ============================================================
--- คำนวณอัตโนมัติทุก login — flow ของ user คือ "/reload 2 ครั้งแล้วไปอ่านไฟล์"
--- ไม่ต้องกดอะไรเลย
+-- คำนวณอัตโนมัติ — ครั้งเดียวพอ แล้ว mark ว่าทำแล้ว
 -- ============================================================
+-- เดิมรันทุก login แล้วพิมพ์ข้อความทุกครั้ง ซึ่งกวนและเปลืองเปล่า (ผลเหมือนเดิมทุกรอบ)
+-- รันซ้ำก็ต่อเมื่อ "คำตอบมีโอกาสเปลี่ยน" เท่านั้น = client เปลี่ยน build หรือเปลี่ยนภาษา
+-- อยากบังคับรันใหม่ → ปุ่ม "คำนวณใหม่" ในหน้าต่าง (เมนู minimap)
+local function NeedsProbe()
+    local m = GeRODPS_ToolsDB and GeRODPS_ToolsDB.instanceNamesMeta
+    if not (m and GeRODPS_ToolsDB.instanceNamesDone) then return true, "ยังไม่เคยทำ" end
+    local version, build = GetBuildInfo()
+    if m.build ~= build then return true, ("build เปลี่ยน %s -> %s"):format(tostring(m.build), build) end
+    if m.version ~= version then return true, ("version เปลี่ยน %s -> %s"):format(tostring(m.version), version) end
+    if m.locale ~= GetLocale() then return true, ("locale เปลี่ยน %s -> %s"):format(tostring(m.locale), GetLocale()) end
+    return false
+end
+
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("PLAYER_LOGIN")
 ev:SetScript("OnEvent", function(self)
+    self:UnregisterAllEvents()
     -- หน่วงเล็กน้อยให้ระบบโซนของ client พร้อมก่อน (GetRealZoneText อ่านจากตารางของ client)
     C_Timer.After(2, function()
+        local need, why = NeedsProbe()
+        if not need then return end        -- ทำไปแล้วและไม่มีอะไรเปลี่ยน → เงียบ
         local total, named = TOOL.RunInstanceNameProbe()
-        print(("|cff00ff00GeRODPS Tools:|r Instance Name Probe — ถาม %d id ได้ชื่อ %d"):format(total, named))
+        print(("|cff00ff00GeRODPS Tools:|r Instance Name Probe (%s) — ถาม %d id ได้ชื่อ %d")
+            :format(why, total, named))
         print("|cffaaaaaa  /reload อีก 1 ครั้งเพื่อเขียนลงไฟล์ SavedVariables|r")
     end)
-    self:UnregisterAllEvents()
 end)
