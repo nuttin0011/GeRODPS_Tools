@@ -1,7 +1,14 @@
 --[[
     MultiSelectDropdownTest.lua
 
-    ตัวอย่าง "Dropdown ที่เลือกได้หลายอัน ติ๊กถูกหน้าเมนู กดซ้ำเอาถูกออก เมนูไม่หด"
+    ตัวอย่าง **Multi-Select Dropdown (Persistent Menu)**
+
+    ชื่อเรียก 2 คำนี้อธิบายคนละส่วน — ใช้คู่กันเสมอเวลาพูดถึงของแบบนี้:
+      · multi-select = ติ๊กเลือกได้หลายอันพร้อมกัน (ไม่ใช่เลือกได้อันเดียว)
+      · persistent   = กดเลือกแล้ว "เมนูไม่ปิด" ต้องสั่งปิดเอง (non-dismissing menu)
+    ศัพท์อื่นที่หมายถึงอันเดียวกัน: checkbox dropdown · multi-select combo box
+    ฝั่ง WoW native (MenuUtil): menu:CreateCheckbox(...) + return MenuResponse.Refresh
+      (Refresh = วาดใหม่ไม่ปิด · Close = ปิด ซึ่งเป็น default ของปุ่มปกติ)
 
     ⚡ ข้อสรุป: **ไม่ต้องเขียนเอง** — AceGUI Dropdown มี `SetMultiselect(true)` อยู่แล้ว
        และพฤติกรรมตรงตามที่ต้องการทุกข้อ:
@@ -27,7 +34,7 @@
       dd:SetItemValue(key, true)  ← ต้องเรียก **หลัง** SetList เท่านั้น
       (SetItemValue วน pullout:IterateItems ซึ่งยังว่างถ้ายังไม่ SetList)
 
-    วิธีดู: Minimap → GeRODPS Tools → "Multi-Select Dropdown (ติ๊กถูก เมนูไม่หด)"
+    วิธีดู: Minimap → GeRODPS Tools → "Multi-Select Dropdown (Persistent Menu)"
 
     Public:
         GeRODPS_Tools.ToggleMultiSelectDropdownTest()
@@ -114,7 +121,7 @@ local function Build()
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
     frame:SetFrameStrata("DIALOG")
-    frame.TitleText:SetText("Multi-Select Dropdown")
+    frame.TitleText:SetText("Multi-Select Dropdown (Persistent Menu)")
 
     -- ⚠ anchor แถวแรกที่ frame (ตัวนอก) + เผื่อ TITLE_H — ห้ามพึ่ง frame.Inset (Rule 10)
     local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -122,8 +129,9 @@ local function Build()
     hint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -SIDE_PAD, -(TITLE_H + 10))
     hint:SetJustifyH("LEFT")
     hint:SetSpacing(3)
-    hint:SetText("กดลูกศร v เพื่อเปิดเมนู แล้วกดเลือกได้หลายอัน — เมนูจะไม่หด" ..
-                 "\nกดอันเดิมซ้ำ = ถูกหายไป · ปิดเมนูด้วยลูกศร v อีกครั้ง")
+    hint:SetText("|cffffd100multi-select|r = ติ๊กได้หลายอัน · " ..
+                 "|cffffd100persistent|r = กดแล้วเมนูไม่ปิด" ..
+                 "\nกดลูกศร v เปิดเมนู → เลือกได้หลายอัน (กดซ้ำ = ถูกหาย) → กด v อีกครั้งเพื่อปิด")
 
     -- AceGUI ต้องอยู่ในคอนเทนเนอร์ของมันเอง ถึงจะ layout ได้ (ห้ามผสมกับ native ใน tree เดียว)
     -- ⚠ พ่อเป็น native frame → ต้อง SetWidth **และ** SetHeight เอง ไม่งั้น Flow ยุบเป็น 0
@@ -192,4 +200,4 @@ function TOOL.ToggleMultiSelectDropdownTest()
     if f:IsShown() then f:Hide() else f:Show() end
 end
 
-TOOL.RegisterTool("Multi-Select Dropdown (ติ๊กถูก เมนูไม่หด)", TOOL.ToggleMultiSelectDropdownTest)
+TOOL.RegisterTool("Multi-Select Dropdown (Persistent Menu)", TOOL.ToggleMultiSelectDropdownTest)
