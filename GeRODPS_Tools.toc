@@ -43,3 +43,4 @@ KeyBindTimingTest.lua
 CheckItemSlot.lua
 PixelColorProbe.lua
 InstanceNameProbe.lua
+MultiSelectDropdownTest.lua
