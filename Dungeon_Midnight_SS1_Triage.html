@@ -44,7 +44,7 @@
   .stat .n{font-size:26px;font-weight:800;line-height:1}
   .stat .l{color:var(--dim);font-size:12px;margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
   .stat.kick .n{color:var(--kick)} .stat.def .n{color:var(--def)}
-  .stat.sooth .n{color:var(--sooth)} .stat.ign .n{color:var(--low)}
+  .stat.sooth .n{color:var(--sooth)} .stat.ign .n{color:var(--low)} .stat.avoid .n{color:#ffb84d}
 
   /* ---- controls ---- */
   .controls{position:sticky;top:0;z-index:20;background:linear-gradient(var(--bg),var(--bg) 70%,transparent);
@@ -70,7 +70,7 @@
   .d-idx{font-family:monospace;color:var(--faint);font-size:14px}
   .d-counts{margin-left:auto;display:flex;gap:14px;font-size:12.5px;color:var(--dim)}
   .d-counts b{font-family:monospace}
-  .d-counts .k{color:var(--kick)} .d-counts .d{color:var(--def)} .d-counts .s{color:var(--sooth)} .d-counts .i{color:var(--low)}
+  .d-counts .k{color:var(--kick)} .d-counts .d{color:var(--def)} .d-counts .a{color:#ffb84d} .d-counts .s{color:var(--sooth)} .d-counts .i{color:var(--low)}
   .notes{color:var(--dim);font-size:13px;margin:12px 0 4px;padding:10px 14px;background:var(--bg2);border-left:3px solid var(--line2);border-radius:0 8px 8px 0}
   .notes b{color:var(--gold);font-weight:600}
 
@@ -84,6 +84,7 @@
   .tag.kick{background:var(--kick-bg);color:var(--kick);border:1px solid var(--kick-bd)}
   .tag.def{background:var(--def-bg);color:var(--def);border:1px solid var(--def-bd)}
   .tag.sooth{background:var(--sooth-bg);color:var(--sooth);border:1px solid var(--sooth-bd)}
+  .tag.avoid{background:#241a08;color:#ffb84d;border:1px solid #6b4e1a}
   .p-head .desc{color:var(--dim);font-size:12px}
   .p-head .copy{margin-left:auto}
   .copy{background:var(--card2);border:1px solid var(--line2);color:var(--dim);border-radius:8px;
@@ -96,6 +97,7 @@
   .row.hidden{display:none}
   .prio{width:8px;align-self:stretch;border-radius:3px;min-height:34px}
   .prio.hi{background:var(--hi)} .prio.med{background:var(--med)} .prio.low{background:var(--low)}
+  .prio.front{background:#ffa64d} .prio.swirl{background:#4dd0e1}
   .sid{font-family:monospace;font-size:12.5px;color:var(--gold);align-self:center;cursor:pointer}
   .sid:hover{text-decoration:underline}
   .cell .nm{font-weight:700}
@@ -107,6 +109,9 @@
     border:1px solid var(--sooth-bd);border-radius:4px;padding:0 6px;margin-left:6px}
   .cell .dtype{display:inline-block;font-size:11px;color:var(--def);background:var(--def-bg);
     border:1px solid var(--def-bd);border-radius:4px;padding:0 6px;margin-left:6px}
+  .cell .avtype{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 7px;margin-left:6px}
+  .cell .avtype.frontal{color:#ffa64d;background:#2a1d08;border:1px solid #6b4e1a}
+  .cell .avtype.swirly{color:#4dd0e1;background:#082226;border:1px solid #1a5560}
   .empty{padding:14px;color:var(--faint);font-size:12.5px;text-align:center}
 
   footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);color:var(--faint);font-size:12px}
@@ -121,7 +126,7 @@
 <div class="wrap">
   <header>
     <h1>Midnight <span class="sub">Season 1</span> — Spell Triage</h1>
-    <p class="lede">วิเคราะห์เวททุกตัวจาก MDT (8 dungeon) ว่าตัวไหน <b>ต้อง Interrupt</b>, ตัวไหน <b>ต้อง Defensive รับ</b>, ตัวไหน <b>Soothe/Dispel</b> ได้ — ที่เหลือปล่อยทิ้ง (หลบด้วยการเดิน / filler). Spell ID ก๊อปไปวางใน GeRODPS Interrupt/StopCast list กับ Defensive list ได้เลย.</p>
+    <p class="lede">วิเคราะห์เวททุกตัวจาก MDT (8 dungeon) ว่าตัวไหน <b>ต้อง Interrupt</b>, <b>ต้อง Defensive รับ</b>, <b>Soothe/Dispel</b>, หรือ <b style="color:#ffb84d">Avoidable</b> = เดินหลบได้ (<span style="color:#ffa64d;font-weight:700">Frontal</span> ตีข้างหน้า / <span style="color:#4dd0e1;font-weight:700">Swirly</span> วงบนพื้น) → <b>เตือนเสียง `Frontal!`/`Swirly!` ไม่กด Defensive</b>. Spell ID ก๊อปไปตั้งค่าใน GeRODPS ได้เลย.</p>
 
     <div class="stats" id="stats"></div>
   </header>
@@ -136,8 +141,9 @@
     <span class="ctl-label">แสดง</span>
     <div class="seg" id="catSeg">
       <button data-c="all" class="on">ทั้งหมด</button>
-      <button data-c="kick">Interrupt</button>
-      <button data-c="def">Defensive</button>
+      <button data-c="interrupt">Interrupt</button>
+      <button data-c="defensive">Defensive</button>
+      <button data-c="avoidable">Avoidable</button>
       <button data-c="sooth">Soothe/Dispel</button>
     </div>
     <select id="jump"><option value="">— ไปยัง Dungeon —</option></select>
@@ -149,6 +155,7 @@
     <span class="pill"><span class="dot low"></span> Low = ค่าต่ำ / minor</span>
     <span class="pill" style="color:var(--kick)">Interrupt = kick หยุด cast</span>
     <span class="pill" style="color:var(--def)">Defensive = กด CD รับ (kick ไม่ได้)</span>
+    <span class="pill"><span style="color:#ffa64d;font-weight:700">Frontal</span> / <span style="color:#4dd0e1;font-weight:700">Swirly</span> = Avoidable (เดินหลบ — เตือนเสียง ไม่กด Defensive)</span>
     <span class="pill" style="color:var(--sooth)">Soothe/Dispel/Purge</span>
     <span class="pill" style="margin-left:auto">คลิก Spell ID เพื่อคัดลอกตัวเดียว</span>
   </div>
@@ -409,11 +416,135 @@ const DATA = [
   },
 ];
 
+// Avoidable = เดินหลบได้ (frontal=ตีหน้า / swirly=วงบนพื้น) → เตือนเสียง "Frontal!"/"Swirly!" ไม่กด Defensive
+const AVOIDABLE = {
+  45: [
+    {id:388976,name:"Riftbreath",mob:"Arcane Ravager",type:"frontal",reason:"channels a 'breath' ตรงหน้า — เดินออกด้านหน้า/ไปหลัง"},
+    {id:385958,name:"Arcane Expulsion",mob:"Vexamus",type:"frontal",reason:"'players in front of it' — sidestep ออกจากโคน ไปข้าง/หลังบอส"},
+    {id:386201,name:"Corrupted Mana",mob:"Vexamus",type:"swirly",reason:"pool บนพื้น 'players inside' — เดินออกจากแอ่ง"},
+    {id:387691,name:"Arcane Orbs",mob:"Vexamus",type:"swirly",reason:"orb ตกพื้น 'within 3 yards of impact' — เลี่ยงจุดตก"},
+    {id:378003,name:"Deadly Winds",mob:"Guardian Sentry",type:"swirly",reason:"'deadly storm at a target location' — เดินออกจากพายุที่วางพื้น"},
+    {id:377383,name:"Gust",mob:"Alpha Eagle",type:"frontal",reason:"'all enemies in front of the caster' — เลี่ยงไม่ยืนหน้า caster"},
+    {id:377004,name:"Deafening Screech",mob:"Crawth",type:"swirly",reason:"'at all player locations ... within 4 yards' — เดินออกจากวงใต้ตัว"},
+    {id:377034,name:"Overpowering Gust",mob:"Crawth",type:"frontal",reason:"'in front of her' — sidestep ออกจากด้านหน้า"},
+    {id:390912,name:"Detonation Seeds",mob:"Vile Lasher",type:"swirly",reason:"'seeds ... within 6 yards of impact' — เดินออกจากเมล็ด"},
+    {id:388623,name:"Branch Out",mob:"Overgrown Ancient",type:"swirly",reason:"'branches at a location ... within 8 yds' — เดินออกจากจุดกิ่งตก"},
+    {id:388796,name:"Germinate",mob:"Overgrown Ancient",type:"swirly",reason:"'seeds beneath all players ... within 4 yds' — เดินออกจากเมล็ดใต้เท้า"},
+    {id:1270349,name:"Astral Whirlwind",mob:"Algeth'ar Echoknight",type:"swirly",reason:"whirlwind 'at a target location ... within 8 yards' — เดินออกจากวงหมุน"},
+    {id:1279418,name:"Arcane Rift",mob:"Echo of Doragosa",type:"swirly",reason:"'rift ... to players within' — เดินออกจากโซน rift บนพื้น"},
+  ],
+  11: [
+    {id:1262335,name:"Void Cleave",mob:"Void-Infused Destroyer",type:"frontal",reason:"โคนหน้า caster — ออกด้านหน้า/ไปข้าง (in front of the caster)"},
+    {id:1268916,name:"Null Palm",mob:"Zuraal the Ascended",type:"frontal",reason:"คลื่นด้านหน้าบอส — หลบออกจากหน้า (in front of himself)"},
+    {id:1264196,name:"Disintegrate",mob:"L'ura",type:"frontal",reason:"ลำแสง void หมุน — เดินหลบแนวลำแสง"},
+    {id:1265463,name:"Discordant Beam",mob:"L'ura",type:"frontal",reason:"แนวเส้น — ออกจากเส้นยิง (all players in the line)"},
+    {id:1269183,name:"Void Burst",mob:"Umbral War-Adept",type:"swirly",reason:"ปักพื้นระเบิดหลัง 3 วิ — ออกจากวง (burst from the ground after 3 sec)"},
+    {id:1262429,name:"Eruption",mob:"Void-Infused Destroyer",type:"swirly",reason:"ระเบิดลงจุด — ห่างจากจุดตก (within 6 yards of impact)"},
+    {id:1263282,name:"Decimate",mob:"Zuraal the Ascended",type:"swirly",reason:"แอ่ง Void Sludge — เดินออกจากแอ่ง (pool at their location)"},
+    {id:1280065,name:"Phase Dash",mob:"Saprish",type:"swirly",reason:"เงาพุ่งใส่แต่ละคน — เลี่ยงจุดกระแทก (within 8 yards of impact)"},
+    {id:1269468,name:"Rupture",mob:"Famished Broken",type:"swirly",reason:"ระเบิดจากศพ — ถอยออกจากจุด (within 2 yards of the impact)"},
+  ],
+  150: [
+    {id:1278963,name:"Dark Rupture",mob:"Ymirjar Graveblade",type:"swirly",reason:"เดินออกนอก 5 หลา (rupture darkness underneath a player)"},
+    {id:1278986,name:"Frost Breath",mob:"Iceborn Proto-Drake",type:"frontal",reason:"หลบออกจากด้านหน้ามังกร (frontal cone)"},
+    {id:1259188,name:"Cryoburst",mob:"Glacieth",type:"swirly",reason:"หลบจุด icy shards (within 5 yards, forms Cryopatch)"},
+    {id:1259205,name:"Cryopatch",mob:"Glacieth",type:"swirly",reason:"อย่ายืนบนแอ่งน้ำแข็ง (players standing on it)"},
+    {id:1264299,name:"Blight",mob:"Ick",type:"swirly",reason:"ออกจากแอ่ง blight (blight pools inflict)"},
+    {id:1264349,name:"Plague Globs",mob:"Ick",type:"swirly",reason:"หลบจุดก้อนตก (impact the ground, within 3 yards)"},
+    {id:1261299,name:"Throw Saronite",mob:"Forgemaster Garfrost",type:"swirly",reason:"หลบจุด ore ขว้างลง (within 10 yards of impact)"},
+    {id:1261799,name:"Saronite Sludge",mob:"Forgemaster Garfrost",type:"swirly",reason:"ออกจากแอ่ง sludge (players within it)"},
+    {id:1272433,name:"Ore Chunks",mob:"Forgemaster Garfrost",type:"swirly",reason:"หลบจุดก้อนหินตก (within 4 yards of each impact)"},
+    {id:1263756,name:"Death's Grasp",mob:"Scourgelord Tyrannus",type:"swirly",reason:"ออกจากจุดมือโผล่ (emerge at location, within 6 yards)"},
+    {id:1262745,name:"Rime Blast",mob:"Rimefang",type:"swirly",reason:"ออกนอกวงรอบเป้า (within 6 yards)"},
+    {id:1276948,name:"Ice Barrage",mob:"Rimefang",type:"swirly",reason:"หลบจุดก้อนน้ำแข็งพุ่งลง (within 6 yards of each impact)"},
+  ],
+  151: [
+    {id:1255922,name:"Wind Blast",mob:"Raging Squall",type:"swirly",reason:"เดินออกจากจุดตก (within 8 yards of impact)"},
+    {id:1258217,name:"Solar Fire",mob:"Herald of Sunrise",type:"swirly",reason:"channeled ตีพื้นเป็นจุดๆ (within 4 yards of impact)"},
+    {id:1253448,name:"Solar Nova",mob:"Solar Construct",type:"swirly",reason:"nova รอบ caster วิ่งออกช่วง cast 2.7s (within 8 yards)"},
+    {id:156793,name:"Chakram Vortex",mob:"Ranjit",type:"swirly",reason:"ออกจากจุดกลางลาน + หลบวนลม (within 10 yards of impact area)"},
+    {id:1255472,name:"Dive",mob:"Ranjit",type:"swirly",reason:"เดินออกจากจุดบอสดำดิ่งลง (within 12 yards of impact)"},
+    {id:1258152,name:"Wind Chakram",mob:"Ranjit",type:"frontal",reason:"หลบออกจากด้านหน้า boss (in front of him, caught in its path)"},
+    {id:154110,name:"Fiery Smash",mob:"Araknath",type:"swirly",reason:"ทุบพื้นข้างเดียว ไปฝั่งตรงข้าม (smashes the ground on that side) — หมายเหตุ: บางบิลด์ soak"},
+    {id:1281874,name:"Heat Exhaustion",mob:"Skyreach Sun Construct Prototype",type:"frontal",reason:"พ่นความร้อนข้างหน้า หลบด้านข้าง (in front of them)"},
+    {id:1253416,name:"Blaze of Glory",mob:"Sunwings",type:"swirly",reason:"ระเบิดตอนตาย ออกจากจุดระเบิด (within 8 yards of impact area)"},
+    {id:1253840,name:"Lens Flare",mob:"High Sage Viryx",type:"swirly",reason:"โฟกัสลง player ออกจากจุด (within 6 yards, leaves Blazing Ground)"},
+    {id:154043,name:"Blazing Ground",mob:"Arakkoa Magnifying Glass",type:"swirly",reason:"พื้นไฟที่ทิ้งไว้ เดินออก (players standing in the area)"},
+  ],
+  152: [
+    {id:473644,name:"Phial Toss",mob:"Fervent Apothecary",type:"swirly",reason:"ออกจากจุดตก (within 3 yards, creates Shattered Phial)"},
+    {id:473649,name:"Shattered Phial",mob:"Fervent Apothecary",type:"swirly",reason:"แอ่งพิษบนพื้น (spills poison, players within it)"},
+    {id:473776,name:"Fetid Spew",mob:"Flesh Behemoth",type:"swirly",reason:"หลบเหยื่อ+แอ่ง (within 4 yards of the victims, Fetid Bile forms)"},
+    {id:473789,name:"Fetid Bile",mob:"Flesh Behemoth",type:"swirly",reason:"แอ่ง bile บนพื้น (bile pool)"},
+    {id:1216834,name:"Acidic Demise",mob:"Spindleweb Hatchling",type:"swirly",reason:"แอ่งกรดจากศพ (Acid leaks, players within it)"},
+    {id:1216449,name:"Arrow Rain",mob:"Swiftshot Archer",type:"swirly",reason:"หลบจุดธนูลง (within 3 yards of impact)"},
+    {id:471648,name:"Break Ranks",mob:"Phalanx Breaker",type:"frontal",reason:"หลบแนวพุ่ง สเต็ปข้าง (charges towards a player, players hit)"},
+    {id:1217763,name:"Fire Breath",mob:"Emberdawn",type:"frontal",reason:"ออกจากกรวยไฟ (cone of fire)"},
+    {id:466556,name:"Flaming Updraft",mob:"Emberdawn",type:"swirly",reason:"เดินออกจาก patch (flaming patch)"},
+    {id:1252548,name:"Fiery Landing",mob:"Emberdawn",type:"swirly",reason:"เลี่ยงจุดบอสลง (within 18 yards upon landing)"},
+    {id:472745,name:"Splattering Spew",mob:"Latch",type:"swirly",reason:"หลบจุดกระเด็น (within 5 yards, Gunk Splatter forms)"},
+    {id:472777,name:"Gunk Splatter",mob:"Latch",type:"swirly",reason:"แอ่งเคลือบพื้น (coats the ground)"},
+    {id:472053,name:"Reckless Leap",mob:"Commander Kroluk",type:"swirly",reason:"หลบจุดกระโดดลง (within 12 yards of impact)"},
+    {id:1283357,name:"Falling Rubble",mob:"Commander Kroluk",type:"swirly",reason:"หลบซากตกลง (within 4 yards of each impact)"},
+    {id:468429,name:"Bullseye Windblast",mob:"Restless Heart",type:"swirly",reason:"หลบจุดยิงลงพื้น (within 20 yards, forms Billowing Wind)"},
+    {id:468442,name:"Billowing Wind",mob:"Restless Heart",type:"swirly",reason:"เลี่ยงวงลมที่ขยาย (ring expands, players who touch it)"},
+    {id:472556,name:"Arrow Rain",mob:"Restless Heart",type:"swirly",reason:"หลบจุดธนูตก (within 3 yards, Turbulent Arrows)"},
+    {id:474528,name:"Bolt Gale",mob:"Restless Heart",type:"frontal",reason:"ออกจากกรวยด้านหน้า (frontal cone)"},
+    {id:1253978,name:"Gust Shot",mob:"Restless Heart",type:"swirly",reason:"แยกออกห่างก่อนระเบิด (mark 6 sec, within 8 yards)"},
+    {id:467120,name:"Ignited Embers",mob:"Flaming Updraft",type:"swirly",reason:"ออกจากซากไฟบนพื้น (Fiery remains, who touch it)"},
+  ],
+  153: [
+    {id:1254301,name:"Flamestrike",mob:"Blazing Pyromancer",type:"swirly",reason:"ออกจากกองไฟที่พื้น (patch of flame, players in the area)"},
+    {id:1283901,name:"Shield Slam",mob:"Runed Spellbreaker",type:"swirly",reason:"หลบระเบิด arcane ที่พื้น (slams shield on the ground)"},
+    {id:1224903,name:"Suppression Zone",mob:"Seranel Sunlash",type:"swirly",reason:"ออกจากจุดกระแทก 8 หลา (Suppression Zone at impact area)"},
+    {id:1284954,name:"Cosmic Sting",mob:"Gemellus",type:"swirly",reason:"ออกจาก pool บนพื้น (pool of Void Secretions at their location)"},
+    {id:1215087,name:"Unstable Void Essence",mob:"Degentrius",type:"swirly",reason:"หลบจุดพลังงานเด้งลง 4 ตำแหน่ง (bounces to 4 locations, at impact)"},
+    {id:1284633,name:"Stygian Ichor",mob:"Degentrius",type:"swirly",reason:"ออกจากแอ่งบนพื้น (pool on the ground, players within)"},
+    {id:1282050,name:"Arcane Beam",mob:"Arcane Sentry",type:"swirly",reason:"ออกจาก Arcane Residue ที่ทิ้งไว้ (leaves Arcane Residue at their location)"},
+  ],
+  154: [
+    {id:1257780,name:"Shredding Talons",mob:"Hexbound Eagle",type:"frontal",reason:"หลบกรวยด้านหน้า—อย่ายืนหน้าตัวร่าย (frontal cone)"},
+    {id:1258475,name:"Magma Surge",mob:"Hex Guardian",type:"frontal",reason:"ออกจากเส้นด้านหน้า (frontal line)"},
+    {id:1260648,name:"Barrage",mob:"Muro'jin",type:"frontal",reason:"ออกจากกรวยยิงด้านหน้า (fix aim 5s, frontal cone)"},
+    {id:1249479,name:"Carrion Swoop",mob:"Nekraxx",type:"frontal",reason:"หลบเส้นทางพุ่ง (players in her path)"},
+    {id:1252054,name:"Unmake",mob:"Vordaza",type:"frontal",reason:"หลบคลื่นด้านหน้า—ออกข้าง (frontal surge)"},
+    {id:1257155,name:"Rain of Toads",mob:"Dread Souleater",type:"swirly",reason:"คางคกตกลงพื้น—ออกจากวง (within 3 yards of each impact)"},
+    {id:1258806,name:"Ritual Firebrand",mob:"Hex Guardian",type:"swirly",reason:"เปลวไฟผุดใต้เท้า—เดินออก (erupt underneath, within 5 yards)"},
+    {id:1263336,name:"Shadow Burst",mob:"Umbral Shadowbinder",type:"swirly",reason:"ออกจากจุดกระแทก (within 8 yards of impact)"},
+    {id:1257895,name:"Ancestral Crush",mob:"Restless Gnarldin",type:"swirly",reason:"ทุบพื้นเกิดพื้นที่พลังงาน—เดินออก (forming an area)"},
+    {id:1259651,name:"Soulstorms",mob:"Bound Defender",type:"swirly",reason:"พายุหมุน 2 ลูก—เดินหลบ (whirling storms, players struck)"},
+    {id:1259677,name:"Rend Souls",mob:"Hollow Soulrender",type:"swirly",reason:"วิญญาณระเบิด—ถอยห่างจาก spirit (burst, within 8 yards)"},
+    {id:1243752,name:"Icy Slick",mob:"Muro'jin",type:"swirly",reason:"ออกจากแผ่นน้ำแข็ง (frozen patch, players within)"},
+    {id:1243900,name:"Fetid Quillstorm",mob:"Nekraxx",type:"swirly",reason:"บินลงจุดหนึ่ง—เดินออก (soars to a location, within 10 yards)"},
+    {id:1251833,name:"Soulrot",mob:"Vordaza",type:"swirly",reason:"บ่อ necrotic บนพื้น—ยืนออก (pool of necrotic residue)"},
+    {id:1252611,name:"Coalesced Death",mob:"Vordaza",type:"swirly",reason:"มวล ichor ไหลข้ามพื้น—เดินหลบ (flow across the dais, players struck)"},
+    {id:1248980,name:"Volatile Essence",mob:"Rak'tul",type:"swirly",reason:"ระเบิดที่จุดตก—เดินออก (bursts upon impact, within 2 yards)"},
+    {id:1252676,name:"Crush Souls",mob:"Rak'tul",type:"swirly",reason:"กระโดดทุบพื้นเป็นจุดๆ—เดินออก (slams down, within 5 yards)"},
+    {id:1253779,name:"Spectral Decay",mob:"Rak'tul",type:"swirly",reason:"แอ่งพลังบนพื้น—ยืนออก (pooling essence, players within)"},
+    {id:1253909,name:"Soul Expulsion",mob:"Rak'tul",type:"swirly",reason:"วิญญาณผุดจากจุด—เดินออก (erupt, within 4 yards of each impact)"},
+    {id:1252816,name:"Chill of Death",mob:"Soulbind Totem",type:"swirly",reason:"ถอยห่างจากโทเทม (within 3 yards)"},
+    {id:1259772,name:"Umbral Vortex",mob:"Rokh'zal",type:"swirly",reason:"วอร์เท็กซ์ดูดเข้า—อยู่ห่าง (within 8 yards, pulls toward their location)"},
+  ],
+  155: [
+    {id:1257105,name:"Erratic Zap",mob:"Circuit Seer",type:"swirly",reason:"พลังงานพุ่งลงพื้น ออกจากวงกระแทก (within 4 yards of the impact)"},
+    {id:1252436,name:"Void Lash",mob:"Dreadflail",type:"frontal",reason:"กรวยด้านหน้า หลบไปข้าง (cone in front of the caster)"},
+    {id:1258684,name:"Void Ritual",mob:"Grand Nullifier",type:"swirly",reason:"หยดเงาตกลงพื้น ออกจากจุดตก (droplets onto ground, within 2 yards)"},
+    {id:1257746,name:"Radiant Scar",mob:"Lingering Image",type:"swirly",reason:"รอยแผลบนพื้นทำดาเมจต่อวิ ออกจากพื้นที่ (players within the area)"},
+    {id:1264354,name:"Luciferin Flare",mob:"Lingering Image",type:"frontal",reason:"แสงกวาดด้านหน้า หลบออกจากหน้า (all enemies in front of the caster)"},
+    {id:1251626,name:"Leyline Array",mob:"Kasreth",type:"frontal",reason:"ลำแสงเชื่อม conduit อย่าเดินข้ามเส้น (damage when crossed)"},
+    {id:1257509,name:"Corespark Detonation",mob:"Kasreth",type:"swirly",reason:"ยิงลงจุดสุ่ม ออกจากรัศมี (random location, within 14 yards of impact)"},
+    {id:1264042,name:"Arcane Spill",mob:"Kasreth",type:"swirly",reason:"แอ่งค้างบนพื้น เดินออก (lingers on the ground, players within)"},
+    {id:1253855,name:"Brilliant Dispersion",mob:"Lothraxion",type:"swirly",reason:"ฝูงแสงพุ่งลงตำแหน่ง ออกจาก impact (within 8 yards of the impact)"},
+  ],
+};
+DATA.forEach(d => { d.avoidable = AVOIDABLE[d.idx] || []; });
+
 const PRANK = { high:3, med:2, low:1 };
 const CATS = [
   { key:'interrupt', tag:'kick', label:'Interrupt', desc:'kick หยุด cast', dataKey:'interrupt', pasteLabel:'→ StopCast / Interrupt list' },
   { key:'defensive', tag:'def',  label:'Defensive', desc:'กด CD รับ (kick ไม่ได้)', dataKey:'defensive', pasteLabel:'→ Defensive list' },
   { key:'sooth',     tag:'sooth',label:'Soothe / Dispel / Purge', desc:'ปลด buff/debuff', dataKey:'sooth', pasteLabel:'' },
+  { key:'avoidable', tag:'avoid',label:'Avoidable (Frontal / Swirly)', desc:'เดินหลบได้ — เตือนเสียง ไม่กด Defensive', dataKey:'avoidable', pasteLabel:'' },
 ];
 
 let prioMin = 1;     // 1=all 2=high+med 3=high
@@ -436,12 +567,13 @@ function visibleItems(items){ return items.filter(x=>PRANK[x.priority||'high']>=
 
 function rowHTML(item, cat){
   const p = item.priority || 'high';
-  let meta='';
+  let meta='', prioCls = (p==='high'?'hi':p==='med'?'med':'low');
   if(cat.key==='interrupt' && item.cast) meta='<span class="cast">'+esc(item.cast)+'</span>';
   else if(cat.key==='defensive' && item.dtype) meta='<span class="dtype">'+esc(item.dtype)+'</span>';
   else if(cat.key==='sooth' && item.kind) meta='<span class="kind">'+esc(item.kind)+'</span>';
+  else if(cat.key==='avoidable' && item.type){ meta='<span class="avtype '+item.type+'">'+(item.type==='frontal'?'Frontal':'Swirly')+'</span>'; prioCls = item.type==='frontal'?'front':'swirl'; }
   return '<div class="row" data-prio="'+PRANK[p]+'">'
-    + '<span class="prio '+ (p==='high'?'hi':p==='med'?'med':'low') +'"></span>'
+    + '<span class="prio '+ prioCls +'"></span>'
     + '<span class="sid" title="คลิกคัดลอก ID" onclick="copyText(\''+item.id+'\',null,\'คัดลอก '+item.id+'\')">'+item.id+'</span>'
     + '<span class="cell"><span class="nm">'+esc(item.name)+'</span>'+meta
     + '<div class="mob">'+esc(item.mob||'')+'</div>'
@@ -453,35 +585,46 @@ function panelHTML(d, cat){
   const items = d[cat.dataKey] || [];
   const vis = visibleItems(items);
   const idAttr = 'panel-'+d.idx+'-'+cat.key;
-  const copyBtn = (cat.key!=='sooth')
-    ? '<button class="copy" onclick="copyCat('+d.idx+',\''+cat.key+'\',this)">Copy IDs '+cat.pasteLabel+'</button>'
-    : '<button class="copy" onclick="copyCat('+d.idx+',\''+cat.key+'\',this)">Copy IDs</button>';
+  let copyBtn;
+  if(cat.key==='avoidable'){
+    copyBtn = '<button class="copy" onclick="copyCat('+d.idx+',\'avoidable\',this,\'frontal\')">Copy Frontal</button>'
+            + '<button class="copy" style="margin-left:6px" onclick="copyCat('+d.idx+',\'avoidable\',this,\'swirly\')">Copy Swirly</button>'
+            + '<button class="copy" style="margin-left:6px" onclick="copyCat('+d.idx+',\'avoidable\',this)">All IDs</button>';
+  } else if(cat.key!=='sooth'){
+    copyBtn = '<button class="copy" onclick="copyCat('+d.idx+',\''+cat.key+'\',this)">Copy IDs '+cat.pasteLabel+'</button>';
+  } else {
+    copyBtn = '<button class="copy" onclick="copyCat('+d.idx+',\''+cat.key+'\',this)">Copy IDs</button>';
+  }
   const body = vis.length
     ? vis.map(x=>rowHTML(x,cat)).join('')
     : '<div class="empty">— ไม่มีในระดับที่เลือก —</div>';
-  return '<div class="panel'+(cat.key==='sooth'?' wide':'')+'" data-cat="'+cat.key+'" id="'+idAttr+'">'
+  return '<div class="panel'+((cat.key==='sooth'||cat.key==='avoidable')?' wide':'')+'" data-cat="'+cat.key+'" id="'+idAttr+'">'
     + '<div class="p-head"><span class="tag '+cat.tag+'">'+cat.label+'</span>'
     + '<span class="desc">'+esc(cat.desc)+' · '+vis.length+' spell</span>'
     + copyBtn+'</div>'+body+'</div>';
 }
 
-function copyCat(idx,catKey,btn){
+function copyCat(idx,catKey,btn,typeFilter){
   const d = DATA.find(x=>x.idx===idx); if(!d) return;
   const cat = CATS.find(c=>c.key===catKey);
-  const ids = visibleItems(d[cat.dataKey]||[]).map(x=>x.id);
-  copyText(ids.join(', '),btn,'คัดลอก '+ids.length+' ID ('+cat.label+' — '+d.name+')');
+  let items = visibleItems(d[cat.dataKey]||[]);
+  if(typeFilter) items = items.filter(x=>x.type===typeFilter);
+  const ids = items.map(x=>x.id);
+  const lbl = typeFilter ? (typeFilter==='frontal'?'Frontal':'Swirly') : cat.label;
+  copyText(ids.join(', '),btn,'คัดลอก '+ids.length+' ID ('+lbl+' — '+d.name+')');
 }
 
 function render(){
   // stats
-  let tK=0,tD=0,tS=0,tI=0;
-  DATA.forEach(d=>{ tK+=d.interrupt.length; tD+=d.defensive.length; tS+=d.sooth.length; tI+=d.ignored; });
+  let tK=0,tD=0,tS=0,tI=0,tA=0;
+  DATA.forEach(d=>{ tK+=d.interrupt.length; tD+=d.defensive.length; tS+=d.sooth.length; tI+=d.ignored; tA+=d.avoidable.length; });
   document.getElementById('stats').innerHTML =
       stat(DATA.length,'Dungeons','')
     + stat(tK,'Interrupt','kick')
     + stat(tD,'Defensive','def')
+    + stat(tA,'Avoidable (Frontal/Swirly)','avoid')
     + stat(tS,'Soothe / Dispel','sooth')
-    + stat(tI,'Ignore (filler/หลบได้)','ign');
+    + stat(tI,'Ignore (filler)','ign');
 
   // jump
   const jump=document.getElementById('jump');
@@ -496,6 +639,7 @@ function render(){
       + '<span class="d-counts">'
       + '<span class="k">Kick <b>'+d.interrupt.length+'</b></span>'
       + '<span class="d">Def <b>'+d.defensive.length+'</b></span>'
+      + '<span class="a">Avoid <b>'+d.avoidable.length+'</b></span>'
       + '<span class="s">Soothe <b>'+d.sooth.length+'</b></span>'
       + '<span class="i">Ignore <b>'+d.ignored+'</b>/'+d.total+'</span>'
       + '</span></div>'
