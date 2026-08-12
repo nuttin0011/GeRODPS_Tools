@@ -48,6 +48,14 @@
         Blocked("เหตุผล") — อย่าปล่อยให้ throw เพื่อเอา ERR มาโชว์
         (ยกเว้นแถวที่จงใจตั้งชื่อว่า [ไม่ guard] ไว้เป็นหลักฐาน)
 
+    signature ของ C_Secrets / C_UnitAuras ยืนยันจาก annotation ที่ IDE ใช้:
+      ~/.vscode/extensions/ketho.wow-api-*/Annotations/Core/
+        Blizzard_APIDocumentationGenerated/SecretPredicateAPIDocumentation.lua
+        Blizzard_APIDocumentationGenerated/UnitAuraDocumentation.lua
+    (ไฟล์นี้ generate จาก APIDocumentation ของ Blizzard — แม่นกว่าเดา
+     แต่ตาม build ช้ากว่าเกม: CanCompareUnitTokens / ShouldUnitStatsBeSecret
+     ยังไม่มีในไฟล์ แต่มีจริงในเกม 12.1)
+
     อ้างอิง: .claude/skills/wow-coding/SKILL.md Rule 1 / 1.5 / 2 / 12,
              GeRODPS/docs/SECRET_VALUES.md, GeRODPS_Tools/SECRETS.md,
              warcraft.wiki.gg/wiki/Patch_12.1.0/API_changes,
@@ -244,17 +252,20 @@ end)
 U(c1, "ShouldUnitStatsBeSecret(u)", function(u)
     return Sec("ShouldUnitStatsBeSecret", u)
 end)
-U(c1, "ShouldUnitSpellCastBeSecret(u)", function(u)
-    return Sec("ShouldUnitSpellCastBeSecret", u)
-end, "[!] true ⇒ UnitCastingInfo/UnitChannelInfo คืน secret")
+U(c1, "ShouldUnitSpellCastBeSecret(u, spellID)", function(u)
+    -- signature = (unit, spellIdentifier) — arg 2 บังคับ ใช้ค่าจากช่อง Spell ID
+    return Sec("ShouldUnitSpellCastBeSecret", u, CTX.spellID)
+end, "[!] ถามเป็นราย spell ว่า unit นี้ร่ายเวทนี้แล้วจะ secret ไหม")
 U(c1, "ShouldUnitSpellCastingBeSecret(u)", function(u)
     return Sec("ShouldUnitSpellCastingBeSecret", u)
+end, "[!] ตัวรวม (ไม่ระบุ spell) — true ⇒ UnitCastingInfo/UnitChannelInfo คืน secret")
+U(c1, "ShouldUnitThreatStateBeSecret('player', u)", function(u)
+    -- signature = (unit, mobUnit?) — จับคู่กับ UnitDetailedThreatSituation('player', u)
+    return Sec("ShouldUnitThreatStateBeSecret", "player", u)
 end)
-U(c1, "ShouldUnitThreatStateBeSecret(u)", function(u)
-    return Sec("ShouldUnitThreatStateBeSecret", u)
-end)
-U(c1, "ShouldUnitThreatValuesBeSecret(u)", function(u)
-    return Sec("ShouldUnitThreatValuesBeSecret", u)
+U(c1, "ShouldUnitThreatValuesBeSecret('player', u)", function(u)
+    -- signature = (unit, mobUnit) — arg 2 บังคับ (ต่างจาก ThreatState ที่ optional)
+    return Sec("ShouldUnitThreatValuesBeSecret", "player", u)
 end)
 G(c1, "ShouldSpellCooldownBeSecret(spellID)", function()
     return Sec("ShouldSpellCooldownBeSecret", CTX.spellID)
@@ -264,16 +275,24 @@ G(c1, "ShouldSpellAuraBeSecret(spellID)", function()
 end)
 G(c1, "GetSpellAuraSecrecy(spellID)", function()
     return Sec("GetSpellAuraSecrecy", CTX.spellID)
-end)
+end, "คืน Enum.SecrecyLevel (ตัวเลข) ไม่ใช่ boolean")
 G(c1, "GetSpellCastSecrecy(spellID)", function()
     return Sec("GetSpellCastSecrecy", CTX.spellID)
-end)
+end, "คืน Enum.SecrecyLevel (ตัวเลข)")
 G(c1, "GetSpellCooldownSecrecy(spellID)", function()
     return Sec("GetSpellCooldownSecrecy", CTX.spellID)
-end)
+end, "คืน Enum.SecrecyLevel (ตัวเลข)")
 G(c1, "GetPowerTypeSecrecy(0)", function()
     return Sec("GetPowerTypeSecrecy", 0)
-end, "0 = Mana")
+end, "0 = Mana · คืน Enum.SecrecyLevel (ตัวเลข)")
+
+G(c1, "ShouldSpellBookItemCooldownBeSecret(1, PlayerBank)", function()
+    local bank = 0
+    if Enum ~= nil and Enum.SpellBookSpellBank ~= nil then
+        bank = Enum.SpellBookSpellBank.Player
+    end
+    return Sec("ShouldSpellBookItemCooldownBeSecret", 1, bank)
+end, "signature = (spellBookItemSlotIndex, spellBookItemSpellBank)")
 G(c1, "ShouldActionCooldownBeSecret(1)", function()
     return Sec("ShouldActionCooldownBeSecret", 1)
 end, "action bar slot 1")
