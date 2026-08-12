@@ -476,7 +476,8 @@ U(c5, "GetAuraDataByIndex(u, idx, 'HARMFUL')  [ไม่ guard]", function(u)
 end, "[!!] จงใจไม่ gate ไว้เป็นหลักฐาน — 12.1 จะ throw 'Auras cannot be accessed when secret'")
 U(c5, "GetAuraDataByIndex(u, idx, 'HARMFUL')  [gate แล้ว]", function(u)
     return HarmField(u, nil)
-end, "true = ได้ table ปกติ · BLOCKED = C_Secrets บอกว่าห้ามเรียก")
+end, "[!!] แถวนี้ BLOCKED/ERR = ไม่ได้ table มาตั้งแต่แรก ⇒ ทุกแถว .field ข้างล่าง "
+   .. "จบตามทั้งหมด (ไม่ใช่ secret ทีละ field — เข้าไม่ถึงทั้งก้อน)")
 U(c5, "  .name", function(u) return HarmField(u, "name") end)
 U(c5, "  .spellId", function(u) return HarmField(u, "spellId") end,
     "[!] เทียบกับลิสต์ Bleed / DispelAura / condition aura_present")
@@ -524,41 +525,87 @@ end)
 -- ============================================================
 local c6 = Cat("6. Aura ทาง spellID / spell name (ทางที่ 12.1 ยังเปิดให้)")
 
-U(c6, "GetUnitAuraBySpellID(u, spellID)  [table]", function(u)
+-- ทางนี้ไม่โดนบล็อก ⇒ ได้ table จริงมาแจกแจงทีละ field ได้
+-- ⚠ ต้องมี aura ของ Spell ID ในช่อง input อยู่บน unit นั้นจริง ไม่งั้นได้ nil ทุกแถว
+local function SpellAura(u)
     if C_UnitAuras.GetUnitAuraBySpellID == nil then return nil end
-    local a = C_UnitAuras.GetUnitAuraBySpellID(u, CTX.spellID)
+    return C_UnitAuras.GetUnitAuraBySpellID(u, CTX.spellID)
+end
+
+local function SpellAuraField(u, key)
+    return Field(SpellAura(u), key)
+end
+
+U(c6, "GetUnitAuraBySpellID(u, spellID)  [มี aura ไหม]", function(u)
+    local a = SpellAura(u)
     if a == nil then return nil end
     if IsSecret(a) then return a end
     return true
-end, "[!!] ทางหลักที่เหลือ — ใช้ Spell ID ในช่อง input")
-U(c6, "  .spellId", function(u)
-    if C_UnitAuras.GetUnitAuraBySpellID == nil then return nil end
-    return Field(C_UnitAuras.GetUnitAuraBySpellID(u, CTX.spellID), "spellId")
+end, "[!!] ทางหลักที่เหลือ · true = มี aura นี้อยู่ · nil = ไม่มี (ไม่ใช่โดนบล็อก)")
+
+-- ---- 23 field ของ AuraData (ตาม Annotations/Core/Type/Structure.lua) ----
+-- wiki ระบุว่า 5 ตัวนี้ NeverSecret: auraInstanceID · isFromPlayerOrPlayerPet ·
+-- isHarmful · isHelpful · isNameplateOnly
+U(c6, "  .name", function(u) return SpellAuraField(u, "name") end)
+U(c6, "  .spellId", function(u) return SpellAuraField(u, "spellId") end,
+    "[!] เทียบกับลิสต์ Bleed / DispelAura / condition aura_present")
+U(c6, "  .icon", function(u) return SpellAuraField(u, "icon") end)
+U(c6, "  .applications", function(u) return SpellAuraField(u, "applications") end,
+    "[!] stack count — เทียบ >= N")
+U(c6, "  .charges", function(u) return SpellAuraField(u, "charges") end)
+U(c6, "  .maxCharges", function(u) return SpellAuraField(u, "maxCharges") end)
+U(c6, "  .duration", function(u) return SpellAuraField(u, "duration") end)
+U(c6, "  .expirationTime", function(u) return SpellAuraField(u, "expirationTime") end,
+    "[!] ห้าม expirationTime - GetTime() — ใช้ GetAuraDuration แทน")
+U(c6, "  .timeMod", function(u) return SpellAuraField(u, "timeMod") end)
+U(c6, "  .auraInstanceID", function(u) return SpellAuraField(u, "auraInstanceID") end,
+    "[NeverSecret ตาม wiki] key ของ AuraCache")
+U(c6, "  .dispelName", function(u) return SpellAuraField(u, "dispelName") end,
+    "[!] DispelNPScanChannel ส่งดิบผ่าน STS + font hack เพราะเทียบฝั่ง Lua ไม่ได้")
+U(c6, "  .sourceUnit", function(u) return SpellAuraField(u, "sourceUnit") end)
+U(c6, "  .isHelpful", function(u) return SpellAuraField(u, "isHelpful") end,
+    "[NeverSecret ตาม wiki]")
+U(c6, "  .isHarmful", function(u) return SpellAuraField(u, "isHarmful") end,
+    "[NeverSecret ตาม wiki]")
+U(c6, "  .isFromPlayerOrPlayerPet", function(u)
+    return SpellAuraField(u, "isFromPlayerOrPlayerPet")
+end, "[NeverSecret ตาม wiki]")
+U(c6, "  .isNameplateOnly", function(u) return SpellAuraField(u, "isNameplateOnly") end,
+    "[NeverSecret ตาม wiki]")
+U(c6, "  .isBossAura", function(u) return SpellAuraField(u, "isBossAura") end)
+U(c6, "  .isStealable", function(u) return SpellAuraField(u, "isStealable") end)
+U(c6, "  .isRaid", function(u) return SpellAuraField(u, "isRaid") end)
+U(c6, "  .canApplyAura", function(u) return SpellAuraField(u, "canApplyAura") end)
+U(c6, "  .nameplateShowAll", function(u) return SpellAuraField(u, "nameplateShowAll") end)
+U(c6, "  .nameplateShowPersonal", function(u)
+    return SpellAuraField(u, "nameplateShowPersonal")
 end)
-U(c6, "  .applications", function(u)
-    if C_UnitAuras.GetUnitAuraBySpellID == nil then return nil end
-    return Field(C_UnitAuras.GetUnitAuraBySpellID(u, CTX.spellID), "applications")
+U(c6, "  .points  [#]", function(u)
+    local pts = SpellAuraField(u, "points")
+    if pts == nil then return nil end
+    if IsSecret(pts) then return pts end
+    return #pts
 end)
-U(c6, "  .expirationTime", function(u)
-    if C_UnitAuras.GetUnitAuraBySpellID == nil then return nil end
-    return Field(C_UnitAuras.GetUnitAuraBySpellID(u, CTX.spellID), "expirationTime")
-end)
-U(c6, "  .auraInstanceID", function(u)
-    if C_UnitAuras.GetUnitAuraBySpellID == nil then return nil end
-    return Field(C_UnitAuras.GetUnitAuraBySpellID(u, CTX.spellID), "auraInstanceID")
-end)
-U(c6, "  .dispelName", function(u)
-    if C_UnitAuras.GetUnitAuraBySpellID == nil then return nil end
-    return Field(C_UnitAuras.GetUnitAuraBySpellID(u, CTX.spellID), "dispelName")
-end)
+
+-- ---- ทางอื่นในตระกูล spellID / name ----
 U(c6, "GetAuraDataBySpellName(u, <ชื่อจาก Spell ID>) .spellId", function(u)
     if C_UnitAuras.GetAuraDataBySpellName == nil then return nil end
     local nm = C_Spell.GetSpellName(CTX.spellID)
     if nm == nil then return nil end
     if IsSecret(nm) then return nm end
     return Field(C_UnitAuras.GetAuraDataBySpellName(u, nm, "HELPFUL"), "spellId")
-end)
-G(c6, "GetPlayerAuraBySpellID(spellID)  [table]", function()
+end, "signature = (unit, spellName, filter?)")
+U(c6, "GetAuraDuration(u, <instID จากทาง spellID>)", function(u)
+    local a = SpellAura(u)
+    if a == nil then return nil end
+    if IsSecret(a) then return a end
+    local id = a.auraInstanceID
+    if id == nil then return nil end
+    if C_UnitAuras.GetAuraDuration == nil then return nil end
+    return DurCall(C_UnitAuras.GetAuraDuration(u, id), "GetRemainingDuration")
+end, "[!!] instanceID ได้มาจากทาง spellID (ไม่โดนบล็อก) แล้วเอามาขอ duration — "
+   .. "ถ้าแถวนี้ทำงานได้ตอน combat = ยังคำนวณ remain ได้")
+G(c6, "GetPlayerAuraBySpellID(spellID)  [มี aura ไหม]", function()
     if C_UnitAuras.GetPlayerAuraBySpellID == nil then return nil end
     local a = C_UnitAuras.GetPlayerAuraBySpellID(CTX.spellID)
     if a == nil then return nil end
