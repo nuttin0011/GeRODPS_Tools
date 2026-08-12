@@ -74,6 +74,7 @@ local COL_NIL = "|cff6f6f6f"
 local COL_SEC = "|cffff4040"
 local COL_VAL = "|cffdddddd"
 local COL_ERR = "|cffff9000"
+local COL_BLK = "|cff36c8ff"
 local COL_HDR = "|cffffd100"
 local SEP     = "|cff555555 | |r"
 
@@ -143,7 +144,11 @@ local function Pack(...)
     return select("#", ...), { ... }
 end
 
--- คืน: displayText (อาจ tainted), isSecret (boolean ปกติ), plainErr (string|nil)
+-- คืน: displayText (อาจ tainted) · isSecret (boolean ปกติ) ·
+--      plainErr (string|nil) · blockedReason (string|nil)
+--
+-- BLOCKED = probe รู้ล่วงหน้าจาก C_Secrets ว่าเรียกไปก็ throw เลยไม่เรียก
+-- (12.1 บล็อก aura ทาง index/slot/instanceID) — ต่างจาก ERR ที่เรียกแล้วพัง
 local function RunProbe(probe, unit)
     local n, t
     if probe.unitScoped == true then
@@ -161,12 +166,24 @@ local function RunProbe(probe, unit)
         local okf, s = pcall(tostring, e)
         if okf ~= true then s = "?" end
         local short = ShortError(s)
-        return COL_ERR .. "ERR|r " .. short, false, short
+        return COL_ERR .. "ERR|r " .. short, false, short, nil
     end
 
     local count = n - 1
     if count == 0 then
-        return COL_NIL .. "(no return)|r", false, nil
+        return COL_NIL .. "(no return)|r", false, nil, nil
+    end
+
+    -- sentinel จาก Blocked("...") ใน SecretAPIProbes.lua
+    -- IsSecret ต้องมาก่อน type() / index เสมอ
+    if count == 1 then
+        local bv = t[2]
+        if bv ~= nil and IsSecret(bv) ~= true and type(bv) == "table" then
+            local reason = bv.__blockedReason
+            if reason ~= nil then
+                return COL_BLK .. "BLOCKED|r " .. reason, false, nil, reason
+            end
+        end
     end
 
     local secret = false
@@ -187,7 +204,7 @@ local function RunProbe(probe, unit)
         if i > 1 then out = out .. SEP end
         out = out .. piece          -- ".." loop เท่านั้น ห้าม table.concat
     end
-    return out, secret, nil
+    return out, secret, nil, nil
 end
 
 -- ============================================================
@@ -342,8 +359,8 @@ local function RenderRow(row, entry, zebra)
                     text = COL_NIL .. "(not sampled)|r"
                 end
             else
-                local secret, err
-                text, secret, err = RunProbe(item, units[i])
+                local secret, err, blk
+                text, secret, err, blk = RunProbe(item, units[i])
                 if item._text == nil then item._text = {} end
                 item._text[i] = text
                 if item._seen == nil then item._seen = {} end
@@ -355,6 +372,10 @@ local function RenderRow(row, entry, zebra)
                 if err ~= nil then
                     if item._err == nil then item._err = {} end
                     item._err[i] = err
+                end
+                if blk ~= nil then
+                    if item._blk == nil then item._blk = {} end
+                    item._blk[i] = blk
                 end
             end
             fs:SetText(text)
@@ -419,7 +440,7 @@ local function ScanAll()
             if item._text == nil then item._text = {} end
             if item._seen == nil then item._seen = {} end
             for i = 1, cols do
-                local text, secret, err = RunProbe(item, units[i])
+                local text, secret, err, blk = RunProbe(item, units[i])
                 item._text[i] = text
                 item._seen[i] = true
                 if secret == true then
@@ -430,6 +451,10 @@ local function ScanAll()
                 if err ~= nil then
                     if item._err == nil then item._err = {} end
                     item._err[i] = err
+                end
+                if blk ~= nil then
+                    if item._blk == nil then item._blk = {} end
+                    item._blk[i] = blk
                 end
             end
         end
@@ -444,6 +469,7 @@ local function ResetFlags()
         for _, item in ipairs(cat.items) do
             item._sec  = nil
             item._err  = nil
+            item._blk  = nil
             item._seen = nil
             item._text = nil
         end
@@ -477,7 +503,9 @@ local function BuildReport()
     out = out .. "\n"
     out = out .. "spellID=" .. tostring(db.spellID)
         .. "  itemID=" .. tostring(db.itemID) .. "\n"
-    out = out .. "legend:  S = secret   . = plain   E = error   ? = not sampled\n"
+    out = out .. "legend:  S = secret   B = blocked   E = error"
+        .. "   . = plain   ? = not sampled\n"
+    out = out .. "         B = C_Secrets บอกล่วงหน้าว่าเรียกไม่ได้ (ไม่ได้เรียกจริง)\n"
     out = out .. "         คอลัมน์เรียงตาม units 1..4 ข้างบน\n"
     out = out .. string.rep("-", 78) .. "\n"
 
@@ -496,6 +524,8 @@ local function BuildReport()
                         ch = "?"
                     elseif item._sec ~= nil and item._sec[i] == true then
                         ch = "S"
+                    elseif item._blk ~= nil and item._blk[i] ~= nil then
+                        ch = "B"
                     elseif item._err ~= nil and item._err[i] ~= nil then
                         ch = "E"
                     else
@@ -510,6 +540,14 @@ local function BuildReport()
                     local e = item._err[i]
                     if e ~= nil then
                         out = out .. "        ERR[" .. i .. "] " .. e .. "\n"
+                    end
+                end
+            end
+            if item._blk ~= nil then
+                for i = 1, cols do
+                    local b = item._blk[i]
+                    if b ~= nil then
+                        out = out .. "        BLOCKED[" .. i .. "] " .. b .. "\n"
                     end
                 end
             end
@@ -658,17 +696,18 @@ end
 
 local function CountFlags()
     local cats = TOOL.SecretAPIProbes
-    if cats == nil then return 0, 0 end
-    local sec, err = 0, 0
+    if cats == nil then return 0, 0, 0 end
+    local sec, err, blk = 0, 0, 0
     for _, cat in ipairs(cats) do
         for _, item in ipairs(cat.items) do
             for i = 1, NUM_UNITS do
                 if item._sec ~= nil and item._sec[i] == true then sec = sec + 1 end
                 if item._err ~= nil and item._err[i] ~= nil then err = err + 1 end
+                if item._blk ~= nil and item._blk[i] ~= nil then blk = blk + 1 end
             end
         end
     end
-    return sec, err
+    return sec, err, blk
 end
 
 -- ============================================================
@@ -690,11 +729,12 @@ local function Tick(_, dt)
         end
         local mode = "|cff88ff88LIVE|r"
         if frozen == true then mode = "|cffffcc00FROZEN|r" end
-        local nSec, nErr = CountFlags()
+        local nSec, nErr, nBlk = CountFlags()
         statusFS:SetText(mode
             .. "  |cff999999restrict|r " .. restr
             .. "  |cff999999combat|r " .. tostring(InCombatLockdown())
             .. "  " .. COL_SEC .. "secret " .. nSec .. "|r"
+            .. "  " .. COL_BLK .. "blocked " .. nBlk .. "|r"
             .. "  " .. COL_ERR .. "err " .. nErr .. "|r")
     end
 end
