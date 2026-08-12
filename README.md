@@ -33,6 +33,7 @@ output (see `SECRETS.md` for the full ruleset learned the hard way).
 | **Dump Var (Secret Read)** | Phase 1 — empty chrome | Placeholder frame; tree + watch inspector planned |
 | **Watch Var (Realtime ×4)** | Live | 4 input boxes, each evaluates `return ...` every 100 ms and prints the result. Long output gets clipped — resize the frame larger to see more |
 | **Aura List Helper** | Live | Lists every aura on a unit token (`target`, `focus`, `partyN`, `nameplateN`, ...), with a checkbox grid in three tabs (Display / Native Fields / Custom Fields) for picking which AuraData fields to surface |
+| **Secret API Check (Realtime)** | Live | Paged grid of every WoW API GeRODPS compares a value from, run live against 4 editable unit tokens (`player` / `party1` / `target` / `targettarget`). Each cell shows the value **and** whether it is secret. `Scan All` samples every page at once; `Copy Report` exports a plain-text secret/error matrix (never the secret values themselves) |
 
 Geometry is persisted per-account; opening any tool re-snaps the
 frame to fit within a 100 px screen-edge margin so saved positions
@@ -83,6 +84,11 @@ GeRODPS_ToolsDB = {
         point, relPoint, x, y, w, h,                       -- frame geometry
         unit, interval, fields = { [<field>] = bool },     -- panel state
     },
+    secretAPI       = {
+        point, relPoint, x, y, w, h,                       -- frame geometry
+        units   = { [1..4] = "<unit token>" },             -- the 4 columns
+        spellID, itemID,                                   -- inputs for spell/item probes
+    },
 }
 ```
 
@@ -96,6 +102,8 @@ GeRODPS_ToolsDB = {
 | `DumpVar.lua` | Empty WoW-native frame (Phase 1 chrome only) |
 | `WatchVar.lua` | 4 realtime expression watchers |
 | `AuraListHelper.lua` | Tabbed unit-aura inspector |
+| `SecretAPIProbes.lua` | Probe table: which API + which unit path GeRODPS needs to compare |
+| `SecretAPICheck.lua` | Paged realtime secret/value grid built on that table |
 | `SECRETS.md` | LOGIC vs DISPLAY rules for handling 12.0 secret-tagged values |
 
 ---
