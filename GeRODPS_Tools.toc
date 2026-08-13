@@ -46,3 +46,4 @@ InstanceNameProbe.lua
 MultiSelectDropdownTest.lua
 SecretAPIProbes.lua
 SecretAPICheck.lua
+CooldownManagerLab.lua
