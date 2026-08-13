@@ -145,7 +145,10 @@ local function Pack(...)
 end
 
 -- คืน: displayText (อาจ tainted) · isSecret (boolean ปกติ) ·
---      plainErr (string|nil) · blockedReason (string|nil)
+--      plainErr (string|nil) · blockedReason (string|nil) · allNil (boolean)
+--
+-- allNil = ทุกค่าที่คืนมาเป็น nil ⇒ "ไม่มีข้อมูล" ไม่ใช่ "อ่านได้"
+-- ต้องแยกจากค่าปกติ ไม่งั้นแถวที่ไม่มีข้อมูลจะดูเหมือนผ่าน
 --
 -- BLOCKED = probe รู้ล่วงหน้าจาก C_Secrets ว่าเรียกไปก็ throw เลยไม่เรียก
 -- (12.1 บล็อก aura ทาง index/slot/instanceID) — ต่างจาก ERR ที่เรียกแล้วพัง
@@ -166,12 +169,12 @@ local function RunProbe(probe, unit)
         local okf, s = pcall(tostring, e)
         if okf ~= true then s = "?" end
         local short = ShortError(s)
-        return COL_ERR .. "ERR|r " .. short, false, short, nil
+        return COL_ERR .. "ERR|r " .. short, false, short, nil, false
     end
 
     local count = n - 1
     if count == 0 then
-        return COL_NIL .. "(no return)|r", false, nil, nil
+        return COL_NIL .. "(no return)|r", false, nil, nil, true
     end
 
     -- sentinel จาก Blocked("...") ใน SecretAPIProbes.lua
@@ -181,12 +184,13 @@ local function RunProbe(probe, unit)
         if bv ~= nil and IsSecret(bv) ~= true and type(bv) == "table" then
             local reason = bv.__blockedReason
             if reason ~= nil then
-                return COL_BLK .. "BLOCKED|r " .. reason, false, nil, reason
+                return COL_BLK .. "BLOCKED|r " .. reason, false, nil, reason, false
             end
         end
     end
 
     local secret = false
+    local allNil = true
     local out = ""
     for i = 1, count do
         local v = t[i + 1]
@@ -195,8 +199,10 @@ local function RunProbe(probe, unit)
             piece = COL_NIL .. "nil|r"
         elseif IsSecret(v) then
             secret = true
+            allNil = false
             piece = COL_SEC .. "<secret>|r" .. FormatSecretValue(v)
         else
+            allNil = false
             local okf, s = pcall(PlainValue, v)
             if okf ~= true then s = "<opaque>" end
             piece = COL_VAL .. s .. "|r"
@@ -204,7 +210,7 @@ local function RunProbe(probe, unit)
         if i > 1 then out = out .. SEP end
         out = out .. piece          -- ".." loop เท่านั้น ห้าม table.concat
     end
-    return out, secret, nil, nil
+    return out, secret, nil, nil, allNil
 end
 
 -- ============================================================
@@ -359,8 +365,8 @@ local function RenderRow(row, entry, zebra)
                     text = COL_NIL .. "(not sampled)|r"
                 end
             else
-                local secret, err, blk
-                text, secret, err, blk = RunProbe(item, units[i])
+                local secret, err, blk, isNil
+                text, secret, err, blk, isNil = RunProbe(item, units[i])
                 if item._text == nil then item._text = {} end
                 item._text[i] = text
                 if item._seen == nil then item._seen = {} end
@@ -377,6 +383,8 @@ local function RenderRow(row, entry, zebra)
                     if item._blk == nil then item._blk = {} end
                     item._blk[i] = blk
                 end
+                if item._nil == nil then item._nil = {} end
+                item._nil[i] = isNil
             end
             fs:SetText(text)
         end
@@ -440,7 +448,7 @@ local function ScanAll()
             if item._text == nil then item._text = {} end
             if item._seen == nil then item._seen = {} end
             for i = 1, cols do
-                local text, secret, err, blk = RunProbe(item, units[i])
+                local text, secret, err, blk, isNil = RunProbe(item, units[i])
                 item._text[i] = text
                 item._seen[i] = true
                 if secret == true then
@@ -456,6 +464,8 @@ local function ScanAll()
                     if item._blk == nil then item._blk = {} end
                     item._blk[i] = blk
                 end
+                if item._nil == nil then item._nil = {} end
+                item._nil[i] = isNil
             end
         end
     end
@@ -470,6 +480,7 @@ local function ResetFlags()
             item._sec  = nil
             item._err  = nil
             item._blk  = nil
+            item._nil  = nil
             item._seen = nil
             item._text = nil
         end
@@ -479,6 +490,33 @@ end
 -- ============================================================
 -- Report (ข้อความล้วน — ห้ามใส่ค่าที่เป็น secret ลงไป)
 -- ============================================================
+
+-- พิมพ์รายละเอียด ERR/BLOCKED — ถ้าทุกคอลัมน์ข้อความเดียวกันให้เหลือบรรทัดเดียว
+-- (ไม่งั้นรายงานยาวขึ้น 4 เท่าโดยไม่ได้ข้อมูลเพิ่ม)
+local function DetailLines(tbl, cols, tag)
+    if tbl == nil then return "" end
+    local first, count = nil, 0
+    local same = true
+    for i = 1, cols do
+        local v = tbl[i]
+        if v ~= nil then
+            count = count + 1
+            if first == nil then first = v elseif v ~= first then same = false end
+        end
+    end
+    if count == 0 then return "" end
+    if same == true and count == cols then
+        return "        " .. tag .. "[all] " .. first .. "\n"
+    end
+    local out = ""
+    for i = 1, cols do
+        local v = tbl[i]
+        if v ~= nil then
+            out = out .. "        " .. tag .. "[" .. i .. "] " .. v .. "\n"
+        end
+    end
+    return out
+end
 
 local function BuildReport()
     local db = GetDB()
@@ -504,8 +542,10 @@ local function BuildReport()
     out = out .. "spellID=" .. tostring(db.spellID)
         .. "  itemID=" .. tostring(db.itemID) .. "\n"
     out = out .. "legend:  S = secret   B = blocked   E = error"
-        .. "   . = plain   ? = not sampled\n"
+        .. "   . = plain value   - = nil (no data)   ? = not sampled\n"
     out = out .. "         B = C_Secrets บอกล่วงหน้าว่าเรียกไม่ได้ (ไม่ได้เรียกจริง)\n"
+    out = out .. "         - = เรียกได้แต่ไม่มีข้อมูล (เช่น ไม่มี aura นั้นบน unit)"
+        .. " — ไม่ใช่หลักฐานว่าอ่านได้\n"
     out = out .. "         คอลัมน์เรียงตาม units 1..4 ข้างบน\n"
     out = out .. string.rep("-", 78) .. "\n"
 
@@ -528,6 +568,8 @@ local function BuildReport()
                         ch = "B"
                     elseif item._err ~= nil and item._err[i] ~= nil then
                         ch = "E"
+                    elseif item._nil ~= nil and item._nil[i] == true then
+                        ch = "-"
                     else
                         ch = "."
                     end
@@ -535,22 +577,8 @@ local function BuildReport()
                 flags = flags .. ch
             end
             out = out .. "  " .. flags .. "  " .. item.name .. "\n"
-            if item._err ~= nil then
-                for i = 1, cols do
-                    local e = item._err[i]
-                    if e ~= nil then
-                        out = out .. "        ERR[" .. i .. "] " .. e .. "\n"
-                    end
-                end
-            end
-            if item._blk ~= nil then
-                for i = 1, cols do
-                    local b = item._blk[i]
-                    if b ~= nil then
-                        out = out .. "        BLOCKED[" .. i .. "] " .. b .. "\n"
-                    end
-                end
-            end
+            out = out .. DetailLines(item._err, cols, "ERR")
+            out = out .. DetailLines(item._blk, cols, "BLOCKED")
         end
     end
     return out
