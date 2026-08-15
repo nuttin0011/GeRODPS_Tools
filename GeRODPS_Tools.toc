@@ -47,3 +47,6 @@ MultiSelectDropdownTest.lua
 SecretAPIProbes.lua
 SecretAPICheck.lua
 CooldownManagerLab.lua
+CDMAuraProbe.lua
+CDMRouteTest.lua
+CustomAuraProbe.lua

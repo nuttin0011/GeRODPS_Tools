@@ -81,7 +81,7 @@ local TOP_PAD  = 6
 local DEFAULT_W, DEFAULT_H = 1020, 640
 -- MIN_W must fit the row-1 button chain plus both side pads, or the last
 -- button renders outside the frame when the user shrinks it.
-local MIN_W,     MIN_H     = 800,  420
+local MIN_W,     MIN_H     = 940,  420
 local MAX_W,     MAX_H     = 1800, 1100
 
 local ROW_H       = 22
@@ -119,6 +119,8 @@ local function GetOpt()
     local o = db.opt
     if o.knownOnly    == nil then o.knownOnly    = false end
     if o.allowIllegal == nil then o.allowIllegal = false end
+    if o.orderMode    == nil then o.orderMode    = false end
+    if o.liveApply    == nil then o.liveApply    = false end
     return o
 end
 
@@ -650,6 +652,279 @@ local function SetEntryCategory(cooldownID, category)
         :format(cooldownID, CategoryEnumName(category), RELOAD_HINT)
 end
 
+-- ============================================================
+-- Order (layout[1])
+--
+-- layout[1] is ONE flat array of cooldownIDs covering EVERY category. Each
+-- viewer filters it down to its own members and keeps the relative order:
+--
+--     CooldownViewerSettingsDataProvider.lua:249 GetOrderedCooldownIDsForCategory
+--       for _, id in ipairs(GetOrderedCooldownIDs()) do
+--           if not isInvisible and info.category == category
+--              and (info.isKnown or allowUnknown) then insert(ids, id) end
+--
+-- So "move up inside Essential" = swap this id with the previous id that is
+-- ALSO in Essential. Ids of other categories sitting in between never matter,
+-- and swapping two same-category ids cannot break any category rule -- which is
+-- why we can skip Blizzard's GetCooldownOrderChangeStatus validation entirely.
+--
+-- Note the two filters above: an entry that is not isKnown, or an invisible
+-- item, never draws no matter where it sits in the order.
+-- ============================================================
+
+-- Effective order: layout[1] when the spec has a stored layout, otherwise the
+-- catalog walk order (which is what Blizzard starts from).
+local function EffectiveOrder(all, ctx)
+    local order, seen = {}, {}
+    if ctx and type(ctx.order) == "table" then
+        local known = {}
+        for _, e in ipairs(all) do known[e.id] = true end
+        for _, id in ipairs(ctx.order) do
+            if known[id] and not seen[id] then
+                seen[id] = true
+                order[#order + 1] = id
+            end
+        end
+    end
+    -- Anything the store never mentioned goes after, in catalog order.
+    for _, e in ipairs(all) do
+        if not seen[e.id] then
+            seen[e.id] = true
+            order[#order + 1] = e.id
+        end
+    end
+    return order
+end
+
+-- Write layout[1]. Returns ok, message
+local function ApplyOrderArray(order)
+    if type(order) ~= "table" then return false, "ApplyOrderArray needs an array" end
+
+    local data, _, err = ReadStore()
+    if not data then return false, err or "cannot read the layout store" end
+
+    local specTag = CurrentSpecTag()
+    if not specTag then return false, "cannot determine class/spec" end
+
+    local layout = ActiveLayout(data, specTag)
+    if not layout then return false, NO_LAYOUT_MSG end
+
+    local clean, seen = {}, {}
+    for _, id in ipairs(order) do
+        if type(id) == "number" and not seen[id] then
+            seen[id] = true
+            clean[#clean + 1] = id
+        end
+    end
+    layout[LAYOUT_FIELD_ORDER] = clean
+
+    local ok, res = WriteStore(data, 1)
+    if not ok then return false, res end
+    return true, ("Order written (%d entries)."):format(#clean)
+end
+
+-- Swap `entry` with its neighbour INSIDE ITS OWN CATEGORY, `delta` = -1 up / +1 down.
+-- Operates on the full catalog order, never on the filtered view, so a filter
+-- can never make the button move the wrong pair.
+local function MoveInOrder(entry, delta)
+    local all, ctx = CollectAll()
+    if #all == 0 then return false, "catalog empty" end
+
+    local order = EffectiveOrder(all, ctx)
+    local catOf = {}
+    for _, e in ipairs(all) do catOf[e.id] = e.cat end
+
+    local slots = {}                       -- indices in `order` sharing entry.cat
+    for i, id in ipairs(order) do
+        if catOf[id] == entry.cat then slots[#slots + 1] = i end
+    end
+
+    local k
+    for j, i in ipairs(slots) do
+        if order[i] == entry.id then k = j break end
+    end
+    if not k then return false, "entry is not in the order array" end
+
+    local t = k + delta
+    if t < 1 or t > #slots then return false, "already at the edge of its category" end
+
+    order[slots[k]], order[slots[t]] = order[slots[t]], order[slots[k]]
+    return ApplyOrderArray(order)
+end
+
+-- ============================================================
+-- Live apply -- push the store into the RUNNING Cooldown Manager
+--
+-- WARNING: every call below is Blizzard Lua, so this is exactly the taint
+-- vector this file was written to avoid (see the header). It exists so the
+-- prototype can MEASURE whether skipping /reload is worth the taint. The safe
+-- path (write store -> /reload) is untouched and still the default.
+--
+-- Recipe mirrors tg123/myslot Myslot.lua ApplyCooldownLayout: the live manager
+-- keeps its own in-memory copy of the layouts, so SetLayoutData alone neither
+-- refreshes the bars nor survives -- the stale copy is saved back over ours.
+-- ============================================================
+local liveApplyWarned = false
+local liveTainted     = false   -- set once Apply Live has run; only /reload clears it
+
+local LIVE_VIEWER_NAMES = {
+    "EssentialCooldownViewer", "UtilityCooldownViewer",
+    "BuffIconCooldownViewer",  "BuffBarCooldownViewer",
+}
+
+-- ============================================================
+-- VERDICT 2026-08-14: Apply Live TAINTS THE VIEWER FRAMES PERMANENTLY.
+-- Two measurements, both real, and the second one settles it.
+--
+-- (1) IN COMBAT, immediately on click -- error inside OUR call stack:
+--       CooldownViewer.lua:998: boolean test on field 'allowAvailableAlert'
+--       (a secret boolean, while execution tainted by 'GeRODPS_Tools')
+--     Stack: MenuPick -> AfterWrite -> ApplyLiveRefresh -> NotifyListeners
+--            -> CallbackRegistry -> Blizzard RefreshData
+--
+-- (2) OUT OF COMBAT, minutes later, 21x -- and NO GeRODPS_Tools frame is on
+--     the stack at all:
+--       CooldownViewerItemData.lua:782: boolean test on local 'hasTotem'
+--       (a secret boolean, while execution tainted by 'GeRODPS_Tools')
+--       CooldownViewer.lua:2245 OnEvent -> :151 OnSpellUpdateCooldownEvent
+--       -> RefreshData -> CacheCooldownValues -> RefreshTotemData
+--
+-- (2) is the whole story: the frames are now tainted, so every later
+-- SPELL_UPDATE_COOLDOWN of Blizzard's own runs tainted and dies on whichever
+-- secret it happens to touch. Nothing an addon does clears that. Only /reload.
+--
+-- => A pre-flight check CANNOT make this safe. The taint we install is
+--    permanent; the secret values arrive afterwards, on Blizzard's schedule.
+--    The scan below is kept only to refuse the obviously-doomed case; it is
+--    NOT a safety guarantee and must never be presented as one.
+--
+-- => For GeRODPS the answer is settled: write the store, require /reload.
+--    (m33cdmsync gets away with a plain SetLayoutData because it writes during
+--    COOLDOWN_VIEWER_DATA_LOADED at login, before Blizzard has built its
+--    in-memory copy -- that is a load-time trick, not a live-apply one.)
+-- ============================================================
+
+-- Detail on measurement (1), kept because it explains the immediate failure:
+--
+--   CooldownViewer.lua:998: attempt to perform boolean test on field
+--   'allowAvailableAlert' (a secret boolean value, while execution tainted
+--   by 'GeRODPS_Tools')
+--
+-- The offending line is Blizzard's own:
+--   self.allowAvailableAlert = self.allowAvailableAlert or (not self.isOnGCD and ...)
+-- `or` on a secret boolean IS a truthiness test. Blizzard may do it; we may
+-- not -- and NotifyListeners() runs that code inside OUR call stack.
+--
+-- Why a combat check is NOT enough: allowAvailableAlert is only cleared in
+-- TriggerAvailableAlert (CooldownViewer.lua:525), i.e. when the "spell is
+-- ready again" alert actually fires. A secret picked up during a fight can sit
+-- on the frame long after the fight ends -- and the `or` above keeps it secret
+-- forever until that alert triggers.
+--
+-- So instead of guessing from combat state, ask the frames directly. Reading
+-- frame.allowAvailableAlert is a plain table read (no method call, no taint),
+-- and issecretvalue() is exactly the right question to ask about it.
+local function CountSecretAlertFields()
+    if issecretvalue == nil then return 0, "issecretvalue unavailable" end
+    local bad = 0
+    for _, vname in ipairs(LIVE_VIEWER_NAMES) do
+        local viewer = _G[vname]
+        -- GetItemFrames is a pure getter (CooldownViewer.lua:1636 returns
+        -- GetLayoutChildren()) so calling it does not taint the viewer.
+        if viewer ~= nil and viewer.GetItemFrames ~= nil then
+            local ok, frames = pcall(function() return viewer:GetItemFrames() end)
+            if ok and type(frames) == "table" then
+                for _, f in ipairs(frames) do
+                    if type(f) == "table" then
+                        for _, field in ipairs({ "allowAvailableAlert", "allowOnCooldownAlert" }) do
+                            local okS, isSecret = pcall(issecretvalue, f[field])
+                            if okS and isSecret == true then bad = bad + 1 end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return bad
+end
+
+-- ok, reason
+local function LiveApplyAllowed()
+    local bad = CountSecretAlertFields()
+    if bad > 0 then
+        return false, ("%d alert field(s) on the CDM item frames are secret right now -- "
+            .. "Blizzard's refresh would truthiness-test them inside our tainted stack "
+            .. "(CooldownViewer.lua:998). Use Reload UI instead."):format(bad)
+    end
+    if InCombatLockdown() then
+        return false, "in combat -- refusing (values turn secret mid-refresh)"
+    end
+    if C_Secrets ~= nil and C_Secrets.ShouldAurasBeSecret ~= nil then
+        local okS, secret = pcall(C_Secrets.ShouldAurasBeSecret)
+        if okS and secret == true then
+            return false, "auras are secret right now (instance/combat) -- refusing"
+        end
+    end
+    return true
+end
+
+local function ApplyLiveRefresh(force)
+    if not force then
+        local allowed, why = LiveApplyAllowed()
+        if not allowed then return false, why end
+    end
+
+    local settings = _G.CooldownViewerSettings
+    if settings == nil then return false, "CooldownViewerSettings not loaded" end
+
+    local layoutManager = settings.GetLayoutManager and settings:GetLayoutManager()
+    local serializer    = settings.GetSerializer    and settings:GetSerializer()
+    local dataProvider  = settings.GetDataProvider  and settings:GetDataProvider()
+    if not (layoutManager and serializer and dataProvider) then
+        return false, "settings sub-objects missing (layoutManager/serializer/dataProvider)"
+    end
+    if not (serializer.SetSerializedData and serializer.ReadData
+            and layoutManager.InitMemberVariables and layoutManager.ClearActiveLayout
+            and dataProvider.SwitchToBestLayoutForSpec) then
+        return false, "settings API shape changed -- refusing to guess"
+    end
+
+    local okBlob, blob = pcall(C_CooldownViewer.GetLayoutData)
+    if not okBlob or type(blob) ~= "string" then return false, "GetLayoutData failed" end
+
+    -- Each step named so a failure blames a concrete call instead of dying silently.
+    local function step(name, fn)
+        local ok, err = pcall(fn)
+        if not ok then return name .. ": " .. tostring(err) end
+        return nil
+    end
+
+    local bad =
+           step("SetSerializedData",       function() serializer:SetSerializedData(blob) end)
+        or step("InitMemberVariables",     function() layoutManager:InitMemberVariables() end)
+        or step("ClearActiveLayout",       function() layoutManager:ClearActiveLayout() end)
+        or step("ReadData",                function() serializer:ReadData() end)
+        or step("SwitchToBestLayoutForSpec", function() dataProvider:SwitchToBestLayoutForSpec() end)
+    if bad then return false, bad end
+
+    if dataProvider.MarkDirty then pcall(function() dataProvider:MarkDirty() end) end
+    if layoutManager.SetHasPendingChanges then
+        pcall(function() layoutManager:SetHasPendingChanges(false) end)
+    end
+    if layoutManager.NotifyListeners then
+        local e = step("NotifyListeners", function() layoutManager:NotifyListeners() end)
+        if e then return false, e end
+    end
+
+    -- pendingReload stays TRUE on purpose: the bars did refresh, but the frames
+    -- are tainted now and only a reload undoes that.
+    liveTainted = true
+    -- CallbackRegistry.lua:209-210 wraps every listener separately, so a
+    -- listener that throws is REPORTED to the user but never reaches our
+    -- pcall -- "ok" here does not prove the refresh was clean.
+    return true, "Applied live -- bars refreshed without a reload."
+end
+
 -- Where an entry goes when you want it OFF the bars. Items park in their own
 -- container, spells/auras in the matching Hidden* pseudo-category.
 local function OffBarCategoryFor(entry)
@@ -1055,6 +1330,20 @@ function CDM.Snapshot()
     }
 end
 
+-- ---- Order (layout[1]) + live apply -------------------------------------
+-- GetOrder()            -> array of cooldownID, the effective draw order
+-- ApplyOrder(array)     -> ok, msg   (writes layout[1]; needs /reload OR ApplyLive)
+-- MoveInOrder(e, delta) -> ok, msg   (swap with the neighbour in the SAME category)
+-- ApplyLive()           -> ok, msg   (push the store into the running manager;
+--                                     TAINTS the viewer frames -- see the header)
+function CDM.GetOrder()
+    local all, ctx = CollectAll()
+    return EffectiveOrder(all, ctx)
+end
+function CDM.ApplyOrder(order)      return ApplyOrderArray(order) end
+function CDM.MoveInOrder(e, delta)  return MoveInOrder(e, delta) end
+function CDM.ApplyLive()            return ApplyLiveRefresh() end
+
 function CDM.ReadStore() return ReadStore() end
 function CDM.WriteStore(data) return WriteStore(data, 1) end
 
@@ -1148,6 +1437,10 @@ local function UpdateBarCounts(all)
     end
     local prefix = pendingReload and "|cffffcc00on the bars after /reload:|r  "
                                   or "|cffaaaaaaon the bars:|r  "
+    if liveTainted then
+        prefix = "|cffff4444TAINTED - viewer frames are tainted until /reload; "
+              .. "expect Blizzard errors on SPELL_UPDATE_COOLDOWN|r\n" .. prefix
+    end
     barsFS:SetText(prefix .. table.concat(parts, "   "))
 end
 
@@ -1156,6 +1449,8 @@ end
 -- ============================================================
 
 local RefreshList   -- forward declaration (row handlers call it)
+local OrderClick    -- forward declaration (row ^ / v buttons call it)
+local AfterWrite    -- forward declaration (runs the live refresh if enabled)
 
 local function ShowCategoryMenu(rowFrame, entry)
     if not (MenuUtil and MenuUtil.CreateContextMenu) then
@@ -1189,8 +1484,7 @@ local function ShowCategoryMenu(rowFrame, entry)
                 local target = d.cat
                 root:CreateButton(label, function()
                     local ok, msg = SetEntryCategory(entry.id, target)
-                    SetStatus(msg, ok and "FF88FF88" or "FFFF6B6B")
-                    RefreshList()
+                    AfterWrite(ok, msg)
                 end)
             end
         end
@@ -1247,8 +1541,79 @@ local function AcquireRow(index)
     row.nameFS:SetJustifyH("LEFT")
     row.nameFS:SetWordWrap(false)
 
+    -- Order controls (order mode only). Anchored from the right edge; catBtn is
+    -- re-anchored at refresh time so the two never overlap.
+    row.ordDn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    row.ordDn:SetSize(20, ROW_H - 4)
+    row.ordDn:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+    row.ordDn:SetText("v")
+    row.ordDn:SetScript("OnClick", function(self)
+        if self.entry then OrderClick(self.entry, 1) end
+    end)
+
+    row.ordUp = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    row.ordUp:SetSize(20, ROW_H - 4)
+    row.ordUp:SetPoint("RIGHT", row.ordDn, "LEFT", -2, 0)
+    row.ordUp:SetText("^")
+    row.ordUp:SetScript("OnClick", function(self)
+        if self.entry then OrderClick(self.entry, -1) end
+    end)
+
+    row.posFS = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.posFS:SetPoint("RIGHT", row.ordUp, "LEFT", -4, 0)
+    row.posFS:SetWidth(30)
+    row.posFS:SetJustifyH("RIGHT")
+
     rows[index] = row
     return row
+end
+
+-- Display rank for order mode: the four on-bar categories first, in the order
+-- the bars themselves appear, then the parked ones.
+local catRankCache
+local function CatRank(cat)
+    if not catRankCache then
+        catRankCache = {}
+        local names = { "Essential", "Utility", "TrackedBuff", "TrackedBar",
+                        "EquipSlotEssential", "EquipSlotTracked",
+                        "SpecAgnosticEssential", "SpecAgnosticTracked" }
+        for i, nm in ipairs(names) do
+            local v = EnumCat(nm)
+            if v ~= nil then catRankCache[v] = i end
+        end
+        catRankCache[HiddenActiveCat()]  = 90
+        catRankCache[HiddenPassiveCat()] = 91
+    end
+    return catRankCache[cat] or 99
+end
+
+
+-- Every store write funnels through here so "Live apply" is honoured no matter
+-- which button caused the write.
+function AfterWrite(ok, msg)
+    if not ok then
+        SetStatus(msg, "FFFF6B6B")
+        RefreshList()
+        return false
+    end
+    if GetOpt().liveApply then
+        local lok, lmsg = ApplyLiveRefresh()
+        if lok then
+            SetStatus(msg .. "  |cff88ff88" .. lmsg .. "|r", "FF88FF88")
+        else
+            SetStatus(msg .. "  |cffff6b6b live apply failed: " .. tostring(lmsg)
+                      .. " -- falling back to /reload|r", "FFFFCC00")
+        end
+    else
+        SetStatus(msg, "FF88FF88")
+    end
+    RefreshList()
+    return true
+end
+
+function OrderClick(entry, delta)
+    local ok, msg = MoveInOrder(entry, delta)
+    AfterWrite(ok, msg)
 end
 
 local function PassesFilter(entry, text, knownOnly)
@@ -1278,6 +1643,31 @@ function RefreshList()
         end
     end
 
+    -- Order mode: sort by (category, position in layout[1]) and work out each
+    -- entry's rank INSIDE its category plus whether it can still move.
+    local posInCat, catCount = {}, {}
+    if opt.orderMode then
+        local order = EffectiveOrder(all, ctx)
+        local orderPos = {}
+        for i, id in ipairs(order) do orderPos[id] = i end
+
+        local catOf = {}
+        for _, e in ipairs(all) do catOf[e.id] = e.cat end
+        for _, id in ipairs(order) do
+            local c = catOf[id]
+            if c ~= nil then
+                catCount[c] = (catCount[c] or 0) + 1
+                posInCat[id] = catCount[c]
+            end
+        end
+
+        table.sort(entries, function(a, b)
+            local ra, rb = CatRank(a.cat), CatRank(b.cat)
+            if ra ~= rb then return ra < rb end
+            return (orderPos[a.id] or 0) < (orderPos[b.id] or 0)
+        end)
+    end
+
     for i, e in ipairs(entries) do
         local row = AcquireRow(i)
         row.catBtn.entry = e
@@ -1296,6 +1686,23 @@ function RefreshList()
 
         row.defFS:SetText("|cff707070def: " .. CategoryEnumName(e.defCat) .. "|r")
         row.catBtn:SetText(CategoryLabel(e.cat))
+
+        row.catBtn:ClearAllPoints()
+        if opt.orderMode then
+            local k = posInCat[e.id]
+            local total = catCount[e.cat] or 0
+            row.posFS:SetText(k and ("|cff999999" .. k .. "/" .. total .. "|r") or "")
+            row.ordUp.entry = e
+            row.ordDn.entry = e
+            row.ordUp:SetEnabled(k ~= nil and k > 1)
+            row.ordDn:SetEnabled(k ~= nil and k < total)
+            row.posFS:Show(); row.ordUp:Show(); row.ordDn:Show()
+            row.catBtn:SetPoint("RIGHT", row.posFS, "LEFT", -6, 0)
+        else
+            row.posFS:Hide(); row.ordUp:Hide(); row.ordDn:Hide()
+            row.catBtn:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+        end
+
         row:Show()
     end
 
@@ -1313,7 +1720,7 @@ function RefreshList()
         countFS:SetText(("%d shown / %d total  |cff999999(%d items, %d off the bars)|r")
             :format(#entries, #all, items, offBar))
     end
-    if reloadBtn then reloadBtn:SetShown(pendingReload) end
+    if reloadBtn then reloadBtn:SetShown(pendingReload or liveTainted) end
     UpdateSnapshotLabel()
     UpdateBarCounts(all)
     return ctx
@@ -1480,8 +1887,32 @@ local function BuildToolbars()
     local bDump = MakeButton(bar1, "Dump to chat", 108, DoDumpChat)
     bDump:SetPoint("LEFT", bCmp, "RIGHT", 6, 0)
 
+    -- Pushes whatever is in the store into the RUNNING manager. This is the
+    -- Blizzard-Lua path, so it taints the viewer frames -- deliberate, it is
+    -- what this prototype is here to measure. Warn once per session.
+    local bLive = MakeButton(bar1, "Apply Live", 96, function()
+        local allowed, why = LiveApplyAllowed()
+        if not allowed then
+            SetStatus("Live apply blocked: " .. why, "FFFFCC00")
+            return
+        end
+        if not liveApplyWarned then
+            liveApplyWarned = true
+            Print("|cffff4444Apply Live TAINTS the Cooldown Manager frames -- measured, "
+                  .. "not theoretical. The bars do refresh, but from now until you "
+                  .. "/reload, Blizzard's own SPELL_UPDATE_COOLDOWN handler runs tainted "
+                  .. "and throws on any secret it touches (hasTotem, allowAvailableAlert, "
+                  .. "aura durations...). Errors may appear minutes later with no addon "
+                  .. "frame on the stack. Kept here only as a lab experiment.|r")
+        end
+        local ok, msg = ApplyLiveRefresh()
+        SetStatus(msg, ok and "FF88FF88" or "FFFF6B6B")
+        RefreshList()
+    end)
+    bLive:SetPoint("LEFT", bDump, "RIGHT", 12, 0)
+
     reloadBtn = MakeButton(bar1, "Reload UI", 92, function() C_UI.Reload() end)
-    reloadBtn:SetPoint("LEFT", bDump, "RIGHT", 12, 0)
+    reloadBtn:SetPoint("LEFT", bLive, "RIGHT", 6, 0)
     reloadBtn:Hide()
 
     -- Row 2: snapshot / bars / status. Both edges of each FontString anchor at
@@ -1533,6 +1964,12 @@ local function BuildToolbars()
 
     local cbIllegal = MakeCheck(bar3, "Allow illegal moves", "allowIllegal")
     cbIllegal:SetPoint("LEFT", cbKnown.labelFS, "RIGHT", 16, 0)
+
+    local cbOrder = MakeCheck(bar3, "Order mode", "orderMode", function() RefreshList() end)
+    cbOrder:SetPoint("LEFT", cbIllegal.labelFS, "RIGHT", 16, 0)
+
+    local cbLive = MakeCheck(bar3, "Live apply (taints)", "liveApply")
+    cbLive:SetPoint("LEFT", cbOrder.labelFS, "RIGHT", 16, 0)
 
     countFS = bar3:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     countFS:SetPoint("RIGHT", bar3, "RIGHT", -4, 0)
