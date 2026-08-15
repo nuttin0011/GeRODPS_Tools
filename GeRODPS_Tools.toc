@@ -50,3 +50,4 @@ CooldownManagerLab.lua
 CDMAuraProbe.lua
 CDMRouteTest.lua
 CustomAuraProbe.lua
+NameplateAuraProbe.lua
