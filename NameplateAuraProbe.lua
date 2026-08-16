@@ -255,37 +255,33 @@ local function BuildDispelCurve()
     return curve
 end
 
---- ลองถอดชนิด dispel ของปุ่มนี้ + ถามว่า "คลาสเราปลดได้ไหม"
-local function ProbeDispelViaCurve(unit, btn, out)
-    local aid = btn.auraInstanceID
-    if aid == nil then
-        out[#out + 1] = "          curve: ไม่มี auraInstanceID บนปุ่ม"
-        return
-    end
+--- ถอดชนิด dispel จาก auraInstanceID ตรง ๆ (ใช้ได้ทั้งจากปุ่มและจาก ForEachAura)
+function ProbeDispelViaCurveID(unit, aid, out, pad)
+    pad = pad or "          "
 
     local curve = BuildDispelCurve()
     if curve == nil then
-        out[#out + 1] = "          curve: |cffff9a9aสร้าง ColorCurve ไม่ได้ (C_CurveUtil หาย?)|r"
+        out[#out + 1] = pad .. "curve: |cffff9a9aสร้าง ColorCurve ไม่ได้|r"
         return
     end
     if not (C_UnitAuras and C_UnitAuras.GetAuraDispelTypeColor) then
-        out[#out + 1] = "          curve: |cffff9a9aไม่มี C_UnitAuras.GetAuraDispelTypeColor|r"
+        out[#out + 1] = pad .. "curve: |cffff9a9aไม่มี GetAuraDispelTypeColor|r"
         return
     end
 
     local ok, color = pcall(C_UnitAuras.GetAuraDispelTypeColor, unit, aid, curve)
     if not ok then
-        out[#out + 1] = "          curve: |cffff9a9aเรียกแล้ว throw:|r " .. tostring(color)
+        out[#out + 1] = pad .. "curve: |cffff9a9aTHROW:|r " .. tostring(color)
         return
     end
     if color == nil then
-        out[#out + 1] = "          curve: คืน nil (ออร่านี้ไม่มีชนิด dispel หรือ unit ไม่ตรง)"
+        out[#out + 1] = pad .. "curve: คืน nil"
         return
     end
 
     local r = color.r
     if r == nil and type(color) == "table" then r = color[1] end
-    local line = "          curve: ได้สี  r=" .. SafeStr(r) .. ArithTag(r)
+    local line = pad .. "curve: ได้สี  r=" .. SafeStr(r) .. ArithTag(r)
     if r ~= nil and not IsSecret(r) then
         local okF, id = pcall(function() return math.floor(r * 255 + 0.5) end)
         if okF then
@@ -312,7 +308,7 @@ local function ProbeDispelViaCurve(unit, btn, out)
             else
                 res = "ปลดไม่ได้"
             end
-            out[#out + 1] = "          filter " .. flt .. " -> " .. res
+            out[#out + 1] = pad .. "filter " .. flt .. " -> " .. res
         end
     end
 end
@@ -349,7 +345,7 @@ local function ProbeDispelSignature(unit, btn, out)
         end
     end
 
-    ProbeDispelViaCurve(unit, btn, out)
+    if btn.auraInstanceID ~= nil then ProbeDispelViaCurveID(unit, btn.auraInstanceID, out) end
 end
 
 --- แผนที่ debuffType → atlas/สี ที่ Blizzard ใช้ (มีตัวเดียวทั้งเกม)
@@ -633,6 +629,42 @@ local function ProbeAuraAPI(unit, out)
                     else
                         out[#out + 1] = "    |cff44ff44GetAuraDataBySlot: ได้ table|r (ตัวแรก)"
                         DumpAuraData(data, out, "      ")
+                    end
+                end
+            end
+        end
+
+        -- ── 1.5) AuraUtil.ForEachAura — **ทางที่ ThreatPlates Midnight ใช้จริง** ──
+        -- AurasWidgetMidnight.lua: AuraUtil.ForEachAura(unitid, effect, nil, HandleAura, true)
+        -- (เขา comment GetAuraSlots/GetAuraDataBySlot ทิ้งแล้ว เขียนกำกับว่า deprecated)
+        if AuraUtil and AuraUtil.ForEachAura then
+            local n, first = 0, nil
+            local okE, err = pcall(AuraUtil.ForEachAura, unit, flt, nil, function(a)
+                n = n + 1
+                if first == nil then first = a end
+                return n >= 5      -- หยุดที่ 5 พอ
+            end, true)
+            if not okE then
+                out[#out + 1] = "  " .. flt .. " ForEachAura: |cffff9a9aTHROW|r " .. tostring(err)
+            else
+                out[#out + 1] = ("  %s |cff44ff44ForEachAura: เรียกได้|r  เจอ %d ออร่า")
+                    :format(flt, n)
+                if first ~= nil then
+                    DumpAuraData(first, out, "      ")
+                    -- ถามต่อ 2 คำถามที่ ThreatPlates ใช้ตัดสินเรื่อง dispel
+                    local aid = first.auraInstanceID
+                    if aid ~= nil and C_UnitAuras and C_UnitAuras.IsAuraFilteredOutByInstanceID then
+                        local okF, fo = pcall(C_UnitAuras.IsAuraFilteredOutByInstanceID,
+                            unit, aid, flt .. "|RAID_PLAYER_DISPELLABLE")
+                        local res
+                        if not okF then res = "|cffff9a9aTHROW|r " .. tostring(fo)
+                        elseif IsSecret(fo) then res = "SECRET boolean"
+                        elseif fo == false then res = "|cff44ff44ปลดได้|r"
+                        else res = "ปลดไม่ได้" end
+                        out[#out + 1] = "      RAID_PLAYER_DISPELLABLE -> " .. res
+                    end
+                    if aid ~= nil then
+                        ProbeDispelViaCurveID(unit, aid, out, "      ")
                     end
                 end
             end
