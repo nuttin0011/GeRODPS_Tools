@@ -36,6 +36,14 @@
       เรียก API จริงของ addon: GeRODPS.GetAllAuraFromSetOfNamePlate(units)
       แล้วพิมพ์ record ที่ได้ → ยืนยันว่า API ใช้งานได้จริงในสภาพ combat
 
+    ── ปุ่ม "Peek ค่าจริง" ───────────────────────────────────────────────
+      รายงานข้างบนบอกได้แค่ "SECRET string" — บอกไม่ได้ว่าข้อความ**หน้าตายังไง**
+      (จะรู้ format ของ countdown text ต้องเห็นของจริง) · ปุ่มนี้สลับไปแผงที่
+      เรนเดอร์ค่าจริงลง **FontString** ด้วย idiom ของ WatchVar.lua
+      (`"" .. tostring(v)` = string ที่ยังเป็น secret แต่ Blizzard ยอมให้วาด)
+      ⇒ user อ่านด้วยตาแล้วบอกกลับมา · แผงนี้ **copy ไม่ได้** โดยตั้งใจ
+      (copy = GetText = unmask) — รายงานที่ copy ได้อยู่อีกแผง
+
     Public:
         GeRODPS_Tools.ShowNameplateAuraProbe()
 ]]
@@ -360,16 +368,119 @@ function TOOL.RunNameplateAuraProbe(showAll)
 end
 
 -- ============================================================
+-- Secret Peek — เรนเดอร์ "ค่าจริง" ของ field ที่เป็น secret ออกจอ
+-- ============================================================
+-- idiom จาก WatchVar.lua: `"" .. tostring(v)` ได้ string ที่ FontString
+-- **เรนเดอร์ได้** (ผลยังเป็น secret แต่ Blizzard ยอมให้วาด) ⇒ user อ่านด้วยตา
+-- แล้วบอกกลับมาว่า format หน้าตาเป็นยังไง — ทางเดียวที่จะรู้ format ของ
+-- secret string เพราะ Lua เทียบ/วัด/แปลงมันไม่ได้เลย
+--
+-- ⚠ กฎเหล็กของแผงนี้ (ผิดข้อใดข้อหนึ่ง = Lua error กลาง combat):
+--   1. ปลายทางต้องเป็น **FontString** เท่านั้น — ห้าม EditBox
+--      (EditBox ของรายงานหลักต้อง copy ได้ = ต้องเรียก GetText ซึ่งบน
+--       secret string เป็นการ unmask)
+--   2. ห้ามเรียก GetText / GetStringWidth / GetStringHeight บน FontString นี้
+--   3. ห้ามวัดความสูงเพื่อ resize — ขนาดคงที่ตามกรอบ ให้ user กด Full Screen เอา
+--   4. ประกอบด้วย `..` / tostring เท่านั้น (Rule 1.5) ห้าม compare/arith
+local function PeekVal(v)
+    if v == nil then return "nil" end
+    local ok, res = pcall(function() return "" .. tostring(v) end)
+    if ok then return res end
+    return "<เรนเดอร์ไม่ได้>"
+end
+
+--- อ่านค่าจริงของทุกปุ่มออร่าบน nameplate → string เดียว (secret) สำหรับ FontString
+--- เน้น cdText เป็นหลัก (คำถามที่ต้องตอบ: countdown text เป็น format ไหน)
+local function BuildPeekText()
+    local lines = "|cffffd200== ค่าจริง (อ่านด้วยตา - copy ไม่ได้) ==|r" .. "\n"
+    lines = lines .. "|cffaaaaaaถ้า cdText ว่างเปล่า = Blizzard ไม่ได้วาดเลข (hideNumbers)|r" .. "\n\n"
+    local found = 0
+    for i = 1, MAX_PLATES do
+        local unit = "nameplate" .. i
+        local af = AurasFrameOf(unit)
+        if af then
+            for _, L in ipairs(LISTS) do
+                local children = LayoutChildren(af[L.field])
+                if children then
+                    for idx, btn in ipairs(children) do
+                        if btn and btn.spellID ~= nil then
+                            found = found + 1
+                            local cdTxt, cdShown = nil, nil
+                            local cd = btn.Cooldown
+                            if cd ~= nil and cd.GetCountdownFontString ~= nil then
+                                local okF, fs = pcall(cd.GetCountdownFontString, cd)
+                                if okF and fs ~= nil then
+                                    local okT; okT, cdTxt = Get(fs, "GetText")
+                                    if not okT then cdTxt = nil end
+                                    local okS; okS, cdShown = Get(fs, "IsShown")
+                                    if not okS then cdShown = nil end
+                                end
+                            end
+                            local stkTxt = nil
+                            local cf = btn.CountFrame
+                            if cf ~= nil and cf.Count ~= nil then
+                                local okC; okC, stkTxt = Get(cf.Count, "GetText")
+                                if not okC then stkTxt = nil end
+                            end
+                            local sMs, dMs = nil, nil
+                            if cd ~= nil and cd.GetCooldownTimes ~= nil then
+                                local okCd, a, b = pcall(cd.GetCooldownTimes, cd)
+                                if okCd then sMs, dMs = a, b end
+                            end
+                            local dispD = nil
+                            if cd ~= nil then
+                                local okD; okD, dispD = Get(cd, "GetCooldownDisplayDuration")
+                                if not okD then dispD = nil end
+                            end
+
+                            lines = lines .. "|cff88ccff[" .. unit .. " " .. L.kind
+                                .. " #" .. idx .. "]|r" .. "\n"
+                            lines = lines .. "   cdText = [" .. PeekVal(cdTxt) .. "]"
+                                .. "   shown=" .. PeekVal(cdShown) .. "\n"
+                            lines = lines .. "   stack  = [" .. PeekVal(stkTxt) .. "]"
+                                .. "   spellID=" .. PeekVal(btn.spellID) .. "\n"
+                            lines = lines .. "   start  = " .. PeekVal(sMs)
+                                .. "   dur = " .. PeekVal(dMs)
+                                .. "   displayDuration = " .. PeekVal(dispD) .. "\n"
+                            lines = lines .. "   now    = " .. string.format("%.0f", GetTime() * 1000)
+                                .. "\n\n"
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if found == 0 then
+        lines = lines .. "|cffff9a9aไม่เจอปุ่มออร่าบน nameplate เลย"
+            .. " - ต้องมี DoT ของเราติด mob ที่มี nameplate โชว์อยู่|r"
+    end
+    return lines
+end
+
+-- ============================================================
 -- UI
 -- ============================================================
 
 local frame, editBox, scrollFrame
+local peekBox, peekFS
+
+local function RefreshPeek()
+    if not peekFS then return end
+    -- SetText ล้วน — ไม่วัดผลลัพธ์ (ผลเป็น secret string)
+    local ok, text = pcall(BuildPeekText)
+    if ok then
+        peekFS:SetText(text)
+    else
+        peekFS:SetText("|cffff9a9aPeek พัง:|r " .. tostring(text))
+    end
+end
 
 local function Refresh(showAll)
     if not editBox then return end
     local ok, text = pcall(TOOL.RunNameplateAuraProbe, showAll)
     editBox:SetText(ok and text or ("Probe พัง: " .. tostring(text)))
     editBox:SetCursorPosition(0)
+    if peekBox and peekBox:IsShown() then RefreshPeek() end
 end
 
 local function BuildFrame()
@@ -445,6 +556,22 @@ local function BuildFrame()
         end
     end)
 
+    local btnPeek = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnPeek:SetSize(190, 24)
+    btnPeek:SetPoint("LEFT", btnMax, "RIGHT", 8, 0)
+    btnPeek:SetText("Peek ค่าจริง (อ่านด้วยตา)")
+    btnPeek:SetScript("OnClick", function()
+        if not peekBox then return end
+        if peekBox:IsShown() then
+            peekBox:Hide()
+            btnPeek:SetText("Peek ค่าจริง (อ่านด้วยตา)")
+        else
+            RefreshPeek()
+            peekBox:Show()
+            btnPeek:SetText("กลับไปดูรายงาน (copy ได้)")
+        end
+    end)
+
     scrollFrame = CreateFrame("ScrollFrame", "$parentScroll", frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", btn, "BOTTOMLEFT", 0, -8)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 22)
@@ -465,6 +592,26 @@ local function BuildFrame()
         if editBox then editBox:SetWidth(w) end
     end)
     scrollFrame:SetScrollChild(editBox)
+
+    -- แผง Peek — ทับพื้นที่เดียวกับรายงาน (สลับกันโชว์)
+    -- ขนาดคงที่ตามกรอบ ไม่วัดข้อความ (กฎข้อ 3) — ยาวเกินก็โดนตัดล่าง
+    -- ให้ user กด Full Screen หรือลากขยายกรอบเอา
+    peekBox = CreateFrame("Frame", nil, frame)
+    peekBox:SetPoint("TOPLEFT", scrollFrame, "TOPLEFT", 0, 0)
+    peekBox:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 22)
+    peekBox:Hide()
+    local peekBg = peekBox:CreateTexture(nil, "BACKGROUND")
+    peekBg:SetAllPoints(peekBox)
+    peekBg:SetColorTexture(0, 0, 0, 0.55)
+    peekFS = peekBox:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+    peekFS:SetPoint("TOPLEFT", peekBox, "TOPLEFT", 6, -6)
+    peekFS:SetPoint("TOPRIGHT", peekBox, "TOPRIGHT", -6, -6)
+    peekFS:SetJustifyH("LEFT")
+    peekFS:SetJustifyV("TOP")
+    peekFS:SetWordWrap(true)
+    peekFS:SetNonSpaceWrap(true)
+    peekFS:SetSpacing(2)
+    peekFS:SetText("")
 
     local resize = CreateFrame("Button", nil, frame)
     resize:SetSize(16, 16)
