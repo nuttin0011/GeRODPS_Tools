@@ -209,8 +209,116 @@ local function DumpTexture(label, tex, out, pad)
     out[#out + 1] = line
 end
 
+
+-- ============================================================
+-- ทางที่ 2: ถอดชนิด dispel ผ่าน ColorCurve (กู้จาก AuraCache.lua ที่ลบไปแล้ว)
+-- ============================================================
+-- ตาราง AuraUtil.GetDebuffDisplayInfoTable **ไม่มี Enrage** เพราะเป็นตารางของ
+-- *debuff* ล้วน (Magic/Curse/Disease/Poison/Bleed/None) — Enrage เป็น **buff**
+-- ที่ปลดได้ (Hunter Tranq Shot / Druid Soothe) ⇒ atlas/สีจากตารางนั้นบอกไม่ได้
+--
+-- แต่ AuraCache.lua (ลบไปแล้ว — กู้ผ่าน git) มีทางที่ครอบ Enrage ด้วย:
+--   ยัด **ColorCurve ที่เราสร้างเอง** เข้า C_UnitAuras.GetAuraDispelTypeColor
+--   โดยเข้ารหัส dispelTypeID ลงช่อง R (R = id/255) ⇒ ค่าที่ API คืนมาเป็น
+--   สีของ **เส้นโค้งของเราเอง** ไม่ใช่ข้อมูลของ Blizzard ⇒ ถอด R กลับเป็น id ได้
+--     Magic=1 · Curse=2 · Disease=3 · Poison=4 · **Enrage=9** · Bleed=11
+--
+-- ⚠ ปมเดียวที่ต้องวัด: auraInstanceID บนปุ่ม nameplate เป็น **secret**
+--   โค้ดเดิมของ AuraCache bail ทิ้งทันทีเมื่อเจอ secret (issecretvalue guard)
+--   ⇒ ยังไม่มีใครเคยลองส่ง secret เข้าไปจริง ๆ · ส่ง secret เข้า API = "pass"
+--   ซึ่งกฎอนุญาต แต่สีที่คืนมาอาจติด taint ตามไปด้วย (แล้ว math.floor จะ throw)
+--   probe นี้ลองทั้ง 2 ทางแล้วรายงานว่าเกิดอะไรขึ้น
+
+local DISPEL_TYPE_NAMES = {
+    [0]  = "None",
+    [1]  = "Magic",
+    [2]  = "Curse",
+    [3]  = "Disease",
+    [4]  = "Poison",
+    [9]  = "Enrage",
+    [11] = "Bleed",
+}
+
+local dispelCurve
+local function BuildDispelCurve()
+    if dispelCurve then return dispelCurve end
+    if not (C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor) then return nil end
+    local ok, curve = pcall(C_CurveUtil.CreateColorCurve)
+    if not ok or curve == nil then return nil end
+    if Enum and Enum.LuaCurveType and Enum.LuaCurveType.Step then
+        pcall(curve.SetType, curve, Enum.LuaCurveType.Step)
+    end
+    for id in pairs(DISPEL_TYPE_NAMES) do
+        pcall(curve.AddPoint, curve, id, CreateColor(id / 255, 1, 0, 1))
+    end
+    dispelCurve = curve
+    return curve
+end
+
+--- ลองถอดชนิด dispel ของปุ่มนี้ + ถามว่า "คลาสเราปลดได้ไหม"
+local function ProbeDispelViaCurve(unit, btn, out)
+    local aid = btn.auraInstanceID
+    if aid == nil then
+        out[#out + 1] = "          curve: ไม่มี auraInstanceID บนปุ่ม"
+        return
+    end
+
+    local curve = BuildDispelCurve()
+    if curve == nil then
+        out[#out + 1] = "          curve: |cffff9a9aสร้าง ColorCurve ไม่ได้ (C_CurveUtil หาย?)|r"
+        return
+    end
+    if not (C_UnitAuras and C_UnitAuras.GetAuraDispelTypeColor) then
+        out[#out + 1] = "          curve: |cffff9a9aไม่มี C_UnitAuras.GetAuraDispelTypeColor|r"
+        return
+    end
+
+    local ok, color = pcall(C_UnitAuras.GetAuraDispelTypeColor, unit, aid, curve)
+    if not ok then
+        out[#out + 1] = "          curve: |cffff9a9aเรียกแล้ว throw:|r " .. tostring(color)
+        return
+    end
+    if color == nil then
+        out[#out + 1] = "          curve: คืน nil (ออร่านี้ไม่มีชนิด dispel หรือ unit ไม่ตรง)"
+        return
+    end
+
+    local r = color.r
+    if r == nil and type(color) == "table" then r = color[1] end
+    local line = "          curve: ได้สี  r=" .. SafeStr(r) .. ArithTag(r)
+    if r ~= nil and not IsSecret(r) then
+        local okF, id = pcall(function() return math.floor(r * 255 + 0.5) end)
+        if okF then
+            line = line .. "  -> id=" .. tostring(id)
+                .. "  |cff44ff44ชนิด = " .. tostring(DISPEL_TYPE_NAMES[id] or "?") .. "|r"
+        end
+    else
+        line = line .. "  |cffff9a9a<- secret: ถอดฝั่ง Lua ไม่ได้ ต้องส่งดิบให้ AHK|r"
+    end
+    out[#out + 1] = line
+
+    -- ถามตรง ๆ ว่า "คลาส/ทาเลนต์เราปลดออร่านี้ได้ไหม" (talent-aware ของ Blizzard เอง)
+    if C_UnitAuras.IsAuraFilteredOutByInstanceID then
+        for _, flt in ipairs({ "HELPFUL|RAID_PLAYER_DISPELLABLE",
+                               "HARMFUL|RAID_PLAYER_DISPELLABLE" }) do
+            local okF, filteredOut = pcall(C_UnitAuras.IsAuraFilteredOutByInstanceID, unit, aid, flt)
+            local res
+            if not okF then
+                res = "|cffff9a9aTHROW|r " .. tostring(filteredOut)
+            elseif IsSecret(filteredOut) then
+                res = "SECRET boolean (เทียบฝั่ง Lua ไม่ได้)"
+            elseif filteredOut == false then
+                res = "|cff44ff44ปลดได้|r"
+            else
+                res = "ปลดไม่ได้"
+            end
+            out[#out + 1] = "          filter " .. flt .. " -> " .. res
+        end
+    end
+end
+
 --- dump ทุก texture + field ที่อาจบอกชนิด dispel
-local function ProbeDispelSignature(btn, out)
+local function ProbeDispelSignature(unit, btn, out)
     out[#out + 1] = "        |cffaaaaaa--- ร่องรอย dispel type ---|r"
 
     local found = false
@@ -240,6 +348,8 @@ local function ProbeDispelSignature(btn, out)
             out[#out + 1] = "          btn." .. k .. " = " .. SafeStr(btn[k]) .. ArithTag(btn[k])
         end
     end
+
+    ProbeDispelViaCurve(unit, btn, out)
 end
 
 --- แผนที่ debuffType → atlas/สี ที่ Blizzard ใช้ (มีตัวเดียวทั้งเกม)
@@ -279,7 +389,7 @@ end
 -- probe ต่อปุ่ม
 -- ============================================================
 
-local function ProbeButton(btn, kind, idx, out)
+local function ProbeButton(btn, kind, idx, out, unitToken)
     local sid  = btn.spellID
     local aid  = btn.auraInstanceID
     local isB  = btn.isBuff
@@ -381,7 +491,7 @@ local function ProbeButton(btn, kind, idx, out)
         end
     end
 
-    ProbeDispelSignature(btn, out)
+    ProbeDispelSignature(unitToken, btn, out)
 end
 
 -- ============================================================
@@ -415,7 +525,7 @@ function TOOL.RunNameplateAuraProbe(showAll)
                         for idx, btn in ipairs(children) do
                             if btn and btn.spellID ~= nil then
                                 auraN = auraN + 1
-                                ProbeButton(btn, L.kind, idx, lines)
+                                ProbeButton(btn, L.kind, idx, lines, unit)
                             end
                         end
                     elseif err and err ~= "ไม่มี list frame" and showAll then
@@ -439,7 +549,10 @@ function TOOL.RunNameplateAuraProbe(showAll)
     if plateCount == 0 then
         out[#out + 1] = "|cffff5555!! ไม่มี nameplate เลย -> เปิด nameplate ศัตรู (ปุ่ม V) ก่อน|r"
     elseif not anyAura then
-        out[#out + 1] = "|cffff5555!! มี nameplate แต่ไม่มีปุ่มออร่าเลย -> ต้องมี DoT ของเราติด mob"
+        out[#out + 1] = "|cffff5555!! มี nameplate แต่ไม่มีปุ่มออร่าเลย"
+        out[#out + 1] = "   วัด Debuff -> ต้องมี DoT ของเราติด mob"
+        out[#out + 1] = "   วัด Dispel -> ต้องเล็ง mob ที่ **มี buff ที่คลาสเราปลดได้** ตอนนั้นจริง ๆ"
+        out[#out + 1] = "   (Hunter = Enrage/Magic · สัตว์ที่ enrage ตอนเลือดต่ำ / mob ที่ buff ตัวเอง)"
         out[#out + 1] = "   (Blizzard โชว์เฉพาะดีบัฟที่ source = ตัวเราเอง) หรือ CVar aura บน nameplate ปิดอยู่|r"
     end
 
@@ -569,7 +682,7 @@ local function BuildPeekText()
     end
     if found == 0 then
         lines = lines .. "|cffff9a9aไม่เจอปุ่มออร่าบน nameplate เลย"
-            .. " - ต้องมี DoT ของเราติด mob ที่มี nameplate โชว์อยู่|r"
+            .. " - วัด Debuff ต้องมี DoT ของเรา · วัด Dispel ต้องมี buff ที่ปลดได้บน mob|r"
     end
     return lines
 end
@@ -629,7 +742,11 @@ local function BuildFrame()
     hint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -SIDE_PAD, -(TITLE_H + 8))
     hint:SetJustifyH("LEFT")
     hint:SetSpacing(3)
-    hint:SetText("ต้องกดตอน: อยู่ในดัน + combat + มี DoT ของเราติด mob + เปิด nameplate ศัตรู"
+    hint:SetText(
+        "|cffffd200วัด Debuff (spellID/stack/remain):|r อยู่ในดัน + combat + "
+        .. "|cffffcc55มี DoT ของเราติด mob|r + เปิด nameplate ศัตรู"
+        .. "|n|cffffd200วัด Dispel:|r เล็ง mob ที่ |cffffcc55มี buff ที่คลาสเราปลดได้|r "
+        .. "(Hunter = Enrage/Magic) — คนละเงื่อนไขกับข้างบน ไม่ต้องมี DoT"
         .. "  |cffaaaaaa(นอก combat ออร่าไม่ secret -> ผลหลอก)|r")
 
     local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
