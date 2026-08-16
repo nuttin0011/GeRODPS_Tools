@@ -700,6 +700,22 @@ function TOOL.RunNameplateAuraProbe(showAll)
 
     local units, anyAura, plateCount = {}, false, 0
 
+    out[#out + 1] = "-- ส่วน D: enumerate ด้วย API ตรง (ทางที่ ThreatPlates ใช้) -----"
+    out[#out + 1] = "   ถ้าคืน table ได้ = ทางนี้รอด · aura.dispelName คือคำตอบของเรื่อง dispel"
+    do
+        local nD = 0
+        for i = 1, MAX_PLATES do
+            local u = "nameplate" .. i
+            if UnitExists(u) and nD < 3 then
+                nD = nD + 1
+                ProbeAuraAPI(u, out)
+            end
+        end
+        if UnitExists("target") then ProbeAuraAPI("target", out) end
+        if nD == 0 then out[#out + 1] = "   (ไม่มี nameplate ให้ทดสอบ)" end
+    end
+    out[#out + 1] = ""
+
     out[#out + 1] = "-- ส่วน A: field ดิบบนปุ่มออร่า --------------------------------"
     for i = 1, MAX_PLATES do
         local unit = "nameplate" .. i
@@ -757,22 +773,6 @@ function TOOL.RunNameplateAuraProbe(showAll)
     -- ── ส่วน B: API จริงของ addon ─────────────────────────────
     out[#out + 1] = ""
     for _, l in ipairs(DispelInfoLines()) do out[#out + 1] = l end
-    out[#out + 1] = ""
-
-    out[#out + 1] = "-- ส่วน D: enumerate ด้วย API ตรง (ทางที่ ThreatPlates ใช้) -----"
-    out[#out + 1] = "   ถ้าคืน table ได้ = ทางนี้รอด · aura.dispelName คือคำตอบของเรื่อง dispel"
-    do
-        local nD = 0
-        for i = 1, MAX_PLATES do
-            local u = "nameplate" .. i
-            if UnitExists(u) and nD < 3 then
-                nD = nD + 1
-                ProbeAuraAPI(u, out)
-            end
-        end
-        if UnitExists("target") then ProbeAuraAPI("target", out) end
-        if nD == 0 then out[#out + 1] = "   (ไม่มี nameplate ให้ทดสอบ)" end
-    end
     out[#out + 1] = ""
 
     out[#out + 1] = "-- ส่วน B: GeRODPS.GetAllAuraFromSetOfNamePlate ----------------"
