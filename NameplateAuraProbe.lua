@@ -819,12 +819,23 @@ local function ProbePlaterFrames(out)
                     out[#out + 1] = ("  [%s%s] shown=%s children=%d")
                         :format(base, cname, okS and SafeStr(shown) or "ERR", #kids)
                     DumpScalarFields(cf, out, "      ", 14)
+                    -- นับเฉพาะไอคอนที่ **โชว์จริง** — children คือ pool ที่ Plater
+                    -- สร้างรอไว้ (30/10 ตัว) ไม่ใช่จำนวนออร่าจริง
+                    local nShown = 0
                     for ci, kid in ipairs(kids) do
-                        if ci > 4 then break end
-                        local okK, kshown = Get(kid, "IsShown")
-                        out[#out + 1] = ("      icon#%d shown=%s"):format(ci, okK and SafeStr(kshown) or "ERR")
-                        DumpScalarFields(kid, out, "        ", 20)
+                        local vis = false
+                        pcall(function() vis = kid:IsVisible() == true end)
+                        if vis then
+                            nShown = nShown + 1
+                            if nShown <= 4 then
+                                local ot = "?"
+                                pcall(function() ot = kid:GetObjectType() end)
+                                out[#out + 1] = ("      icon#%d (%s) |cff44ff44โชว์อยู่|r"):format(ci, tostring(ot))
+                                DumpScalarFields(kid, out, "        ", 24)
+                            end
+                        end
                     end
+                    out[#out + 1] = ("      -> ไอคอนที่โชว์จริง %d / %d"):format(nShown, #kids)
                     found = found + 1
                 end
             end
