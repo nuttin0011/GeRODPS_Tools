@@ -210,6 +210,56 @@ local function ProbeButton(btn, kind, idx, out)
             end
         end
     end
+
+    -- ── Remain ทางที่ 2: ข้อความ countdown ที่ Blizzard วาดบนไอคอน ──
+    -- Cooldown:GetCountdownFontString() = getter อย่างเป็นทางการของ Widget API
+    -- (คืน SimpleFontString) ⇒ ถ้าอ่าน :GetText() ได้ = ส่งข้อความนี้แทน
+    -- start/dur ได้เลย ไม่ต้องให้ AHK ลบเอง
+    -- ⚠ ที่ต้องดูให้ครบ 3 อย่าง:
+    --   1. hideNumbers — NamePlateAuraItemMixin เรียก SetHideCountdownNumbers(duration > 60)
+    --      ⇒ ออร่ายาวเกิน 60 วิ Blizzard ซ่อนเลข = ไม่มีข้อความให้อ่าน
+    --   2. รูปแบบข้อความ — ปัดเป็นวินาที / ย่อเป็น "2m" "1h" เมื่อเหลือเยอะ
+    --      (ปลายทางต้อง parse ไม่ใช่ตัวเลขล้วน)
+    --   3. secret หรือไม่ — ถ้า secret ก็ยังส่งผ่าน STS ได้ปกติ
+    if cd ~= nil then
+        local okH, hidden = Get(cd, "GetHideCountdownNumbers")
+        local okM, minMs  = Get(cd, "GetMinimumCountdownDuration")
+        local okD, dispD  = Get(cd, "GetCooldownDisplayDuration")
+        out[#out + 1] = ("        cdText: hideNumbers=%s  minDuration=%s  displayDuration=%s%s")
+            :format(okH and SafeStr(hidden) or "ERR", okM and SafeStr(minMs) or "ERR",
+                    okD and SafeStr(dispD) or "ERR", okD and ArithTag(dispD) or "")
+
+        if cd.GetCountdownFontString == nil then
+            out[#out + 1] = "        cdText: |cffff9a9aไม่มี GetCountdownFontString บน widget นี้|r"
+        else
+            local okF, fs = pcall(cd.GetCountdownFontString, cd)
+            if not okF then
+                out[#out + 1] = "        cdText: |cffff9a9aGetCountdownFontString ERR:|r " .. tostring(fs)
+            elseif fs == nil then
+                out[#out + 1] = "        cdText: |cffff9a9aGetCountdownFontString คืน nil|r"
+            else
+                local okS, shown = Get(fs, "IsShown")
+                local okV, vis   = Get(fs, "IsVisible")
+                local okT, txt   = Get(fs, "GetText")
+                out[#out + 1] = ("        cdText: shown=%s visible=%s  text=%s%s")
+                    :format(okS and SafeStr(shown) or "ERR", okV and SafeStr(vis) or "ERR",
+                            okT and SafeStr(txt) or "ERR", okT and ArithTag(txt) or "")
+                -- ⚠ ห้ามเทียบ txt ~= "" ตรง ๆ ตอนเป็น secret (compare = unmask)
+                -- secret string = "มีข้อความแน่นอน" อยู่แล้ว → usable
+                local usable
+                if (not okT) or txt == nil then
+                    usable = false
+                elseif IsSecret(txt) then
+                    usable = true
+                else
+                    usable = (txt ~= "")
+                end
+                out[#out + 1] = "        cdText verdict: "
+                    .. (usable and "|cff44ff44มีข้อความ -> ใช้แทน start/dur ได้|r"
+                                or "|cffff9a9aไม่มีข้อความ -> ใช้แทนไม่ได้ ต้องใช้ start/dur|r")
+            end
+        end
+    end
 end
 
 -- ============================================================
