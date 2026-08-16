@@ -570,6 +570,90 @@ local function CVarLines()
     return out
 end
 
+
+-- ============================================================
+-- ส่วน D: enumerate ออร่าด้วย API ตรง ๆ (ทางที่ ThreatPlates ใช้)
+-- ============================================================
+-- ThreatPlates (และ Plater) **ไม่อ่านปุ่มของ Blizzard เลย** — สร้างเฟรมเองแล้วเรียก
+--     local slots = { GetAuraSlots(unitid, effect, max, token) }
+--     GetAuraDataBySlot(unitid, slots[i])
+-- ซึ่งเป็น API ตระกูลที่โปรเจกต์เราบันทึกไว้ว่า "ตายบน 12.1"
+--
+-- ⚠ แต่บันทึกนั้นอาจสรุปเร็วไป: probe นี้พิสูจน์แล้วว่า btn.spellID **คืนค่ามาได้
+--   แต่เป็น secret** ไม่ได้ throw ⇒ เป็นไปได้ว่า GetAuraDataBySlot ก็คืน table ที่มี
+--   field เป็น secret เหมือนกัน (ไม่ throw) ซึ่งแปลว่า **enumerate ได้**
+--   แค่เทียบฝั่ง Lua ไม่ได้ → ส่งดิบให้ AHK เหมือน pattern อื่นในโปรเจกต์
+--
+-- ถ้าเป็นจริง ทางนี้จะกู้เรื่อง dispel ได้ทั้งกลุ่ม เพราะ aura.dispelName คือคำตอบตรง
+-- (secret string → STS font hack → AHK เทียบ — pattern เดียวกับ targetRole ที่ใช้จริงอยู่)
+--
+-- ส่วนนี้จึงวัด 3 อย่างต่อ 1 filter: เรียกแล้ว throw ไหม · ได้กี่ตัว · field ไหน secret
+
+local API_FILTERS = { "HELPFUL", "HARMFUL" }
+
+local function DumpAuraData(a, out, pad)
+    if type(a) ~= "table" then
+        out[#out + 1] = pad .. "(ไม่ใช่ table: " .. SafeStr(a) .. ")"
+        return
+    end
+    local keys = { "spellId", "name", "dispelName", "applications", "isHelpful",
+                   "isHarmful", "auraInstanceID", "duration", "expirationTime",
+                   "sourceUnit", "isStealable", "canApplyAura" }
+    for _, k in ipairs(keys) do
+        local v = a[k]
+        if v ~= nil then
+            out[#out + 1] = pad .. k .. " = " .. SafeStr(v) .. ArithTag(v)
+        end
+    end
+end
+
+local function ProbeAuraAPI(unit, out)
+    out[#out + 1] = "[" .. unit .. "]"
+
+    for _, flt in ipairs(API_FILTERS) do
+        -- ── 1) GetAuraSlots + GetAuraDataBySlot (ทางของ ThreatPlates) ──
+        local fn = C_UnitAuras and C_UnitAuras.GetAuraSlots
+        if fn == nil then
+            out[#out + 1] = "  " .. flt .. " GetAuraSlots: |cffff9a9aไม่มีฟังก์ชัน|r"
+        else
+            local ok, res = pcall(function() return { fn(unit, flt, 20) } end)
+            if not ok then
+                out[#out + 1] = "  " .. flt .. " GetAuraSlots: |cffff9a9aTHROW|r " .. tostring(res)
+            else
+                -- res[1] = continuationToken · res[2..] = slot
+                local nSlot = math.max(0, #res - 1)
+                out[#out + 1] = ("  %s GetAuraSlots: |cff44ff44เรียกได้|r  slots=%d  token=%s")
+                    :format(flt, nSlot, SafeStr(res[1]))
+                if nSlot > 0 and C_UnitAuras.GetAuraDataBySlot then
+                    local okD, data = pcall(C_UnitAuras.GetAuraDataBySlot, unit, res[2])
+                    if not okD then
+                        out[#out + 1] = "    GetAuraDataBySlot: |cffff9a9aTHROW|r " .. tostring(data)
+                    elseif data == nil then
+                        out[#out + 1] = "    GetAuraDataBySlot: คืน nil"
+                    else
+                        out[#out + 1] = "    |cff44ff44GetAuraDataBySlot: ได้ table|r (ตัวแรก)"
+                        DumpAuraData(data, out, "      ")
+                    end
+                end
+            end
+        end
+
+        -- ── 2) GetAuraDataByIndex (ทางที่โค้ดเก่าของเราใช้) ──
+        local fnI = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
+        if fnI ~= nil then
+            local okI, d1 = pcall(fnI, unit, 1, flt)
+            if not okI then
+                out[#out + 1] = "  " .. flt .. " GetAuraDataByIndex(1): |cffff9a9aTHROW|r " .. tostring(d1)
+            elseif d1 == nil then
+                out[#out + 1] = "  " .. flt .. " GetAuraDataByIndex(1): คืน nil (ไม่มีออร่า)"
+            else
+                out[#out + 1] = "  " .. flt .. " GetAuraDataByIndex(1): |cff44ff44ได้ table|r"
+                DumpAuraData(d1, out, "      ")
+            end
+        end
+    end
+end
+
 -- ============================================================
 -- probe หลัก
 -- ============================================================
@@ -612,7 +696,8 @@ function TOOL.RunNameplateAuraProbe(showAll)
             end
 
             if auraN > 0 then anyAura = true end
-            if auraN > 0 or showAll then
+            -- ⚠ พิมพ์บล็อกนี้เสมอแม้ 0 ปุ่ม — กรณี "0 ปุ่ม" คือกรณีที่ต้องการข้อมูลมากสุด
+            if true then
                 units[#units + 1] = unit
                 out[#out + 1] = ("[%s] %s  enemy=%s  auras=%d  via %s")
                     :format(unit, SafeStr(name), SafeStr(canAttack), auraN, af and how or ("-- " .. tostring(how)))
@@ -623,8 +708,6 @@ function TOOL.RunNameplateAuraProbe(showAll)
                     end
                 end
                 for _, l in ipairs(lines) do out[#out + 1] = l end
-            elseif auraN == 0 then
-                units[#units + 1] = unit   -- ยังส่งเข้า API เพื่อทดสอบ path ว่าง
             end
         end
     end
@@ -642,6 +725,22 @@ function TOOL.RunNameplateAuraProbe(showAll)
     -- ── ส่วน B: API จริงของ addon ─────────────────────────────
     out[#out + 1] = ""
     for _, l in ipairs(DispelInfoLines()) do out[#out + 1] = l end
+    out[#out + 1] = ""
+
+    out[#out + 1] = "-- ส่วน D: enumerate ด้วย API ตรง (ทางที่ ThreatPlates ใช้) -----"
+    out[#out + 1] = "   ถ้าคืน table ได้ = ทางนี้รอด · aura.dispelName คือคำตอบของเรื่อง dispel"
+    do
+        local nD = 0
+        for i = 1, MAX_PLATES do
+            local u = "nameplate" .. i
+            if UnitExists(u) and nD < 3 then
+                nD = nD + 1
+                ProbeAuraAPI(u, out)
+            end
+        end
+        if UnitExists("target") then ProbeAuraAPI("target", out) end
+        if nD == 0 then out[#out + 1] = "   (ไม่มี nameplate ให้ทดสอบ)" end
+    end
     out[#out + 1] = ""
 
     out[#out + 1] = "-- ส่วน B: GeRODPS.GetAllAuraFromSetOfNamePlate ----------------"
