@@ -163,6 +163,118 @@ local function LayoutChildren(listFrame)
     return children
 end
 
+
+-- ============================================================
+-- ร่องรอย dispel type บนปุ่มออร่า
+-- ============================================================
+-- สมมติฐาน (จากซอร์ส Blizzard_BuffFrame ที่มีในเครื่อง):
+--     AuraUtil.SetAuraBorderAtlas(self.DebuffBorder, buttonInfo.debuffType, show)
+--     AuraUtil.SetAuraSymbol(self.Symbol, buttonInfo.debuffType)
+-- ⇒ Blizzard เข้ารหัส "ชนิด dispel" ลงไปที่ **atlas ของ texture** ไม่ใช่ field ข้อมูล
+--   ถ้าปุ่มบน nameplate ทำแบบเดียวกัน จะอ่านกลับด้วย GetAtlas() ได้ = frame read ล้วน
+--   (ทางเดียวกับที่ Route B ใช้อยู่ — ไม่แตะ C_UnitAuras ที่ตายบน 12.1)
+--
+-- อีกสมมติฐานที่ต้องยืนยัน: **BuffListFrame ของ nameplate ศัตรูโชว์เฉพาะ buff ที่
+-- คลาสเราปลดได้** ถ้าจริง แค่ "มีปุ่มอยู่ในลิสต์ buff" ก็เป็นคำตอบครึ่งหนึ่งแล้ว
+-- (เหลือแค่แยก Magic / Enrage ซึ่งเป็นหน้าที่ของ atlas)
+--
+-- ⚠ ค่า atlas อาจเป็น secret ถ้า Blizzard ตั้งมาจาก dispelName ที่ secret
+--   → รายงานจะบอกให้เห็นเอง (SafeStr + [+0] tag) ก่อนตัดสินใจว่าจะเทียบฝั่งไหน
+
+local TEX_FIELD_GUESS = {
+    "Border", "DebuffBorder", "Symbol", "Overlay", "EdgeHighlight",
+    "TempEnchantBorder", "Stealable", "Icon",
+}
+local DATA_FIELD_GUESS = {
+    "dispelName", "debuffType", "isStealable", "isHarmful", "isBuff", "auraType",
+}
+
+local function DumpTexture(label, tex, out, pad)
+    if tex == nil then return end
+    local okA, atlas = Get(tex, "GetAtlas")
+    local okT, path  = Get(tex, "GetTexture")
+    local okS, shown = Get(tex, "IsShown")
+    local line = pad .. label
+        .. "  shown=" .. (okS and SafeStr(shown) or "ERR")
+        .. "  atlas=" .. (okA and SafeStr(atlas) or "ERR")
+        .. "  tex=" .. (okT and SafeStr(path) or "ERR")
+    if tex.GetVertexColor then
+        local okC, r, g, b = pcall(tex.GetVertexColor, tex)
+        if okC and r ~= nil then
+            local okFmt, cs = pcall(string.format, "  rgb=%.2f,%.2f,%.2f",
+                r, g or 0, b or 0)
+            if okFmt then line = line .. cs else line = line .. "  rgb=SECRET" end
+        end
+    end
+    out[#out + 1] = line
+end
+
+--- dump ทุก texture + field ที่อาจบอกชนิด dispel
+local function ProbeDispelSignature(btn, out)
+    out[#out + 1] = "        |cffaaaaaa--- ร่องรอย dispel type ---|r"
+
+    local found = false
+    for _, k in ipairs(TEX_FIELD_GUESS) do
+        if btn[k] ~= nil then
+            DumpTexture("btn." .. k, btn[k], out, "          ")
+            found = true
+        end
+    end
+    if not found then
+        out[#out + 1] = "          (ไม่มี field texture ที่เดาไว้เลย — ดู region ดิบข้างล่าง)"
+    end
+
+    -- region ดิบ เผื่อชื่อ field ไม่ตรงที่เดา (nameplate ใช้ template คนละตัวกับ BuffFrame)
+    local okR, regions = pcall(function() return { btn:GetRegions() } end)
+    if okR and type(regions) == "table" then
+        for i, rg in ipairs(regions) do
+            local okO, objType = pcall(rg.GetObjectType, rg)
+            if okO and objType == "Texture" then
+                DumpTexture("region#" .. i, rg, out, "          ")
+            end
+        end
+    end
+
+    for _, k in ipairs(DATA_FIELD_GUESS) do
+        if btn[k] ~= nil then
+            out[#out + 1] = "          btn." .. k .. " = " .. SafeStr(btn[k]) .. ArithTag(btn[k])
+        end
+    end
+end
+
+--- แผนที่ debuffType → atlas/สี ที่ Blizzard ใช้ (มีตัวเดียวทั้งเกม)
+--- ใช้แปล atlas ที่อ่านได้จากปุ่มกลับเป็นชื่อชนิด dispel
+local function DispelInfoLines()
+    local out = {}
+    out[#out + 1] = "-- แผนที่ debuffType -> atlas/สี (AuraUtil.GetDebuffDisplayInfoTable) --"
+    if AuraUtil == nil or AuraUtil.GetDebuffDisplayInfoTable == nil then
+        out[#out + 1] = "  |cffff9a9a(ไม่มี AuraUtil.GetDebuffDisplayInfoTable ในเวอร์ชันนี้)|r"
+        return out
+    end
+    local ok, t = pcall(AuraUtil.GetDebuffDisplayInfoTable)
+    if not ok or type(t) ~= "table" then
+        out[#out + 1] = "  |cffff9a9a(เรียกไม่ได้)|r"
+        return out
+    end
+    local n = 0
+    for k, v in pairs(t) do
+        n = n + 1
+        local line = "  [" .. tostring(k) .. "]"
+        if type(v) == "table" then
+            for kk, vv in pairs(v) do
+                if type(vv) ~= "table" and type(vv) ~= "function" then
+                    line = line .. "  " .. tostring(kk) .. "=" .. tostring(vv)
+                end
+            end
+        else
+            line = line .. "  " .. tostring(v)
+        end
+        out[#out + 1] = line
+    end
+    if n == 0 then out[#out + 1] = "  (ตารางว่าง)" end
+    return out
+end
+
 -- ============================================================
 -- probe ต่อปุ่ม
 -- ============================================================
@@ -268,6 +380,8 @@ local function ProbeButton(btn, kind, idx, out)
             end
         end
     end
+
+    ProbeDispelSignature(btn, out)
 end
 
 -- ============================================================
@@ -331,6 +445,9 @@ function TOOL.RunNameplateAuraProbe(showAll)
 
     -- ── ส่วน B: API จริงของ addon ─────────────────────────────
     out[#out + 1] = ""
+    for _, l in ipairs(DispelInfoLines()) do out[#out + 1] = l end
+    out[#out + 1] = ""
+
     out[#out + 1] = "-- ส่วน B: GeRODPS.GetAllAuraFromSetOfNamePlate ----------------"
     if GeRODPS == nil or GeRODPS.GetAllAuraFromSetOfNamePlate == nil then
         out[#out + 1] = "|cffff5555ไม่มี API (addon GeRODPS ไม่ได้โหลด หรือยังไม่ได้ /reload)|r"
