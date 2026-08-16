@@ -494,6 +494,82 @@ local function ProbeButton(btn, kind, idx, out, unitToken)
     ProbeDispelSignature(unitToken, btn, out)
 end
 
+
+-- ============================================================
+-- config ของ list frame — "ทำไม buff ของ mob ไม่โผล่"
+-- ============================================================
+-- วัดแล้ว 2 รอบ: DebuffListFrame มีปุ่มได้จริง (DoT ของเรา) แต่ BuffListFrame
+-- ว่างเสมอแม้ mob กำลัง enrage ⇒ path ไม่ผิด แต่ Blizzard **ไม่วาด buff ของ mob**
+-- ให้ด้วย filter ปัจจุบัน
+--
+-- ตัวกรองอยู่บนตัว list frame เอง (NamePlateAuraListFrame มี field คุม เช่น
+-- requireSourceIsLocalPlayer / maxAuraItemsDisplayed / filter string)
+-- ⇒ อ่าน field ทั้งหมดออกมาดูก่อน จะได้รู้ว่ามีสวิตช์ให้เปิดไหม
+-- ห้ามเซ็ตค่ากลับ (เขียน = taint เฟรม Blizzard — บทเรียน CooldownManagerLab)
+
+local function DumpListConfig(listFrame, label, out)
+    if listFrame == nil then
+        out[#out + 1] = "    [" .. label .. "] |cffff9a9aไม่มี list frame|r"
+        return
+    end
+    local n = "?"
+    local children = LayoutChildren(listFrame)
+    if children then n = tostring(#children) end
+    local okS, shown = Get(listFrame, "IsShown")
+    out[#out + 1] = ("    [%s] children=%s shown=%s")
+        :format(label, n, okS and SafeStr(shown) or "ERR")
+
+    -- field ที่ไม่ใช่ function/table ทั้งหมด = ตัวกรองที่ Blizzard ตั้งไว้
+    local keys = {}
+    local okP = pcall(function()
+        for k, v in pairs(listFrame) do
+            local tv = type(v)
+            if tv ~= "function" and tv ~= "table" and tv ~= "userdata" then
+                keys[#keys + 1] = tostring(k) .. "=" .. SafeStr(v)
+            end
+        end
+    end)
+    if not okP then
+        out[#out + 1] = "        (อ่าน field ไม่ได้)"
+        return
+    end
+    table.sort(keys)
+    if #keys == 0 then
+        out[#out + 1] = "        (ไม่มี field ค่าเดี่ยว)"
+        return
+    end
+    local line = "        "
+    for _, k in ipairs(keys) do
+        if #line > 110 then out[#out + 1] = line; line = "        " end
+        line = line .. k .. "  "
+    end
+    out[#out + 1] = line
+end
+
+--- CVar ที่คุมการโชว์ออร่าบน nameplate
+local NP_CVARS = {
+    "nameplateShowAll", "nameplateShowEnemies", "nameplateShowFriends",
+    "nameplateShowDebuffsOnFriendly", "nameplateShowSelf",
+    "nameplateResourceOnTarget", "showNameplateLoseAggroFlash",
+    "UnitNameplatesShowBuffs", "UnitNameplatesShowDebuffs",
+    "nameplateShowOnlyNames",
+}
+
+local function CVarLines()
+    local out = {}
+    out[#out + 1] = "-- CVar ที่เกี่ยวกับออร่าบน nameplate --"
+    local line = "  "
+    for _, cv in ipairs(NP_CVARS) do
+        local ok, v = pcall(GetCVar, cv)
+        if ok and v ~= nil then
+            if #line > 100 then out[#out + 1] = line; line = "  " end
+            line = line .. cv .. "=" .. tostring(v) .. "  "
+        end
+    end
+    out[#out + 1] = line
+    return out
+end
+
 -- ============================================================
 -- probe หลัก
 -- ============================================================
@@ -503,6 +579,7 @@ function TOOL.RunNameplateAuraProbe(showAll)
     local out = {}
     out[#out + 1] = "== Nameplate Aura Probe ==" .. (showAll and "  [showAll]" or "")
     for _, l in ipairs(EnvLines()) do out[#out + 1] = l end
+    for _, l in ipairs(CVarLines()) do out[#out + 1] = l end
     out[#out + 1] = ""
 
     local units, anyAura, plateCount = {}, false, 0
@@ -539,6 +616,12 @@ function TOOL.RunNameplateAuraProbe(showAll)
                 units[#units + 1] = unit
                 out[#out + 1] = ("[%s] %s  enemy=%s  auras=%d  via %s")
                     :format(unit, SafeStr(name), SafeStr(canAttack), auraN, af and how or ("-- " .. tostring(how)))
+                -- แยกรายลิสต์เสมอ แม้ 0 ปุ่ม — ตัวชี้ว่า "buff ไม่โผล่" เกิดที่ลิสต์ไหน
+                if af then
+                    for _, L in ipairs(LISTS) do
+                        DumpListConfig(af[L.field], L.kind, out)
+                    end
+                end
                 for _, l in ipairs(lines) do out[#out + 1] = l end
             elseif auraN == 0 then
                 units[#units + 1] = unit   -- ยังส่งเข้า API เพื่อทดสอบ path ว่าง
