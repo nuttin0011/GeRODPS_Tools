@@ -686,6 +686,155 @@ local function ProbeAuraAPI(unit, out)
     end
 end
 
+
+-- ============================================================
+-- ส่วน E: API ที่หาด้วย spellID / ชื่อ — **ทางที่เหลืออยู่ทางเดียว**
+-- ============================================================
+-- ข้อความ error ของ 12.1 บอกชัด: "Auras cannot be accessed when secret while
+-- tainted by '<addon>'" ⇒ ตระกูล index/slot/instanceID **throw** ไม่ใช่คืน secret
+-- แต่เอกสาร Blizzard ระบุว่า API ที่หาด้วย **spellID / ชื่อเวท ยังเรียกได้ตามเดิม**
+--
+-- ถ้าจริง = เส้นทางกู้ทั้งกลุ่มที่ตายไป เพราะโปรเจกต์เรามี "ลิสต์ spellID" อยู่แล้ว
+-- (DispelAura pack 50 แถว · Bleed 12 · ฯลฯ) ⇒ ไม่ต้อง enumerate เลย
+-- ถามทีละ spellID ที่สนใจตรง ๆ
+--
+-- ⚠ รอบก่อนทดสอบด้วย 6603 (Auto Attack — ไม่ใช่ออร่า) ผลเลยสรุปไม่ได้
+--   ต้องใส่ spellID ของออร่าที่ **ติดอยู่จริงตอนนั้น** เท่านั้น
+--   (เช่น 980 Agony ที่ probe เคยเห็นบน nameplate มาแล้ว)
+
+local BY_ID_UNITS = { "target", "nameplate1", "nameplate2", "nameplate3", "player" }
+
+local function ProbeBySpellID(spellID, out)
+    out[#out + 1] = "== ส่วน E: API ที่หาด้วย spellID (spellID = " .. tostring(spellID) .. ") =="
+    if type(spellID) ~= "number" or spellID <= 0 then
+        out[#out + 1] = "|cffff9a9aใส่ spellID ที่เป็นตัวเลขก่อน|r"
+        return
+    end
+    out[#out + 1] = "|cffaaaaaaต้องเป็น spellID ของออร่าที่ติดอยู่จริงตอนนี้ ไม่งั้น nil = แปลผลไม่ได้|r"
+
+    -- GetPlayerAuraBySpellID (ออร่าบนตัวเราเอง)
+    if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
+        local ok, a = pcall(C_UnitAuras.GetPlayerAuraBySpellID, spellID)
+        if not ok then
+            out[#out + 1] = "  GetPlayerAuraBySpellID: |cffff9a9aTHROW|r " .. tostring(a)
+        elseif a == nil then
+            out[#out + 1] = "  GetPlayerAuraBySpellID: คืน nil (ไม่มีออร่านี้บนตัวเรา)"
+        else
+            out[#out + 1] = "  |cff44ff44GetPlayerAuraBySpellID: ได้ table|r"
+            DumpAuraData(a, out, "      ")
+        end
+    end
+
+    for _, u in ipairs(BY_ID_UNITS) do
+        local okE, exists = pcall(UnitExists, u)
+        if okE and exists then
+            -- GetUnitAuraBySpellID
+            if C_UnitAuras and C_UnitAuras.GetUnitAuraBySpellID then
+                local ok, a = pcall(C_UnitAuras.GetUnitAuraBySpellID, u, spellID)
+                if not ok then
+                    out[#out + 1] = "  [" .. u .. "] GetUnitAuraBySpellID: |cffff9a9aTHROW|r " .. tostring(a)
+                elseif a == nil then
+                    out[#out + 1] = "  [" .. u .. "] GetUnitAuraBySpellID: คืน nil"
+                else
+                    out[#out + 1] = "  [" .. u .. "] |cff44ff44GetUnitAuraBySpellID: ได้ table|r"
+                    DumpAuraData(a, out, "      ")
+                    local aid = a.auraInstanceID
+                    if aid ~= nil then ProbeDispelViaCurveID(u, aid, out, "      ") end
+                end
+            end
+            -- GetAuraDataBySpellName (ต้องรู้ชื่อ — ดึงจาก C_Spell)
+            if C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName and C_Spell and C_Spell.GetSpellName then
+                local okN, nm = pcall(C_Spell.GetSpellName, spellID)
+                if okN and nm ~= nil and not IsSecret(nm) then
+                    for _, flt in ipairs({ "HELPFUL", "HARMFUL" }) do
+                        local ok2, a2 = pcall(C_UnitAuras.GetAuraDataBySpellName, u, nm, flt)
+                        if not ok2 then
+                            out[#out + 1] = ("  [%s] GetAuraDataBySpellName(%s,%s): |cffff9a9aTHROW|r %s")
+                                :format(u, nm, flt, tostring(a2))
+                        elseif a2 ~= nil then
+                            out[#out + 1] = ("  [%s] |cff44ff44GetAuraDataBySpellName(%s,%s): ได้ table|r")
+                                :format(u, nm, flt)
+                            DumpAuraData(a2, out, "      ")
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+
+-- ============================================================
+-- ส่วน F: dump เฟรมออร่าของ Plater
+-- ============================================================
+-- Frame Stack ของ user ชี้ว่าไอคอน Enrage ที่เห็นคือ
+--     NamePlate3PlaterUnitFrameBuffFrame1  (SOURCE: Plater/Plater_Auras.lua)
+-- = **ของ Plater ไม่ใช่ของ Blizzard** — อธิบายว่าทำไม BuffListFrame
+-- ของ Blizzard ได้ children=0 ตลอด (Blizzard ไม่วาด buff ของ mob)
+--
+-- อ่านเฟรมของ addon อื่น = Route B เหมือนกัน ทำได้
+-- ⚠ แต่มีเงื่อนไขใหญ่: Plater ก็เป็น addon (tainted) เหมือนกัน
+--   ถ้ามันดึงข้อมูลจาก C_UnitAuras เหมือนเรา ในดันมันก็จะว่างเหมือนกัน
+--   ⇒ dump นี้ต้องยิง **ทั้งนอกดันและในดัน** แล้วเทียบ
+--   ถ้าในดันก็ว่าง = ทางนี้ตาย ถ้ายังมี = Plater มีแหล่งข้อมูลอื่น (เช่น combat log)
+
+local function DumpScalarFields(obj, out, pad, maxN)
+    local keys = {}
+    pcall(function()
+        for k, v in pairs(obj) do
+            local tv = type(v)
+            if tv ~= "function" and tv ~= "table" and tv ~= "userdata" then
+                keys[#keys + 1] = tostring(k) .. "=" .. SafeStr(v)
+            end
+        end
+    end)
+    table.sort(keys)
+    local line, n = pad, 0
+    for _, k in ipairs(keys) do
+        n = n + 1
+        if maxN and n > maxN then break end
+        if #line > 110 then out[#out + 1] = line; line = pad end
+        line = line .. k .. "  "
+    end
+    if line ~= pad then out[#out + 1] = line end
+end
+
+local function ProbePlaterFrames(out)
+    out[#out + 1] = "== ส่วน F: เฟรมออร่าของ Plater =="
+    if _G.Plater == nil then
+        out[#out + 1] = "  (ไม่ได้ติดตั้ง Plater — ส่วนนี้ข้าม)"
+        return
+    end
+    local found = 0
+    for n = 1, 12 do
+        local base = "NamePlate" .. n .. "PlaterUnitFrame"
+        local uf = _G[base]
+        if uf ~= nil then
+            for _, cname in ipairs({ "BuffFrame1", "BuffFrame2", "BuffFrame3" }) do
+                local cf = _G[base .. cname] or uf[cname]
+                if cf ~= nil then
+                    local okS, shown = Get(cf, "IsShown")
+                    local kids = {}
+                    pcall(function() kids = { cf:GetChildren() } end)
+                    out[#out + 1] = ("  [%s%s] shown=%s children=%d")
+                        :format(base, cname, okS and SafeStr(shown) or "ERR", #kids)
+                    DumpScalarFields(cf, out, "      ", 14)
+                    for ci, kid in ipairs(kids) do
+                        if ci > 4 then break end
+                        local okK, kshown = Get(kid, "IsShown")
+                        out[#out + 1] = ("      icon#%d shown=%s"):format(ci, okK and SafeStr(kshown) or "ERR")
+                        DumpScalarFields(kid, out, "        ", 20)
+                    end
+                    found = found + 1
+                end
+            end
+        end
+    end
+    if found == 0 then
+        out[#out + 1] = "  (มี Plater แต่หาเฟรม NamePlateNPlaterUnitFrameBuffFrameN ไม่เจอ)"
+    end
+end
+
 -- ============================================================
 -- probe หลัก
 -- ============================================================
@@ -714,6 +863,9 @@ function TOOL.RunNameplateAuraProbe(showAll)
         if UnitExists("target") then ProbeAuraAPI("target", out) end
         if nD == 0 then out[#out + 1] = "   (ไม่มี nameplate ให้ทดสอบ)" end
     end
+    out[#out + 1] = ""
+
+    ProbePlaterFrames(out)
     out[#out + 1] = ""
 
     out[#out + 1] = "-- ส่วน A: field ดิบบนปุ่มออร่า --------------------------------"
@@ -1020,6 +1172,26 @@ local function BuildFrame()
         end
     end)
 
+    local idBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+    idBox:SetSize(90, 22)
+    idBox:SetPoint("LEFT", btnPeek, "RIGHT", 14, 0)
+    idBox:SetAutoFocus(false)
+    idBox:SetNumeric(true)
+    idBox:SetText("980")
+    idBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+
+    local btnById = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnById:SetSize(150, 24)
+    btnById:SetPoint("LEFT", idBox, "RIGHT", 6, 0)
+    btnById:SetText("ทดสอบ BySpellID")
+    btnById:SetScript("OnClick", function()
+        if not editBox then return end
+        if peekBox and peekBox:IsShown() then peekBox:Hide() end
+        local ok, text = pcall(TOOL.RunBySpellIDProbe, idBox:GetText())
+        editBox:SetText(ok and text or ("พัง: " .. tostring(text)))
+        editBox:SetCursorPosition(0)
+    end)
+
     scrollFrame = CreateFrame("ScrollFrame", "$parentScroll", frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", btn, "BOTTOMLEFT", 0, -8)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 22)
@@ -1079,6 +1251,15 @@ local function BuildFrame()
     end)
 
     return frame
+end
+
+--- รันเฉพาะส่วน E (ปุ่ม + ช่องกรอก spellID)
+function TOOL.RunBySpellIDProbe(spellID)
+    local out = {}
+    for _, l in ipairs(EnvLines()) do out[#out + 1] = l end
+    out[#out + 1] = ""
+    ProbeBySpellID(tonumber(spellID) or 0, out)
+    return table.concat(out, "\n")
 end
 
 function TOOL.ShowNameplateAuraProbe()
