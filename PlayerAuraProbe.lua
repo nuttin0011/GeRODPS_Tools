@@ -5,25 +5,26 @@
     (Route B) เราดึงอะไรออกมาได้บ้าง เพื่อชุบชีวิต DefPlayerDebuff (slot 6) ที่ตาย
     เพราะ aura_present_v3 ใช้ C_UnitAuras**
 
-    ที่มาของ field (อ่านจาก source dump bfsrc/Blizzard_BuffFrame/BuffFrame.lua):
+    ผลวัดรอบแรก (2026-08-18 · in combat · ShouldAurasBeSecret=true):
+      ✅ frame.auraInfo อ่านได้ — texture/count/duration/expirationTime/timeMod
+         เป็น secret แต่ render เลขจริงได้ (= ผ่าน STS font hack ได้แน่)
+      ✅ index เป็น **plain** (ไม่มีป้าย [S]) — ใช้เป็น arg ของ API ได้
+      ❌ arithmetic บน secret THROW ตามคาด (expirationTime-GetTime, texture+0)
+      ⚠ การเทียบ debuffType ตอนแรกวัดกับแถวที่ debuffType = nil — ไม่พิสูจน์อะไร
+         (รอบนี้หาแถวที่ debuffType ≠ nil ก่อนค่อยเทียบ)
+      ⚠ ยังไม่เจอ spellID — แถวปกติมีแค่ texture ⇒ รอบนี้เพิ่มหมวด "ล่า spellID"
+
+    ที่มาของ field (source dump bfsrc/Blizzard_BuffFrame/BuffFrame.lua):
       · frame.auraInfo[]  = { auraType, debuffType(=dispelName!), index, texture,
-                              count, duration, expirationTime, timeMod }
-        ⚠ แถวปกติ **ไม่มี spellId** — ตัวระบุตัวตนมีแค่ texture (icon fileID)
-      · frame.auraFrames[] = ปุ่ม (AuraButtonTemplate) — ปนกับ anchor (isAuraAnchor)
-      · btn.buttonInfo    = แถว auraInfo ที่ปุ่มถืออยู่
-      · btn.timeLeft      = ⭐ remain วินาที Blizzard คำนวณให้ทุกเฟรม (OnUpdate)
-      · btn.Duration      = FontString ("8 s" หยาบ)
-      · DebuffFrame.deadlyDebuffInfo[] = เฉพาะ deadly — มี spellID + auraInstanceID จริง
+                              count, duration, expirationTime, timeMod }  — ไม่มี spellId
+      · frame.auraFrames[] = ปุ่ม (ปนกับ anchor · isAuraAnchor)
+      · btn.buttonInfo / btn.timeLeft (Blizzard คำนวณ remain ให้ทุกเฟรม)
+      · DebuffFrame.deadlyDebuffInfo[] = เฉพาะ deadly — มี spellID + auraInstanceID
 
-    วัด 2 ชั้นแบบ NameplateAuraProbe:
-      (1) หยิบออกมาได้ไหม (PeekVal render + ป้าย [S] = secret)
-      (2) **เอาไปคำนวณ/เทียบใน Lua ได้ไหม** (arithmetic / string-compare ใน pcall)
-          — ตัวตัดสินว่า writer ใหม่คำนวณเองได้ หรือส่งดิบให้ AHK เหมือน NMA/Dispel v2
-
-    ⚠ ตอนกด Probe: **ต้องอยู่ใน combat + มี buff/debuff ติดตัวจริง** (นอก combat
-      ออร่าไม่ secret ผลจะ "ผ่านหมด" แบบหลอก ๆ) · debuff หาได้จากยืนในของพื้นในดัน
-    ⚠ อ่านอย่างเดียว — getter + field read เท่านั้น ห่อ pcall ทุกจุด ห้ามเขียนสถานะ
-    ⚠ FontString เท่านั้น ห้าม EditBox (copy = GetText = unmask secret)
+    ⚠ ตอนกด Probe: **ต้องอยู่ใน combat + มี buff/debuff ติดตัวจริง**
+      การเทียบ debuffType ต้องมี debuff ที่ dispel ได้ติดตัว (เช่น magic debuff ในดัน)
+    ⚠ อ่านอย่างเดียว ห่อ pcall ทุกจุด · FontString เท่านั้น (copy = unmask)
+    ⚠ secret string ห้าม table.concat / :sub / :gsub — ต่อด้วย .. เท่านั้น (เจอจริงรอบแรก)
 ]]
 
 local TOOL = GeRODPS_Tools
@@ -42,7 +43,7 @@ local function IsSecret(v)
     return false
 end
 
---- render ค่าอะไรก็ได้เป็นข้อความ (secret ก็ได้ — FontString วาดได้) + ป้าย [S]
+--- render ค่าอะไรก็ได้ (secret ก็ได้ — FontString วาดได้) + ป้าย [S]
 local function PeekVal(v)
     if v == nil then return "nil" end
     local tag = IsSecret(v) and "|cffffcc55[S]|r" or ""
@@ -52,20 +53,28 @@ local function PeekVal(v)
 end
 
 local function ShortErr(e)
-    return (tostring(e):gsub("\n.*", ""):sub(1, 90))
+    -- e เป็น error message จริง (ไม่ secret) — gsub/sub ได้
+    return (tostring(e):gsub("\n.*", ""):sub(1, 120))
 end
 
---- tier-2: ลองทำ op ใน pcall แล้วรายงานผล (นี่คือตัวตัดสินดีไซน์ writer ใหม่)
--- ⚠ ผลลัพธ์อาจเป็น secret string (PeekVal ของค่า secret) — ห้ามเอาไป :sub/:gsub ต่อ
+--- tier-2: ลอง op ใน pcall — ⚠ ผลอาจเป็น secret string ห้ามเอาไป :sub ต่อ
 local function TryOp(label, fn)
     local ok, r = pcall(fn)
     if ok then
-        return "      |cff44ff44Lua ทำได้:|r " .. label .. " = " .. PeekVal(r)
+        return "   |cff44ff44ได้:|r " .. label .. " = " .. PeekVal(r)
     end
-    return "      |cffff9a9aLua ทำไม่ได้ (THROW):|r " .. label .. " — " .. ShortErr(r)
+    return "   |cffff9a9aTHROW:|r " .. label .. " — " .. ShortErr(r)
 end
 
--- field ตามลำดับจาก source (bfsrc) — เดินตามนี้ก่อน แล้วค่อยกวาด key แปลก
+--- ต่อ out เป็นสตริงเดียว — ห้าม table.concat (บรรทัดอาจเป็น secret string)
+local function JoinLines(out)
+    local t = ""
+    for _, line in ipairs(out) do
+        t = t .. line .. NL
+    end
+    return t
+end
+
 local ROW_FIELDS = { "auraType", "debuffType", "index", "texture", "count",
                      "duration", "expirationTime", "timeMod", "auraInstanceID",
                      "spellID", "hideUnlessExpanded" }
@@ -80,7 +89,6 @@ local function DumpKnown(t, fields, indent, out)
             out[#out + 1] = indent .. k .. " = " .. PeekVal(t[k])
         end
     end
-    -- กวาด key ที่ source ไม่ได้บอก (กันตกหล่น field ใหม่ของ 12.1)
     local extra = {}
     local ok = pcall(function()
         for k in pairs(t) do
@@ -93,12 +101,28 @@ local function DumpKnown(t, fields, indent, out)
     end
 end
 
+--- ปุ่มแรกที่แสดงอยู่และไม่ใช่ anchor (คืน btn หรือ nil)
+local function FirstShownButton(f)
+    local btns = f and f.auraFrames
+    if type(btns) ~= "table" then return nil end
+    for i = 1, #btns do
+        local b = btns[i]
+        if type(b) == "table" then
+            local anchor = b.isAuraAnchor
+            local skipAnchor = (anchor == true) and not IsSecret(anchor)
+            local okV, sv = pcall(function() return b:IsShown() end)
+            if not skipAnchor and okV and sv == true then return b, i end
+        end
+    end
+    return nil
+end
+
 -- ============================================================
--- probe ต่อเฟรม (BuffFrame / DebuffFrame)
+-- probe ต่อเฟรม (คอลัมน์ 1 = BuffFrame · คอลัมน์ 2 = DebuffFrame)
 -- ============================================================
 
-local MAX_ROWS = 6      -- แถว auraInfo ที่โชว์ละเอียด
-local MAX_BTNS = 6      -- ปุ่มที่โชว์ละเอียด
+local MAX_ROWS = 6
+local MAX_BTNS = 3
 
 local function ProbeFrame(frameName, out)
     local f = _G[frameName]
@@ -108,32 +132,29 @@ local function ProbeFrame(frameName, out)
         return
     end
 
-    -- ── ชั้นข้อมูล: frame.auraInfo ────────────────────────────────────
     local info = f.auraInfo
     if type(info) ~= "table" then
-        out[#out + 1] = "   auraInfo = " .. PeekVal(info) .. " |cffff9a9a(ไม่ใช่ table — อ่านทางนี้ไม่ได้)|r"
+        out[#out + 1] = "   auraInfo = " .. PeekVal(info) .. " |cffff9a9a(ไม่ใช่ table)|r"
     else
-        out[#out + 1] = ("   auraInfo = table  #%d แถว"):format(#info)
+        out[#out + 1] = ("   auraInfo = #%d แถว"):format(#info)
         for i = 1, math.min(#info, MAX_ROWS) do
             local row = info[i]
-            out[#out + 1] = ("   |cffffd200[แถว %d]|r"):format(i)
-            if type(row) == "table" then
+            if type(row) ~= "table" then
+                out[#out + 1] = ("   [แถว %d] = "):format(i) .. PeekVal(row)
+            elseif i == 1 then
+                out[#out + 1] = ("   |cffffd200[แถว %d]|r"):format(i)
                 DumpKnown(row, ROW_FIELDS, "      ", out)
-                if i == 1 then
-                    -- tier-2 กับแถวแรก: อะไรคำนวณ/เทียบใน Lua ได้บ้าง
-                    out[#out + 1] = "   |cffffd200-- tier-2 (แถว 1): Lua คำนวณเองได้ไหม --|r"
-                    local exp, tex, dt = row.expirationTime, row.texture, row.debuffType
-                    out[#out + 1] = TryOp("expirationTime - GetTime()",
-                        function() return exp - GetTime() end)
-                    out[#out + 1] = TryOp("texture + 0 (เลข icon)",
-                        function() return tex + 0 end)
-                    out[#out + 1] = TryOp('debuffType == "Magic"',
-                        function() return dt == "Magic" end)
-                    out[#out + 1] = TryOp("debuffType == nil (เทียบ nil เฉย ๆ)",
-                        function() return dt == nil end)
-                end
+                local exp, tex = row.expirationTime, row.texture
+                out[#out + 1] = TryOp("exp - GetTime()", function() return exp - GetTime() end)
+                out[#out + 1] = TryOp("texture + 0", function() return tex + 0 end)
             else
-                out[#out + 1] = "      = " .. PeekVal(row)
+                -- แถว 2+ ย่อบรรทัดเดียว กันคอลัมน์ล้นจอ (field ชุดเดียวกับแถว 1)
+                local dtPart = (row.debuffType ~= nil)
+                    and ("  |cff3fcf5adt=" .. PeekVal(row.debuffType) .. "|r") or ""
+                out[#out + 1] = ("   |cffffd200[%d]|r "):format(i)
+                    .. "tex=" .. PeekVal(row.texture)
+                    .. " cnt=" .. PeekVal(row.count)
+                    .. " exp=" .. PeekVal(row.expirationTime) .. dtPart
             end
         end
         if #info > MAX_ROWS then
@@ -141,140 +162,263 @@ local function ProbeFrame(frameName, out)
         end
     end
 
-    -- ── ชั้นปุ่ม: frame.auraFrames ────────────────────────────────────
     local btns = f.auraFrames
     if type(btns) ~= "table" then
         out[#out + 1] = "   auraFrames = " .. PeekVal(btns) .. " |cffff9a9a(ไม่ใช่ table)|r"
-    else
-        out[#out + 1] = ("   auraFrames = table  #%d ปุ่ม (รวม anchor)"):format(#btns)
-        local shown = 0
-        for i = 1, #btns do
-            if shown >= MAX_BTNS then break end
-            local b = btns[i]
-            if type(b) == "table" then
-                -- ข้าม anchor แบบ plain-true เท่านั้น (secret boolean ห้าม if-test)
-                local anchor = b.isAuraAnchor
-                local skipAnchor = (anchor == true) and not IsSecret(anchor)
-                local vis = false
-                local okV, sv = pcall(function() return b:IsShown() end)
-                if okV and sv == true then vis = true end
-                if not skipAnchor and vis then
-                    shown = shown + 1
+        return
+    end
+    out[#out + 1] = ("   auraFrames = #%d ปุ่ม (รวม anchor)"):format(#btns)
+    local shown = 0
+    for i = 1, #btns do
+        if shown >= MAX_BTNS then break end
+        local b = btns[i]
+        if type(b) == "table" then
+            local anchor = b.isAuraAnchor
+            local skipAnchor = (anchor == true) and not IsSecret(anchor)
+            local vis = false
+            local okV, sv = pcall(function() return b:IsShown() end)
+            if okV and sv == true then vis = true end
+            if not skipAnchor and vis then
+                shown = shown + 1
+                if shown == 1 then
                     out[#out + 1] = ("   |cffffd200[ปุ่ม %d]|r"):format(i)
                     DumpKnown(b, BTN_FIELDS, "      ", out)
-                    -- Duration FontString (ทางหยาบ) + Icon texture
                     if b.Duration ~= nil and b.Duration.GetText ~= nil then
                         local okT, txt = pcall(b.Duration.GetText, b.Duration)
                         out[#out + 1] = "      Duration:GetText() = "
                             .. (okT and PeekVal(txt) or ("THROW " .. ShortErr(txt)))
                     end
-                    if b.Icon ~= nil and b.Icon.GetTexture ~= nil then
-                        local okI, texv = pcall(b.Icon.GetTexture, b.Icon)
-                        out[#out + 1] = "      Icon:GetTexture() = "
-                            .. (okI and PeekVal(texv) or ("THROW " .. ShortErr(texv)))
-                    end
-                    -- buttonInfo = แถว auraInfo ที่ปุ่มถือ
                     if type(b.buttonInfo) == "table" then
                         out[#out + 1] = "      buttonInfo:"
                         DumpKnown(b.buttonInfo, ROW_FIELDS, "         ", out)
                     else
                         out[#out + 1] = "      buttonInfo = " .. PeekVal(b.buttonInfo)
                     end
-                    if shown == 1 then
-                        out[#out + 1] = "   |cffffd200-- tier-2 (ปุ่มแรก): timeLeft ใช้ตรง ๆ ได้ไหม --|r"
-                        local tl = b.timeLeft
-                        out[#out + 1] = TryOp("timeLeft + 0",
-                            function() return tl + 0 end)
-                        out[#out + 1] = TryOp("timeLeft > 0.4",
-                            function() return tl > 0.4 end)
+                    local tl = b.timeLeft
+                    out[#out + 1] = TryOp("timeLeft + 0", function() return tl + 0 end)
+                    out[#out + 1] = TryOp("timeLeft > 0.4", function() return tl > 0.4 end)
+                else
+                    -- ปุ่ม 2+ ย่อบรรทัดเดียว
+                    local durTxt = ""
+                    if b.Duration ~= nil and b.Duration.GetText ~= nil then
+                        local okT, txt = pcall(b.Duration.GetText, b.Duration)
+                        if okT then durTxt = "  Dur=" .. PeekVal(txt) end
                     end
+                    out[#out + 1] = ("   |cffffd200[ปุ่ม %d]|r "):format(i)
+                        .. "timeLeft=" .. PeekVal(b.timeLeft) .. durTxt
                 end
             end
         end
-        if shown == 0 then
-            out[#out + 1] = "   |cffaaaaaa(ไม่มีปุ่มที่แสดงอยู่ — ไม่มีออร่า หรือ anchor ล้วน)|r"
-        end
+    end
+    if shown == 0 then
+        out[#out + 1] = "   |cffaaaaaa(ไม่มีปุ่มที่แสดงอยู่)|r"
     end
 end
 
 -- ============================================================
--- ประกอบข้อความทั้งหมด
+-- คอลัมน์ 3 — ① เทียบ debuffType กับแถวที่ไม่ nil  ② ล่า spellID
 -- ============================================================
 
-local function BuildText()
+--- หาแถวแรก (ทั้ง 2 เฟรม) ที่ debuffType ~= nil — เทียบ nil เป็น op ที่ปลอดภัยเสมอ
+local function FindDispelRow()
+    for _, fname in ipairs({ "DebuffFrame", "BuffFrame" }) do
+        local f = _G[fname]
+        local info = f and f.auraInfo
+        if type(info) == "table" then
+            for i = 1, #info do
+                local row = info[i]
+                if type(row) == "table" and row.debuffType ~= nil then
+                    return row, fname, i
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function BuildCol3()
     local out = {}
-    out[#out + 1] = "|cffffd200== Player Aura Probe — BuffFrame / DebuffFrame (Route B) ==|r"
-    out[#out + 1] = "|cffaaaaaaอ่านด้วยตาเท่านั้น copy ไม่ได้ · [S] = ค่าเป็น secret · ลากมุมขวาล่างขยาย|r"
+
+    -- ── ① เทียบ string secret กับแถวที่ debuffType ≠ nil เท่านั้น ──────
+    out[#out + 1] = "|cff88ccff== tier-2: เทียบ debuffType (แถวที่ไม่ nil เท่านั้น) ==|r"
+    local row, fname, ri = FindDispelRow()
+    if not row then
+        out[#out + 1] = "|cffffcc55ยังวัดไม่ได้ — ไม่มีแถวไหน debuffType ≠ nil|r"
+        out[#out + 1] = "|cffaaaaaaต้องมี debuff ที่ dispel ได้ติดตัว (magic/curse/poison/"
+        out[#out + 1] = "disease ในดัน) แล้วกด Refresh ใหม่ — ผลเทียบรอบก่อนที่ได้ true/false"
+        out[#out + 1] = "มาจากแถว nil = ไม่พิสูจน์อะไร|r"
+    else
+        out[#out + 1] = ("เจอที่ %s แถว %d:"):format(fname, ri)
+        local dt = row.debuffType
+        out[#out + 1] = "   debuffType = " .. PeekVal(dt)
+        out[#out + 1] = TryOp('debuffType == "Magic"', function() return dt == "Magic" end)
+        out[#out + 1] = TryOp('debuffType == "Curse"', function() return dt == "Curse" end)
+        out[#out + 1] = TryOp('".." concat (ส่ง STS ได้ไหม)', function() return ";" .. dt end)
+        out[#out + 1] = TryOp("if-test (boolean coerce)",
+            function() if dt then return "truthy" end return "falsy" end)
+    end
     out[#out + 1] = ""
 
-    -- ── ENV: สถานะที่ทำให้ผลตีความได้ ────────────────────────────────
-    local inCombat = InCombatLockdown() and "|cff44ff44IN COMBAT|r" or "|cffff9a9aOUT OF COMBAT (ผลหลอก!)|r"
-    out[#out + 1] = "combat = " .. inCombat .. "    GetTime() = " .. ("%.1f"):format(GetTime())
-    if C_Secrets ~= nil and C_Secrets.ShouldAurasBeSecret ~= nil then
-        local okS, sv = pcall(C_Secrets.ShouldAurasBeSecret)
-        out[#out + 1] = "ShouldAurasBeSecret() = " .. (okS and PeekVal(sv) or ShortErr(sv))
-    end
-    -- เส้นเก่า (ที่ DefPlayerDebuff ใช้แล้วตาย) — โชว์สถานะสด ๆ เทียบกัน
-    if C_UnitAuras ~= nil and C_UnitAuras.GetAuraDataByIndex ~= nil then
-        local okA, d = pcall(C_UnitAuras.GetAuraDataByIndex, "player", 1, "HARMFUL")
-        if not okA then
-            out[#out + 1] = 'เส้นเก่า GetAuraDataByIndex("player",1,"HARMFUL") : |cffff9a9aTHROW|r '
-                .. ShortErr(d)
-        elseif d == nil then
-            out[#out + 1] = 'เส้นเก่า GetAuraDataByIndex("player",1,"HARMFUL") : nil'
-                .. ' (ไม่มี debuff หรือโดนบล็อกเงียบ)'
+    -- ── ② ล่า spellID ────────────────────────────────────────────────
+    out[#out + 1] = "|cff88ccff== ล่า spellID (แถวปกติมีแค่ texture) ==|r"
+
+    -- (ก) ตระกูล C_TooltipInfo แบบ index — index วัดแล้วเป็น plain ใช้เป็น arg ได้
+    local function TipByIndex(label, apiName, f)
+        local btn = FirstShownButton(f)
+        local bi = btn and btn.buttonInfo
+        local idx = (type(bi) == "table") and bi.index or nil
+        if idx == nil then
+            out[#out + 1] = "   " .. label .. ": |cffaaaaaa(ไม่มีปุ่ม/ไม่มี index)|r"
+            return
+        end
+        local api = C_TooltipInfo and C_TooltipInfo[apiName]
+        if api == nil then
+            out[#out + 1] = "   " .. label .. ": |cff777777ไม่มี API " .. apiName .. "|r"
+            return
+        end
+        local ok, data = pcall(api, "player", idx)
+        if not ok then
+            out[#out + 1] = "   " .. label .. "(player," .. PeekVal(idx) .. "): |cffff9a9aTHROW|r "
+                .. ShortErr(data)
+        elseif data == nil then
+            out[#out + 1] = "   " .. label .. "(player," .. PeekVal(idx) .. "): nil"
         else
-            out[#out + 1] = 'เส้นเก่า GetAuraDataByIndex("player",1,"HARMFUL") : '
-                .. '|cff44ff44ได้ table|r (ยังไม่ secret ตอนนี้)'
+            out[#out + 1] = "   |cff44ff44" .. label .. ": ได้ table|r"
+            out[#out + 1] = "      data.id (spellID?) = " .. PeekVal(data.id)
+            local lines = data.lines
+            if type(lines) == "table" and type(lines[1]) == "table" then
+                out[#out + 1] = "      line1 = " .. PeekVal(lines[1].leftText)
+            end
+        end
+    end
+    TipByIndex("GetUnitBuff", "GetUnitBuff", _G["BuffFrame"])
+    TipByIndex("GetUnitDebuff", "GetUnitDebuff", _G["DebuffFrame"])
+
+    -- (ข) GameTooltip ตอน hover — Blizzard (secure) เป็นคน fill ให้เอง
+    out[#out + 1] = ""
+    out[#out + 1] = "|cffffd200GameTooltip (ชี้เมาส์ค้างที่ไอคอน buff/debuff แล้วกด Refresh):|r"
+    local gt = _G["GameTooltip"]
+    local okShown, gtShown = pcall(function() return gt:IsShown() end)
+    if not (okShown and gtShown == true) then
+        out[#out + 1] = "   |cffaaaaaa(GameTooltip ไม่ได้เปิดอยู่ตอนนี้)|r"
+    else
+        if gt.GetTooltipData ~= nil then
+            local okD, d = pcall(gt.GetTooltipData, gt)
+            if not okD then
+                out[#out + 1] = "   GetTooltipData(): |cffff9a9aTHROW|r " .. ShortErr(d)
+            elseif type(d) == "table" then
+                out[#out + 1] = "   |cff44ff44GetTooltipData(): ได้ table|r"
+                out[#out + 1] = "      data.id (spellID?) = " .. PeekVal(d.id)
+                if type(d.lines) == "table" and type(d.lines[1]) == "table" then
+                    out[#out + 1] = "      line1 = " .. PeekVal(d.lines[1].leftText)
+                end
+            else
+                out[#out + 1] = "   GetTooltipData() = " .. PeekVal(d)
+            end
+        end
+        if TooltipUtil ~= nil and TooltipUtil.GetDisplayedSpell ~= nil then
+            local okS, nm, sid = pcall(TooltipUtil.GetDisplayedSpell, gt)
+            if okS then
+                out[#out + 1] = "   GetDisplayedSpell: name = " .. PeekVal(nm)
+                    .. "  spellID = " .. PeekVal(sid)
+            else
+                out[#out + 1] = "   GetDisplayedSpell: |cffff9a9aTHROW|r " .. ShortErr(nm)
+            end
         end
     end
     out[#out + 1] = ""
 
-    ProbeFrame("BuffFrame", out)
-    out[#out + 1] = ""
-    ProbeFrame("DebuffFrame", out)
-    out[#out + 1] = ""
-
-    -- ── deadly debuff (มี spellID จริง — เฉพาะเวทในลิสต์ deadly ของ Blizzard) ──
-    out[#out + 1] = "|cff88ccff== DebuffFrame.deadlyDebuffInfo (มี spellID เฉพาะ deadly) ==|r"
+    -- ── deadly debuff (มี spellID จริง — เฉพาะเวทลิสต์ deadly ของ Blizzard) ──
+    out[#out + 1] = "|cff88ccff== DebuffFrame.deadlyDebuffInfo (spellID เฉพาะ deadly) ==|r"
     local df = _G["DebuffFrame"]
     local dd = df and df.deadlyDebuffInfo
     if type(dd) ~= "table" then
         out[#out + 1] = "   = " .. PeekVal(dd)
     else
         out[#out + 1] = ("   #%d แถว"):format(#dd)
-        for i = 1, math.min(#dd, 4) do
-            local row = dd[i]
+        for i = 1, math.min(#dd, 3) do
+            local r = dd[i]
             out[#out + 1] = ("   |cffffd200[deadly %d]|r"):format(i)
-            if type(row) == "table" then
-                DumpKnown(row, { "spellID", "auraInstanceID", "debuffType", "texture",
-                    "count", "duration", "expirationTime", "warningText", "priority" }, "      ", out)
+            if type(r) == "table" then
+                DumpKnown(r, { "spellID", "auraInstanceID", "debuffType", "texture",
+                    "count", "duration", "expirationTime", "warningText" }, "      ", out)
             end
         end
     end
 
-    -- ⚠ ห้าม table.concat — บางบรรทัดเป็น secret string (invalid value (secret) for concat
-    -- เจอจริง 2026-08-18) · ต่อด้วย .. ทีละบรรทัด = taint-preserving ถูกกติกา
-    local t = ""
-    for _, line in ipairs(out) do
-        t = t .. line .. NL
-    end
-    return t
+    return JoinLines(out)
 end
 
 -- ============================================================
--- UI — FontString popup (แบบเดียวกับ Read Secret ของ DispelCurveTest)
+-- ประกอบ 3 คอลัมน์
 -- ============================================================
 
-local frame, fs
+local function BuildCol1()
+    local out = {}
+    local inCombat = InCombatLockdown() and "|cff44ff44IN COMBAT|r"
+        or "|cffff9a9aOUT OF COMBAT (ผลหลอก!)|r"
+    out[#out + 1] = "combat = " .. inCombat
+    out[#out + 1] = "GetTime() = " .. ("%.1f"):format(GetTime())
+    if C_Secrets ~= nil and C_Secrets.ShouldAurasBeSecret ~= nil then
+        local okS, sv = pcall(C_Secrets.ShouldAurasBeSecret)
+        out[#out + 1] = "ShouldAurasBeSecret() = " .. (okS and PeekVal(sv) or ShortErr(sv))
+    end
+    if C_UnitAuras ~= nil and C_UnitAuras.GetAuraDataByIndex ~= nil then
+        local okA, d = pcall(C_UnitAuras.GetAuraDataByIndex, "player", 1, "HARMFUL")
+        if not okA then
+            out[#out + 1] = "เส้นเก่า GetAuraDataByIndex: |cffff9a9aTHROW|r"
+        elseif d == nil then
+            out[#out + 1] = "เส้นเก่า GetAuraDataByIndex: nil"
+        else
+            out[#out + 1] = "เส้นเก่า GetAuraDataByIndex: |cff44ff44ได้ table|r (ยังไม่ secret)"
+        end
+    end
+    out[#out + 1] = ""
+    ProbeFrame("BuffFrame", out)
+    return JoinLines(out)
+end
+
+local function BuildCol2()
+    local out = {}
+    ProbeFrame("DebuffFrame", out)
+    return JoinLines(out)
+end
+
+-- ============================================================
+-- UI — 3 คอลัมน์ FontString (secret-safe · copy ไม่ได้โดยตั้งใจ)
+-- ============================================================
+
+local frame
+local colFS = {}
 
 local TITLE_H  = 24
 local SIDE_PAD = 12
+local COL_GAP  = 14
+local TOP_ROW  = TITLE_H + 8 + 24 + 8   -- title + ปุ่ม Refresh + ช่องไฟ
+
+local function Relayout()
+    if not frame then return end
+    local w = frame:GetWidth() - SIDE_PAD * 2 - COL_GAP * 2
+    if w < 300 then w = 300 end
+    local colW = w / 3
+    for i = 1, 3 do
+        local f = colFS[i]
+        if f then
+            f:ClearAllPoints()
+            f:SetPoint("TOPLEFT", frame, "TOPLEFT",
+                SIDE_PAD + (i - 1) * (colW + COL_GAP), -TOP_ROW)
+            f:SetWidth(colW)
+        end
+    end
+end
 
 local function Refresh()
-    if not fs then return end
-    local ok, text = pcall(BuildText)
-    fs:SetText(ok and text or ("พัง: " .. tostring(text)))
+    if not colFS[1] then return end
+    local builders = { BuildCol1, BuildCol2, BuildCol3 }
+    for i = 1, 3 do
+        local ok, text = pcall(builders[i])
+        colFS[i]:SetText(ok and text or ("พัง: " .. tostring(text)))
+    end
 end
 
 local function BuildFrame()
@@ -282,22 +426,22 @@ local function BuildFrame()
 
     frame = CreateFrame("Frame", "GeRODPSToolsPlayerAuraProbe", UIParent,
         "BasicFrameTemplateWithInset")
-    frame:SetSize(820, 640)
-    frame:SetPoint("CENTER", 60, 0)
+    frame:SetSize(1360, 760)
+    frame:SetPoint("CENTER", 40, 0)
     frame:SetMovable(true)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
     frame:SetResizable(true)
-    if frame.SetResizeBounds then frame:SetResizeBounds(520, 320, 1900, 1350) end
+    if frame.SetResizeBounds then frame:SetResizeBounds(960, 400, 2400, 1400) end
     frame:SetClampedToScreen(true)
     frame:SetClipsChildren(true)
     frame:SetFrameStrata("DIALOG")
+    frame:SetScript("OnSizeChanged", Relayout)
     if frame.TitleText then frame.TitleText:SetText("Player Aura Probe — Buff/Debuff Frame") end
     table.insert(UISpecialFrames, "GeRODPSToolsPlayerAuraProbe")
 
-    -- Rule 10: แถวแรกเผื่อ title bar
     local btnR = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btnR:SetSize(110, 24)
     btnR:SetPoint("TOPLEFT", frame, "TOPLEFT", SIDE_PAD, -(TITLE_H + 8))
@@ -306,16 +450,18 @@ local function BuildFrame()
 
     local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     hint:SetPoint("LEFT", btnR, "RIGHT", 10, 0)
-    hint:SetText("|cffaaaaaaกดตอน IN COMBAT + มี buff/debuff ติดตัวจริงเท่านั้น (นอก combat = ผลหลอก)|r")
+    hint:SetText("|cffaaaaaaกดตอน IN COMBAT + มี debuff ที่ dispel ได้ติดตัว · คอลัมน์ 3 มีวิธีล่า spellID|r")
 
-    -- ⚠ FontString เท่านั้น — ห้ามเปลี่ยนเป็น EditBox (secret unmask ตอน copy)
-    fs = frame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
-    fs:SetPoint("TOPLEFT", btnR, "BOTTOMLEFT", 0, -8)
-    fs:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -SIDE_PAD, 0)
-    fs:SetJustifyH("LEFT")
-    fs:SetJustifyV("TOP")
-    fs:SetWordWrap(true)
-    fs:SetSpacing(2)
+    -- ⚠ FontString เท่านั้น — ห้าม EditBox (secret unmask ตอน copy)
+    for i = 1, 3 do
+        local f = frame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+        f:SetJustifyH("LEFT")
+        f:SetJustifyV("TOP")
+        f:SetWordWrap(true)
+        f:SetSpacing(2)
+        colFS[i] = f
+    end
+    Relayout()
 
     local resize = CreateFrame("Button", nil, frame)
     resize:SetSize(16, 16)
