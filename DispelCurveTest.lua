@@ -447,6 +447,151 @@ local function BuildReport()
     return table.concat(out, "\n")
 end
 
+
+-- ============================================================
+-- Read Secret popup — เรนเดอร์ค่า secret ด้วย FontString (idiom WatchVar/Peek)
+-- ============================================================
+-- `"" .. tostring(secret)` ได้ string ที่ **ยังเป็น secret** แต่ Blizzard ยอมให้
+-- FontString วาดออกจอ ⇒ user อ่านด้วยตา · ห้ามใช้ EditBox เด็ดขาด
+-- (copy = GetText = unmask) — popup นี้จึง copy ไม่ได้โดยตั้งใจ
+-- แถม: ลอง C_Spell.GetSpellName(secret spellID) — ส่ง secret เข้า function เป็น
+-- "pass" ที่กฎอนุญาต ถ้าคืนชื่อ (secret string) ก็เรนเดอร์ได้ = เห็นชื่อ buff เลย
+
+local secretFrame, secretFS
+
+local function PeekVal(v)
+    if v == nil then return "nil" end
+    local ok, res = pcall(function() return "" .. tostring(v) end)
+    if ok then return res end
+    return "<เรนเดอร์ไม่ได้>"
+end
+
+local function BuildSecretText()
+    local NL = string.char(10)
+    local t = "|cffffd200== Read Secret — ค่าจริงบนปุ่มออร่า nameplate ==|r" .. NL
+        .. "|cffaaaaaaอ่านด้วยตาเท่านั้น copy ไม่ได้ · ลากมุมขวาล่างขยายถ้าโดนตัด|r" .. NL .. NL
+    local found = 0
+    for i = 1, MAX_PLATES do
+        local unit = "nameplate" .. i
+        if UnitExists(unit) then
+            local af = AurasFrameOf(unit)
+            if af then
+                for _, L in ipairs(LISTS) do
+                    local children = LayoutChildren(af[L.field])
+                    if children then
+                        for idx, btn in ipairs(children) do
+                            if btn and (btn.spellID ~= nil or btn.auraInstanceID ~= nil) then
+                                found = found + 1
+                                local nm
+                                if C_Spell and C_Spell.GetSpellName then
+                                    local okN, v = pcall(C_Spell.GetSpellName, btn.spellID)
+                                    if okN then nm = v end
+                                end
+                                local stkTxt
+                                local cf = btn.CountFrame
+                                if cf ~= nil and cf.Count ~= nil then
+                                    local okC, v = pcall(cf.Count.GetText, cf.Count)
+                                    if okC then stkTxt = v end
+                                end
+                                local cdTxt
+                                local cd = btn.Cooldown
+                                if cd ~= nil and cd.GetCountdownFontString ~= nil then
+                                    local okF, fs = pcall(cd.GetCountdownFontString, cd)
+                                    if okF and fs ~= nil then
+                                        local okT, v = pcall(fs.GetText, fs)
+                                        if okT then cdTxt = v end
+                                    end
+                                end
+                                local sMs, dMs
+                                if cd ~= nil and cd.GetCooldownTimes ~= nil then
+                                    local okCd, a, b = pcall(cd.GetCooldownTimes, cd)
+                                    if okCd then sMs, dMs = a, b end
+                                end
+                                t = t .. "|cff88ccff[" .. unit .. " " .. L.kind .. "#" .. idx .. "]|r" .. NL
+                                t = t .. "   spellID = " .. PeekVal(btn.spellID)
+                                    .. "    ชื่อเวท = |cff44ff44" .. PeekVal(nm) .. "|r" .. NL
+                                t = t .. "   auraInstanceID = " .. PeekVal(btn.auraInstanceID)
+                                    .. "    stack = [" .. PeekVal(stkTxt) .. "]"
+                                    .. "    cdText = [" .. PeekVal(cdTxt) .. "]" .. NL
+                                t = t .. "   start = " .. PeekVal(sMs) .. "    dur = " .. PeekVal(dMs)
+                                    .. NL .. NL
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if found == 0 then
+        t = t .. "|cffff9a9aไม่มีปุ่มออร่าบน nameplate ตอนนี้|r" .. NL
+            .. "  buff ของ mob -> ไอคอนต้องโผล่บน nameplate (Blizzard เริ่มต้น ไม่ใช่ Plater)" .. NL
+            .. "  debuff -> ต้องมี DoT ของเราติด mob"
+    end
+    return t
+end
+
+local function RefreshSecret()
+    if not secretFS then return end
+    local ok, text = pcall(BuildSecretText)
+    secretFS:SetText(ok and text or ("พัง: " .. tostring(text)))
+end
+
+local function BuildSecretFrame()
+    if secretFrame then return secretFrame end
+
+    secretFrame = CreateFrame("Frame", "GeRODPSToolsDispelSecretPopup", UIParent,
+        "BasicFrameTemplateWithInset")
+    secretFrame:SetSize(760, 560)
+    secretFrame:SetPoint("CENTER", 120, 0)
+    secretFrame:SetMovable(true)
+    secretFrame:EnableMouse(true)
+    secretFrame:RegisterForDrag("LeftButton")
+    secretFrame:SetScript("OnDragStart", secretFrame.StartMoving)
+    secretFrame:SetScript("OnDragStop", secretFrame.StopMovingOrSizing)
+    secretFrame:SetResizable(true)
+    if secretFrame.SetResizeBounds then secretFrame:SetResizeBounds(480, 300, 1800, 1300) end
+    secretFrame:SetClampedToScreen(true)
+    secretFrame:SetClipsChildren(true)     -- เฟรมเราเองถาวร (ไม่ใช่ pooled) — clip ได้
+    secretFrame:SetFrameStrata("DIALOG")   -- ลอยเหนือหน้าต่างหลักของ tool
+    if secretFrame.TitleText then secretFrame.TitleText:SetText("Read Secret — Nameplate Aura") end
+    table.insert(UISpecialFrames, "GeRODPSToolsDispelSecretPopup")
+
+    -- Rule 10: แถวแรกเผื่อ title bar
+    local btnR = CreateFrame("Button", nil, secretFrame, "UIPanelButtonTemplate")
+    btnR:SetSize(110, 24)
+    btnR:SetPoint("TOPLEFT", secretFrame, "TOPLEFT", SIDE_PAD, -(TITLE_H + 8))
+    btnR:SetText("Refresh")
+    btnR:SetScript("OnClick", RefreshSecret)
+
+    -- ⚠ FontString เท่านั้น — ห้ามเปลี่ยนเป็น EditBox (secret จะ unmask ตอน copy)
+    secretFS = secretFrame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+    secretFS:SetPoint("TOPLEFT", btnR, "BOTTOMLEFT", 0, -8)
+    secretFS:SetPoint("TOPRIGHT", secretFrame, "TOPRIGHT", -SIDE_PAD, 0)
+    secretFS:SetJustifyH("LEFT")
+    secretFS:SetJustifyV("TOP")
+    secretFS:SetWordWrap(true)
+    secretFS:SetSpacing(2)
+
+    local resize = CreateFrame("Button", nil, secretFrame)
+    resize:SetSize(16, 16)
+    resize:SetPoint("BOTTOMRIGHT", -4, 4)
+    resize:EnableMouse(true)
+    resize:SetNormalTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up")
+    resize:SetHighlightTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Highlight")
+    resize:SetPushedTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Down")
+    resize:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" then
+            secretFrame:StopMovingOrSizing()
+            secretFrame:StartSizing("BOTTOMRIGHT")
+        end
+    end)
+    resize:SetScript("OnMouseUp", function(_, button)
+        if button == "LeftButton" then secretFrame:StopMovingOrSizing() end
+    end)
+
+    return secretFrame
+end
+
 -- ============================================================
 -- UI
 -- ============================================================
@@ -505,6 +650,17 @@ local function BuildFrame()
     btnSel:SetText("Select All")
     btnSel:SetScript("OnClick", function()
         if editBox then editBox:SetFocus(); editBox:HighlightText() end
+    end)
+
+    local btnSecret = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnSecret:SetSize(190, 24)
+    btnSecret:SetPoint("LEFT", btnSel, "RIGHT", 8, 0)
+    btnSecret:SetText("Read Secret (อ่านด้วยตา)")
+    btnSecret:SetScript("OnClick", function()
+        local f = BuildSecretFrame()
+        f:Show()
+        f:Raise()
+        RefreshSecret()
     end)
 
     scrollFrame = CreateFrame("ScrollFrame", "$parentScroll", frame,
