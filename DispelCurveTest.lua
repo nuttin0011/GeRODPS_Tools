@@ -661,7 +661,24 @@ end
 local function BuildSecretText()
     local NL = string.char(10)
     local t = "|cffffd200== Read Secret — ค่าจริงบนปุ่มออร่า nameplate ==|r" .. NL
-        .. "|cffaaaaaaอ่านด้วยตาเท่านั้น copy ไม่ได้ · ลากมุมขวาล่างขยายถ้าโดนตัด|r" .. NL .. NL
+        .. "|cffaaaaaaอ่านด้วยตาเท่านั้น copy ไม่ได้ · ลากมุมขวาล่างขยายถ้าโดนตัด|r" .. NL
+
+    -- instanceID จริง — key ของ pack คือ select(8, GetInstanceInfo()) = Map.db2 ID
+    -- ⚠ ดันเดียวมี 3 เลข (Map.db2 / MDT index / MDT mapID) หยิบผิด
+    -- = แถวไปโผล่ผิดดัน **ไม่มี error** ⇒ โชว์เลขจริงไว้จะได้ไม่ต้องเดา
+    do
+        local nm, _, _, _, _, _, _, iid = GetInstanceInfo()
+        local shown = "?"
+        local IN = GeRODPS and GeRODPS.InstanceNames
+        if IN and IN.INSTANCE_NAME and iid then
+            shown = IN.INSTANCE_NAME[iid] or "|cffff9a9a(ยังไม่มีชื่อใน InstanceNameList)|r"
+        end
+        t = t .. "|cffffd200instanceID ของดันที่อยู่ตอนนี้ = " .. SafeStr(iid) .. "|r"
+            .. "   ชื่อจากเกม = " .. SafeStr(nm)
+            .. "   ใน InstanceNameList = " .. shown .. NL
+        t = t .. "|cffaaaaaaใช้เลขนี้เป็น key ของแถวใน pack เท่านั้น ห้ามใช้เลขจาก MDT หรือไฟล์ scan|r" .. NL
+    end
+    t = t .. NL
     local found = 0
     for i = 1, MAX_PLATES do
         local unit = "nameplate" .. i
