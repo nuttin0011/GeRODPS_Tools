@@ -184,16 +184,25 @@ local AURA_ROOTS = {
 }
 
 --- ไล่หาเฟรมที่มี auraInstanceID ใต้ root (depth จำกัด)
+local AID_FIELDS = { "auraInstanceID", "auraInstanceId", "auraIndex", "spellID", "spellId" }
+
 local function FindAuraFrames(root, depth, seen, hits)
-    if root == nil or depth > 4 then return end
+    if root == nil or depth > 8 then return end
     if seen[root] then return end
     seen[root] = true
 
-    local ok, aid = pcall(function() return root.auraInstanceID end)
-    if ok and aid ~= nil then
-        local vis = false
-        pcall(function() vis = root:IsVisible() == true end)
-        hits[#hits + 1] = { frame = root, aid = aid, visible = vis }
+    local aid
+    for _, fname in ipairs(AID_FIELDS) do
+        local okF, v = pcall(function() return root[fname] end)
+        if okF and v ~= nil then aid = v; break end
+    end
+    do
+        local ok = aid ~= nil
+        if ok then
+            local vis = false
+            pcall(function() vis = root:IsVisible() == true end)
+            hits[#hits + 1] = { frame = root, aid = aid, visible = vis }
+        end
     end
 
     local kids
@@ -201,6 +210,57 @@ local function FindAuraFrames(root, depth, seen, hits)
     if okC and type(kids) == "table" then
         for _, k in ipairs(kids) do
             FindAuraFrames(k, depth + 1, seen, hits)
+        end
+    end
+end
+
+
+--- dump ต้นไม้ลูกของ root — เลิกเดาชื่อ field แล้วดูของจริง
+--- พิมพ์เฉพาะโหนดที่ "น่าจะเป็นปุ่มออร่า" (มี .Icon / ชื่อมี Buff|Debuff|Aura)
+local function DumpTree(root, name, depth, seen, out, budget)
+    if root == nil or depth > 6 or budget.n <= 0 then return end
+    if seen[root] then return end
+    seen[root] = true
+
+    local looksAura = false
+    if type(name) == "string" and name:match("[Bb]uff") then looksAura = true end
+    if type(name) == "string" and name:match("[Aa]ura") then looksAura = true end
+    local okI, icon = pcall(function() return root.Icon end)
+    if okI and icon ~= nil then looksAura = true end
+
+    if looksAura then
+        budget.n = budget.n - 1
+        local vis = false
+        pcall(function() vis = root:IsVisible() == true end)
+        local flds = {}
+        pcall(function()
+            for k, v in pairs(root) do
+                local tv = type(v)
+                if tv ~= "function" and tv ~= "table" and tv ~= "userdata" then
+                    flds[#flds + 1] = tostring(k) .. "=" .. SafeStr(v)
+                end
+            end
+        end)
+        table.sort(flds)
+        out[#out + 1] = ("      %s%s  visible=%s"):format(string.rep("  ", depth),
+            tostring(name), tostring(vis))
+        if #flds > 0 then
+            local line = "        " .. string.rep("  ", depth)
+            for _, f in ipairs(flds) do
+                if #line > 110 then out[#out + 1] = line; line = "        " .. string.rep("  ", depth) end
+                line = line .. f .. "  "
+            end
+            out[#out + 1] = line
+        end
+    end
+
+    local kids
+    local okC = pcall(function() kids = { root:GetChildren() } end)
+    if okC and type(kids) == "table" then
+        for i, k in ipairs(kids) do
+            local kn
+            pcall(function() kn = k:GetName() end)
+            DumpTree(k, kn or (tostring(name) .. ".child" .. i), depth + 1, seen, out, budget)
         end
     end
 end
@@ -217,7 +277,13 @@ local function ProbeOtherFrames(curve, out)
             local hits = {}
             FindAuraFrames(root, 0, {}, hits)
             if #hits == 0 then
-                out[#out + 1] = ("  [%s] |cffaaaaaaไม่เจอเฟรมที่มี auraInstanceID|r"):format(rootName)
+                out[#out + 1] = ("  [%s] |cffaaaaaaไม่เจอ field ที่เดาไว้ — dump โครงจริง:|r")
+                    :format(rootName)
+                local budget = { n = 30 }
+                DumpTree(root, rootName, 0, {}, out, budget)
+                if budget.n == 30 then
+                    out[#out + 1] = "        (ไม่มีลูกที่หน้าตาเหมือนปุ่มออร่าเลย)"
+                end
             else
                 local unit = "target"
                 if rootName == "FocusFrame" then unit = "focus"
