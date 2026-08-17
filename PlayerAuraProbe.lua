@@ -278,7 +278,38 @@ end
 local function BuildCol3()
     local out = {}
 
-    -- ── ① เทียบ string secret กับแถวที่ debuffType ≠ nil เท่านั้น ──────
+    -- ── ① API ตัวจริง (PlayerAuraCheck.lua) — ต้องใช้ได้ก่อนทำ category ──
+    out[#out + 1] = "|cff88ccff== API: GetAllAuraFromPlayerFrame ==|r"
+    if GeRODPS == nil or GeRODPS.GetAllAuraFromPlayerFrame == nil then
+        out[#out + 1] = "|cffff9a9aPlayerAuraCheck.lua ยังไม่โหลด (เช็ค .toc + /reload)|r"
+    else
+        local okR, recs = pcall(GeRODPS.GetAllAuraFromPlayerFrame, true, true, true)
+        if not okR then
+            out[#out + 1] = "|cffff9a9aTHROW|r " .. ShortErr(recs)
+        elseif type(recs) ~= "table" then
+            out[#out + 1] = "|cffff9a9aคืนค่าแปลก: " .. PeekVal(recs) .. "|r"
+        else
+            out[#out + 1] = ("|cff44ff44ได้ %d record|r  |cffaaaaaa(wantSpellID=true)|r"):format(#recs)
+            for i = 1, math.min(#recs, 12) do
+                local r = recs[i]
+                out[#out + 1] = ("   |cffffd200[%d]|r %s idx="):format(i, r.kind)
+                    .. PeekVal(r.index)
+                    .. "  id=|cff3fcf5a" .. PeekVal(r.spellID) .. "|r"
+                    .. "  stk=" .. PeekVal(r.stack)
+                out[#out + 1] = "        ชื่อ=" .. PeekVal(r.spellName)
+                    .. "  dt=" .. PeekVal(r.debuffType)
+                out[#out + 1] = "        exp=" .. PeekVal(r.expirationSec)
+                    .. "  dur=" .. PeekVal(r.durationSec)
+                    .. "  now=" .. ("%.1f"):format(r.nowSec or 0)
+            end
+            if #recs > 12 then
+                out[#out + 1] = ("   ... อีก %d record"):format(#recs - 12)
+            end
+        end
+    end
+    out[#out + 1] = ""
+
+    -- ── ② เทียบ string secret กับแถวที่ debuffType ≠ nil เท่านั้น ──────
     out[#out + 1] = "|cff88ccff== tier-2: เทียบ debuffType (แถวที่ไม่ nil เท่านั้น) ==|r"
     local row, fname, ri = FindDispelRow()
     if not row then
