@@ -223,7 +223,8 @@ local function BuildText()
             out[#out + 1] = 'เส้นเก่า GetAuraDataByIndex("player",1,"HARMFUL") : nil'
                 .. ' (ไม่มี debuff หรือโดนบล็อกเงียบ)'
         else
-            out[#out + 1] = 'เส้นเก่า GetAuraDataByIndex("player",1,"HARMFUL") : |cff44ff44ได้ table|r (ยังไม่ secret ตอนนี้)'
+            out[#out + 1] = 'เส้นเก่า GetAuraDataByIndex("player",1,"HARMFUL") : '
+                .. '|cff44ff44ได้ table|r (ยังไม่ secret ตอนนี้)'
         end
     end
     out[#out + 1] = ""
