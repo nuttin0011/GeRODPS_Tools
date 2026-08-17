@@ -165,6 +165,9 @@ local function BuildColALines()
         out[#out + 1] = "ShouldAurasBeSecret() = " .. (okS and PeekVal(sv) or ShortErr(sv))
     end
     out[#out + 1] = ""
+    out[#out + 1] = "|cffff3333>>> คอลัมน์นี้คือที่หา STACK <<<|r"
+    out[#out + 1] = "|cffaaaaaatooltip ไม่มีเลข stack (วัดแล้ว) ⇒ stack อยู่บนปุ่มเท่านั้น|r"
+    out[#out + 1] = ""
     out[#out + 1] = "|cff88ccff== A) เดิน path จาก fstack ==|r"
     local af = WalkAuraFrame(out)
     if af == nil then return out end
@@ -254,6 +257,73 @@ local function BuildColALines()
             end
         else
             out[#out + 1] = "   |cffaaaaaaไม่มี TargetFrame:GetAuraContainer|r"
+        end
+    end
+
+    -- ทาง 5: FramePool — Dragonflight+ หลายที่ใช้ pool แล้วปุ่มที่ active
+    -- ไม่จำเป็นต้องเป็นลูกของเฟรมที่เราเดินหา ⇒ ต้องดึงออกจาก pool เอง
+    do
+        local tf = _G["TargetFrame"]
+        local pools = tf and tf.auraPools
+        if pools ~= nil then
+            out[#out + 1] = "   |cffffd200TargetFrame.auraPools:|r"
+            local shown = 0
+            local okE = pcall(function()
+                -- FramePoolCollection: EnumerateActive() คืน iterator ของทุก pool
+                if pools.EnumerateActive ~= nil then
+                    for obj in pools:EnumerateActive() do
+                        shown = shown + 1
+                        if shown <= 3 and type(obj) == "table" then
+                            out[#out + 1] = ("      |cffffd200[active %d]|r"):format(shown)
+                            DumpButton(obj, "         ", out)
+                        end
+                    end
+                end
+            end)
+            if not okE then
+                out[#out + 1] = "      |cffff9a9aEnumerateActive() THROW|r"
+            else
+                out[#out + 1] = ("      active ทั้งหมด = %d"):format(shown)
+            end
+        else
+            out[#out + 1] = "   |cffaaaaaaไม่มี TargetFrame.auraPools|r"
+        end
+    end
+
+    -- ทาง 6: สแกนลูกหลานของ Auras ลึก 2 ชั้น — หาเฟรมที่มี FontString เลข
+    -- (หา stack แบบไม่สนชื่อ field — เอาที่ "มีตัวเลขสั้น ๆ ที่วาดอยู่" เลย)
+    do
+        out[#out + 1] = "   |cffffd200สแกนลูกหลานหา FontString ที่มีข้อความ:|r"
+        local found = 0
+        local function ScanRegions(fr, depth, path)
+            if depth > 2 or found >= 8 then return end
+            local okR, regs = pcall(function() return { fr:GetRegions() } end)
+            if okR and type(regs) == "table" then
+                for _, rg in ipairs(regs) do
+                    if type(rg) == "table" and rg.GetText ~= nil then
+                        local okT, tv = pcall(rg.GetText, rg)
+                        if okT and tv ~= nil and tv ~= "" then
+                            found = found + 1
+                            if found <= 8 then
+                                out[#out + 1] = "      |cff3fcf5a" .. path .. " = "
+                                    .. PeekVal(tv) .. "|r"
+                            end
+                        end
+                    end
+                end
+            end
+            local okC, ch = pcall(function() return { fr:GetChildren() } end)
+            if okC and type(ch) == "table" then
+                for ci, c in ipairs(ch) do
+                    if type(c) == "table" then
+                        ScanRegions(c, depth + 1, path .. ">" .. ci)
+                    end
+                end
+            end
+        end
+        pcall(ScanRegions, af, 0, "Auras")
+        if found == 0 then
+            out[#out + 1] = "      |cffaaaaaaไม่เจอ FontString ที่มีข้อความเลย|r"
         end
     end
 
@@ -478,6 +548,28 @@ local function EnumUnit(unit, filter, label, out)
                 else
                     out[#out + 1] = "         |cffaaaaaaช่องขวาว่างทั้งหมด|r"
                 end
+                -- subfield ของทุก line — เผื่อมี line ชนิดที่เก็บ stack แยก
+                if type(rawData) == "table" and type(rawData.lines) == "table" then
+                    for li = 1, math.min(#rawData.lines, 4) do
+                        local ln = rawData.lines[li]
+                        if type(ln) == "table" then
+                            local kn2 = {}
+                            pcall(function()
+                                for k in pairs(ln) do
+                                    if type(k) == "string" and k ~= "leftText" then
+                                        kn2[#kn2 + 1] = k
+                                    end
+                                end
+                            end)
+                            table.sort(kn2)
+                            local ll = ("         line%d: "):format(li)
+                            for _, k in ipairs(kn2) do
+                                ll = ll .. k .. "=" .. PeekVal(ln[k]) .. " "
+                            end
+                            out[#out + 1] = ll
+                        end
+                    end
+                end
                 -- ทุก key ของ GetTooltipData — เราอ่านแค่ .id มาตลอด อาจมี stack หลงอยู่
                 if type(rawData) == "table" then
                     -- ⚠ ห้าม table.sort ที่นี่ — PeekVal(v) คืน secret string เมื่อ v เป็น secret
@@ -599,8 +691,33 @@ local function BuildCol2()
     return JoinLines(BuildEnumLines({ "target", "focus" }, true, false))
 end
 
+--- คอลัมน์ 3: nameplate หลายตัว + boss — สร้างลิสต์ตอน runtime
+--- (user ชี้ 2026-08-18: สนามจริง nameplate เยอะมาก และนอก raid ไม่มี boss1)
 local function BuildCol3()
-    return JoinLines(BuildEnumLines({ "boss1", "nameplate1" }, false, true))
+    local units, nBoss, nPlate = {}, 0, 0
+    for b = 1, 4 do
+        if UnitExists("boss" .. b) then
+            nBoss = nBoss + 1
+            if #units < 1 then units[#units + 1] = "boss" .. b end
+        end
+    end
+    for i = 1, 30 do
+        local u = "nameplate" .. i
+        if UnitExists(u) then
+            nPlate = nPlate + 1
+            if #units < 4 then units[#units + 1] = u end
+        end
+    end
+    local head = {}
+    head[#head + 1] = "|cff88ccff== nameplate / boss ==|r"
+    head[#head + 1] = ("|cffaaaaaaboss ที่มี = %d · nameplate ที่มี = %d ⇒ โชว์ %d ตัวแรก|r")
+        :format(nBoss, nPlate, #units)
+    if #units == 0 then
+        head[#head + 1] = "|cffff9a9aไม่มี unit เลย (เปิด nameplate ด้วยปุ่ม V ก่อน)|r"
+        return JoinLines(head)
+    end
+    for _, l in ipairs(BuildEnumLines(units, false, true)) do head[#head + 1] = l end
+    return JoinLines(head)
 end
 
 -- ============================================================
