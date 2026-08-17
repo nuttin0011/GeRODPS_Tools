@@ -160,19 +160,39 @@ local function BuildSensor()
         sensor:SetFlowLayoutPadding(0, 0, 0, 0)
     end
 
-    for _, g in ipairs(GROUPS) do
+    -- ลำดับ apply ครบชุดตาม BBF ConfigureContainer (:1454-1526) — รอบก่อน
+    -- ไม่ populate เพราะขาด SetAuraGroupMaxFrameCount (explicit) + layout ใช้
+    -- key ผิด (elementSize ไม่มีจริง — ของจริงคือ elementWidth/elementHeight
+    -- จาก ApplyGroupLayout :1372 ⇒ ปุ่มอาจ 0x0)
+    for gi, g in ipairs(GROUPS) do
         local grpKey = g.key
         sensor:AddAuraGroup(grpKey, g.filter, {
-            maxFrameCount = 8,
-            layout = { elementSpacing = 3, lineSpacing = 3, elementSize = 30 },
+            maxFrameCount = 0,
             initializeFrame = function(button)
                 InitSensorButton(button, grpKey)
             end,
         })
-        if nIDs > 0 and sensor.SetAuraGroupCandidateFilters then
-            sensor:SetAuraGroupCandidateFilters(grpKey, { includeSpellIDs = ids })
+        -- candidate filters: BBF เรียกเสมอ (ว่าง = ไม่กรอง)
+        if sensor.SetAuraGroupCandidateFilters then
+            if nIDs > 0 then
+                sensor:SetAuraGroupCandidateFilters(grpKey, { includeSpellIDs = ids })
+            else
+                sensor:SetAuraGroupCandidateFilters(grpKey, {})
+            end
         end
+        -- จำนวนปุ่มที่ให้แสดง — BBF: 0 = ปิด group ⇒ ต้องตั้ง explicit
+        sensor:SetAuraGroupMaxFrameCount(grpKey, 8)
+        -- layout: field ชื่อจริงจาก BBF layoutScratch (:1381-1386)
+        sensor:SetAuraGroupLayout(grpKey, {
+            elementSpacing   = 3,
+            lineSpacing      = 3,
+            elementWidth     = 30,
+            elementHeight    = 30,
+            layoutIndex      = gi,
+            groupLineSpacing = 3,
+        })
     end
+    if sensor.SetEnabled then sensor:SetEnabled(true) end
     sensor:Show()
 
     -- ** จุดที่ขาดรอบแรก (วัด 2026-08-18: ปุ่ม pre-create 10+10 แต่ไม่ populate เลย
@@ -207,6 +227,11 @@ local function BuildReport()
         out[#out + 1] = ""
         out[#out + 1] = "|cffffcc55ยังไม่ได้สร้าง sensor — ใส่ unit + spellID แล้วกด [สร้าง Sensor]|r"
         return out
+    end
+
+    do
+        local okE, ev = pcall(sensor.IsEnabled, sensor)
+        out[#out + 1] = "IsEnabled() = " .. (okE and PeekVal(ev) or ShortErr(ev))
     end
 
     -- S8: UpdateAllAuras ใน combat ทำได้ไหม (เรียกทุก Refresh — ถ้า throw
