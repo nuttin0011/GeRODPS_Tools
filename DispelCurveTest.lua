@@ -566,95 +566,90 @@ end
 
 
 -- ============================================================
--- เทียบ spellID กับ DispelAura table ของ Defense Mechanism
+-- Remain ของ buff บน mob — หาค่า "ละเอียด" ไม่ใช่ค่าหยาบ
 -- ============================================================
--- ผลวัด 2026-08-17: API ทุกตัวที่รับ auraInstanceID **THROW หมด** (6 ตัว)
--- ⇒ ไม่มีทางรู้ "ชนิด dispel" จากเกมได้เลยตอน combat
---   สิ่งเดียวที่อ่านได้จากปุ่ม = spellID · ชื่อเวท · start · dur · cdText · stack
--- ⇒ **ชนิด dispel ต้องมาจากลิสต์ของเราเอง** (DispelAura pack) โดยเทียบด้วย spellID
+-- ❌ cdText (`GetCountdownFontString():GetText()`) = **floor เป็นวินาที**
+--    เหลือจริง 8.468 วิ -> ได้ "8"  ⇒ ใช้ไม่ได้ถ้าต้องการทศนิยม
+--    และ `"-"` = Blizzard ไม่วาดเลข (duration > 60) = ตัดสินไม่ได้เลย
 --
--- ⚠ ข้อจำกัดที่กำหนดสถาปัตยกรรมของฟีเจอร์จริง:
---   spellID จากปุ่มเป็น **secret** ⇒ `id == entry.spellID` ฝั่ง Lua = compare บน secret = throw
---   ⇒ ฟีเจอร์จริง **ต้องส่ง spellID ดิบผ่าน STS ให้ AHK เทียบกับลิสต์**
---     (pattern เดียวกับ nameplate_mob_aura ที่ส่ง sid ให้ AHK match เป๊ะ)
---   เครื่องมือนี้จึงทำได้แค่ 2 อย่าง:
---     • นอก combat (spellID ไม่ secret) → lookup ให้เลย
---     • ใน combat (secret) → โชว์ลิสต์ให้ user เทียบด้วยตา (ชื่อเวทช่วยได้มาก)
+-- ✅ ค่าละเอียดที่มีจริง = `GetCooldownTimes()` -> start, dur เป็น **ms**
+--    ฐานเดียวกับ `GetTime()*1000` (พิสูจน์แล้ว 2026-08-16:
+--    (47621222 + 15000 - 47627754) / 1000 = 8.468  ->  cdText แสดง "8")
+--
+-- 🔑 สูตร:  remain = (start + dur - now) / 1000
+--      start, dur = SECRET   (ค่าจากปุ่มของ Blizzard)
+--      now        = GetTime()*1000  ->  **PLAIN** Lua อ่านเองได้
+--    ⇒ ตัวตั้งครบทุกตัว แต่ **ลบกันใน Lua ไม่ได้** (arithmetic บน secret = throw)
+--    ⇒ ต้องยัด 3 ค่านี้ลง STS ให้ AHK ลบเอง
+--      (pattern เดียวกับ nameplate_mob_aura โหมด 0.01 วิ: `;u;sid;stk;st;dur`)
+--
+-- ⚠ start/dur ต้องอ่านจาก **call เดียวกัน** และ now ต้องหยิบใน tick เดียวกัน
+--   ไม่งั้น remain เพี้ยนตามเวลาที่คั่นระหว่างการอ่าน
 
-local DISPEL_TYPE_OK = { magic = true, enrage = true }
+--- method ของ Cooldown ที่อาจให้ remain ตรง ๆ (ไม่ต้องลบเอง) — probe ดูว่ามีอะไรใช้ได้
+local COOLDOWN_GETTERS = {
+    { "GetCooldownDuration",             "อาจเป็น remain (ms) — ดูว่าค่าลดลงเรื่อย ๆ ไหม" },
+    { "GetCooldownDisplayDuration",      "วัดแล้ว = duration เต็ม ไม่ใช่ remain" },
+    { "GetCooldownDisplayTimeRemaining", "ชื่อบอกว่า remain — ยังไม่เคยวัด" },
+    { "GetPauseTime",                    "> 0 = cooldown ถูก pause อยู่" },
+    { "IsPaused",                        "pause อยู่ไหม (อาจเป็น secret boolean)" },
+}
 
---- คืน entry ของ DispelAura ทั้งหมด (รวมที่ปิด) เป็น array
-local function CollectDispelRows()
-    local rows = {}
-    local D = GeRODPS and GeRODPS.DefendMechanism
-    if not (D and D.EachRow and D.Merged) then return rows, false end
-    D.EachRow("DispelAura", function(e)
-        if e and e.spellID and e.spellID > 0 then rows[#rows + 1] = e end
-    end)
-    return rows, true
-end
-
-local function RowLabel(e)
-    local nm = "?"
-    if C_Spell and C_Spell.GetSpellName then
-        local ok, v = pcall(C_Spell.GetSpellName, e.spellID)
-        if ok and v ~= nil and not IsSecret(v) then nm = tostring(v) end
-    end
-    local tgt  = e.target     or "debuff"
-    local ty   = e.dispelType or "magic"
-    local pol  = e.policy     or "may"
-    local mark = ""
-    if tgt == "buff" and DISPEL_TYPE_OK[ty] and pol ~= "no" then
-        mark = " |cff44ff44[ใช้ได้จริง]|r"
-    end
-    if e.enabled == false then mark = mark .. " |cffff9a9a[ปิดอยู่]|r" end
-    return ("[%d] %s — %s/%s/%s%s"):format(e.spellID, nm, tgt, ty, pol, mark)
-end
-
---- บล็อกผลการเทียบ ต่อ 1 ปุ่ม
-local function DispelTableBlock(spellID)
-    local NL = string.char(10)
-    local rows, merged = CollectDispelRows()
-    if not merged then
-        return "   |cffff9a9aDispelAura table ยังไม่ merge (ยังไม่ถึง PLAYER_LOGIN?)|r" .. NL
+--- บล็อกหา Remain ต่อ 1 ปุ่ม
+local function RemainBlock(btn)
+    local LF = string.char(10)
+    local cd = btn.Cooldown
+    if cd == nil then
+        return "   |cffff9a9aปุ่มนี้ไม่มี Cooldown frame — หา remain ไม่ได้เลย|r" .. LF
     end
 
-    local t = "   |cffffd200เทียบกับ DispelAura table (Defense Mechanism):|r" .. NL
+    local t = "   |cffffd200หา Remain แบบละเอียด:|r" .. LF
 
-    if spellID == nil then
-        return t .. "      (ปุ่มนี้ไม่มี spellID)" .. NL
-    end
+    -- now = plain เสมอ ⇒ Lua หยิบเองได้ ไม่ต้องพึ่งใคร
+    local nowMs = GetTime() * 1000
+    t = t .. ("      now (GetTime()x1000) = |cff44ff44%.0f|r"):format(nowMs)
+        .. "   |cffaaaaaa<- PLAIN · Lua อ่านค่านี้ได้เอง|r" .. LF
 
-    -- นอก combat: spellID เป็น plain → lookup ได้จริง
-    if not IsSecret(spellID) then
-        for _, e in ipairs(rows) do
-            if e.spellID == spellID then
-                return t .. "      |cff44ff44เจอในลิสต์:|r " .. RowLabel(e) .. NL
-            end
-        end
-        return t .. ("      |cffff9a9aไม่มีใน DispelAura table|r (ลิสต์มี %d แถว)")
-            :format(#rows) .. NL
-            .. "      -> เพิ่มที่ DefendMechanism/_USER_CUSTOM.lua" .. NL
-    end
-
-    -- ใน combat: secret → เทียบฝั่ง Lua ไม่ได้
-    t = t .. "      |cffffcc55spellID เป็น secret — เทียบฝั่ง Lua ไม่ได้|r"
-        .. " (ฟีเจอร์จริงต้องส่งให้ AHK เทียบ)" .. NL
-    t = t .. ("      ลิสต์ tgt=\"buff\" ที่มีอยู่ — หาเลข/ชื่อที่ตรงกับข้างบนด้วยตา:") .. NL
-    local shown = 0
-    for _, e in ipairs(rows) do
-        if (e.target or "debuff") == "buff" then
-            shown = shown + 1
-            if shown <= 12 then
-                t = t .. "        " .. RowLabel(e) .. NL
-            end
+    -- start/dur = ตัวตั้งที่ละเอียดที่สุดที่ปุ่มมีให้
+    local sMs, dMs
+    if cd.GetCooldownTimes ~= nil then
+        local ok, a, b = pcall(cd.GetCooldownTimes, cd)
+        if ok then
+            sMs, dMs = a, b
+        else
+            t = t .. "      GetCooldownTimes() : |cffff9a9aTHROW|r " .. ShortErr(a) .. LF
         end
     end
-    if shown == 0 then
-        t = t .. "        |cffff9a9a(ไม่มีแถว tgt=\"buff\" เลยในลิสต์)|r" .. NL
-    elseif shown > 12 then
-        t = t .. ("        ... อีก %d แถว (ทั้งลิสต์ %d แถว)"):format(shown - 12, #rows) .. NL
+    t = t .. "      GetCooldownTimes()   start = |cff44ff44" .. PeekVal(sMs) .. "|r"
+        .. "   dur = |cff44ff44" .. PeekVal(dMs) .. "|r   |cffaaaaaa(ms)|r" .. LF
+
+    t = t .. "      |cffffcc55remain = (start + dur - now) / 1000|r" .. LF
+
+    -- ถ้าค่าไม่ secret (นอก combat) คำนวณให้ดูเลย = พิสูจน์ว่าสูตรถูก
+    if sMs ~= nil and dMs ~= nil and not IsSecret(sMs) and not IsSecret(dMs) then
+        t = t .. ("      |cff44ff44-> ค่าไม่ secret คำนวณได้เลย = %.3f วินาที|r"):format(
+            (sMs + dMs - nowMs) / 1000) .. LF
+    else
+        t = t .. "      |cffaaaaaa-> start/dur เป็น secret: ลบใน Lua ไม่ได้ ต้องส่ง 3 ค่าให้ AHK ลบ|r" .. LF
     end
+
+    -- getter อื่น ๆ เผื่อมีตัวไหนคืน remain มาตรง ๆ จะได้ไม่ต้องส่ง 3 ค่า
+    t = t .. "      |cffaaaaaamethod อื่นที่อาจให้ remain ตรง ๆ:|r" .. LF
+    for _, g in ipairs(COOLDOWN_GETTERS) do
+        local fn = cd[g[1]]
+        if fn == nil then
+            t = t .. "        " .. g[1] .. "() : |cff777777ไม่มี method นี้|r" .. LF
+        else
+            local ok, v = pcall(fn, cd)
+            if not ok then
+                t = t .. "        " .. g[1] .. "() : |cffff9a9aTHROW|r " .. ShortErr(v) .. LF
+            else
+                t = t .. "        " .. g[1] .. "() = " .. PeekVal(v)
+                    .. "   |cffaaaaaa" .. g[2] .. "|r" .. LF
+            end
+        end
+    end
+
     return t
 end
 
@@ -677,6 +672,15 @@ local function BuildSecretText()
             .. "   ชื่อจากเกม = " .. SafeStr(nm)
             .. "   ใน InstanceNameList = " .. shown .. NL
         t = t .. "|cffaaaaaaใช้เลขนี้เป็น key ของแถวใน pack เท่านั้น ห้ามใช้เลขจาก MDT หรือไฟล์ scan|r" .. NL
+    end
+
+    -- ออร่าเป็น secret อยู่ไหม ณ ตอนนี้ = ตัวชี้ขาดว่า Lua ลบเลขเองได้หรือไม่
+    if C_Secrets ~= nil and C_Secrets.ShouldAurasBeSecret ~= nil then
+        local okS, sv = pcall(C_Secrets.ShouldAurasBeSecret)
+        if okS then
+            t = t .. "|cffffd200ShouldAurasBeSecret() = " .. PeekVal(sv) .. "|r"
+                .. "   |cffaaaaaatrue = ค่าบนปุ่มเป็น secret -> Lua ลบไม่ได้ ต้องส่งให้ AHK|r" .. NL
+        end
     end
     t = t .. NL
     local found = 0
@@ -711,21 +715,15 @@ local function BuildSecretText()
                                         if okT then cdTxt = v end
                                     end
                                 end
-                                local sMs, dMs
-                                if cd ~= nil and cd.GetCooldownTimes ~= nil then
-                                    local okCd, a, b = pcall(cd.GetCooldownTimes, cd)
-                                    if okCd then sMs, dMs = a, b end
-                                end
                                 t = t .. "|cff88ccff[" .. unit .. " " .. L.kind .. "#" .. idx .. "]|r" .. NL
                                 t = t .. "   spellID = " .. PeekVal(btn.spellID)
                                     .. "    ชื่อเวท = |cff44ff44" .. PeekVal(nm) .. "|r" .. NL
                                 t = t .. "   auraInstanceID = " .. PeekVal(btn.auraInstanceID)
                                     .. "    stack = [" .. PeekVal(stkTxt) .. "]"
-                                    .. "    cdText = [" .. PeekVal(cdTxt) .. "]" .. NL
-                                t = t .. "   start = " .. PeekVal(sMs) .. "    dur = " .. PeekVal(dMs)
-                                    .. NL
-                                t = t .. AidAPIBlock(unit, btn.auraInstanceID)
-                                t = t .. DispelTableBlock(btn.spellID) .. NL
+                                    .. "    cdText = [" .. PeekVal(cdTxt) .. "]"
+                                    .. " |cffaaaaaa<- หยาบ (floor วินาที)|r" .. NL
+                                t = t .. RemainBlock(btn)
+                                t = t .. AidAPIBlock(unit, btn.auraInstanceID) .. NL
                             end
                         end
                     end
