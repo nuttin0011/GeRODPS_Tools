@@ -56,12 +56,13 @@ local function ShortErr(e)
 end
 
 --- tier-2: ลองทำ op ใน pcall แล้วรายงานผล (นี่คือตัวตัดสินดีไซน์ writer ใหม่)
+-- ⚠ ผลลัพธ์อาจเป็น secret string (PeekVal ของค่า secret) — ห้ามเอาไป :sub/:gsub ต่อ
 local function TryOp(label, fn)
     local ok, r = pcall(fn)
     if ok then
-        return "      |cff44ff44Lua ทำได้:|r " .. label .. " = " .. PeekVal(r) .. NL
+        return "      |cff44ff44Lua ทำได้:|r " .. label .. " = " .. PeekVal(r)
     end
-    return "      |cffff9a9aLua ทำไม่ได้ (THROW):|r " .. label .. " — " .. ShortErr(r) .. NL
+    return "      |cffff9a9aLua ทำไม่ได้ (THROW):|r " .. label .. " — " .. ShortErr(r)
 end
 
 -- field ตามลำดับจาก source (bfsrc) — เดินตามนี้ก่อน แล้วค่อยกวาด key แปลก
@@ -123,13 +124,13 @@ local function ProbeFrame(frameName, out)
                     out[#out + 1] = "   |cffffd200-- tier-2 (แถว 1): Lua คำนวณเองได้ไหม --|r"
                     local exp, tex, dt = row.expirationTime, row.texture, row.debuffType
                     out[#out + 1] = TryOp("expirationTime - GetTime()",
-                        function() return exp - GetTime() end):sub(1, -2)
+                        function() return exp - GetTime() end)
                     out[#out + 1] = TryOp("texture + 0 (เลข icon)",
-                        function() return tex + 0 end):sub(1, -2)
+                        function() return tex + 0 end)
                     out[#out + 1] = TryOp('debuffType == "Magic"',
-                        function() return dt == "Magic" end):sub(1, -2)
+                        function() return dt == "Magic" end)
                     out[#out + 1] = TryOp("debuffType == nil (เทียบ nil เฉย ๆ)",
-                        function() return dt == nil end):sub(1, -2)
+                        function() return dt == nil end)
                 end
             else
                 out[#out + 1] = "      = " .. PeekVal(row)
@@ -183,9 +184,9 @@ local function ProbeFrame(frameName, out)
                         out[#out + 1] = "   |cffffd200-- tier-2 (ปุ่มแรก): timeLeft ใช้ตรง ๆ ได้ไหม --|r"
                         local tl = b.timeLeft
                         out[#out + 1] = TryOp("timeLeft + 0",
-                            function() return tl + 0 end):sub(1, -2)
+                            function() return tl + 0 end)
                         out[#out + 1] = TryOp("timeLeft > 0.4",
-                            function() return tl > 0.4 end):sub(1, -2)
+                            function() return tl > 0.4 end)
                     end
                 end
             end
@@ -252,7 +253,13 @@ local function BuildText()
         end
     end
 
-    return table.concat(out, NL)
+    -- ⚠ ห้าม table.concat — บางบรรทัดเป็น secret string (invalid value (secret) for concat
+    -- เจอจริง 2026-08-18) · ต่อด้วย .. ทีละบรรทัด = taint-preserving ถูกกติกา
+    local t = ""
+    for _, line in ipairs(out) do
+        t = t .. line .. NL
+    end
+    return t
 end
 
 -- ============================================================
