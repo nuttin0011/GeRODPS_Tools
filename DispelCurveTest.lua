@@ -266,7 +266,7 @@ local function DumpTree(root, name, depth, seen, out, budget)
 end
 
 local function ProbeOtherFrames(curve, out)
-    out[#out + 1] = "-- |cffffd200ขั้น 4: **เป้าหมายหลัก** — buff ของ mob จาก Target/Focus/Boss frame|r --"
+    out[#out + 1] = "-- ขั้น 4: เสริม — buff ของ mob จาก Target/Focus/Boss frame (เฉพาะตัวที่เล็ง) --"
     out[#out + 1] = "   nameplate ไม่วาด buff ของศัตรู — แต่ Target Frame โชว์ให้ (ที่คนเห็น Enrage/Magic กัน)"
     out[#out + 1] = "   |cffaaaaaaขั้นนี้ไม่ต้องมี DoT — แค่เล็ง mob ที่มี buff นั้นอยู่จริง|r"
 
@@ -381,9 +381,10 @@ local function BuildReport()
     out[#out + 1] = ""
 
     -- ── ขั้น 3: ของจริง — aid จากปุ่มบน nameplate (Route B, secret) ──
-    out[#out + 1] = "-- ขั้น 3: aid จากปุ่มออร่าบน nameplate (Route B) --"
-    out[#out + 1] = "   |cffaaaaaaเสริมเท่านั้น — nameplate วาดเฉพาะ debuff ที่ source = เราเอง"
-        .. " ⇒ ทดสอบกลไก curve ได้ แต่**ไม่ใช่ buff ของ mob**|r"
+    out[#out + 1] = "-- |cffffd200ขั้น 3: **เป้าหมายหลัก** — ปุ่มออร่าบน nameplate ของ Blizzard (รวม buff ของ mob)|r --"
+    out[#out + 1] = "   วัดใหม่ 2026-08-17: ถอด Plater ออกแล้ว BuffListFrame ของ Blizzard"
+        .. " **มีปุ่ม buff ของ mob จริง** (fstack: Blizzard_NamePlateAuras.xml)"
+    out[#out + 1] = "   |cffaaaaaaการวัดเดิมที่ว่า children=0 เสมอ ทำตอน Plater ครอบ UI อยู่|r"
     local nBtn, nGood = 0, 0
     for i = 1, MAX_PLATES do
         local unit = "nameplate" .. i
@@ -410,8 +411,10 @@ local function BuildReport()
         end
     end
     if nBtn == 0 then
-        out[#out + 1] = "  |cffaaaaaaไม่มีปุ่มออร่าบน nameplate (ต้องมี DoT ของเรา) — ข้ามได้"
-            .. " เป้าหมายหลักอยู่ขั้น 4|r"
+        out[#out + 1] = "  |cffff5555ไม่มีปุ่มออร่าบน nameplate เลย|r"
+        out[#out + 1] = "     buff ของ mob → ต้องเห็นไอคอนบน nameplate ด้วยตา (และต้องเป็น"
+            .. " nameplate เริ่มต้นของ Blizzard — ปิด Plater/ThreatPlates ก่อน)"
+        out[#out + 1] = "     debuff ของเรา → ต้องมี DoT ติด mob อยู่"
     end
     out[#out + 1] = ""
 
@@ -483,11 +486,11 @@ local function BuildFrame()
     hint:SetJustifyH("LEFT")
     hint:SetSpacing(3)
     hint:SetText(
-        "|cffffd200เป้าหมายหลัก (ขั้น 4):|r อยู่ในดัน + combat + "
-        .. "|cffffcc55เล็ง mob ที่มี buff Magic/Enrage|r (ไอคอนต้องโผล่บน Target Frame) "
-        .. "— |cffaaaaaaไม่ต้องมี DoT|r"
-        .. "|n|cffffd200เสริม (ขั้น 3):|r ถ้ามี DoT ของเราติด mob จะทดสอบ curve "
-        .. "จากปุ่มบน nameplate ให้ด้วย (ได้แค่ debuff ของเราเอง ไม่ใช่ buff ของ mob)"
+        "|cffffd200เป้าหมายหลัก (ขั้น 3):|r อยู่ในดัน + combat + "
+        .. "|cffffcc55mob มีไอคอน buff โผล่บน nameplate|r (Magic/Enrage ที่คลาสเราปลดได้)"
+        .. "  — |cffff5555ต้องใช้ nameplate เริ่มต้นของ Blizzard|r"
+        .. " (Plater/ThreatPlates จะครอบ UI ทำปุ่มของ Blizzard หาย)"
+        .. "|n|cffffd200เสริม (ขั้น 4):|r Target/Focus/Boss frame — ได้เฉพาะตัวที่เล็งอยู่"
         .. "  |cffaaaaaa(นอก combat ออร่าไม่ secret -> ผลหลอก)|r")
 
     local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
