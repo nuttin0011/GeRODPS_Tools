@@ -108,6 +108,23 @@ local function DumpButton(b, indent, out)
             end
         end
     end
+    -- ข้อความบน FontString ลูก — **ทางหา stack ที่เหลืออยู่**
+    -- (tooltip ไม่มีเลข stack — วัดแล้ว 2026-08-18 · nameplate โชว์ 16 แต่ tooltip ไม่มี)
+    for _, ck in ipairs({ "Count", "count", "Stack", "stack", "Duration", "Icon" }) do
+        local child = b[ck]
+        if child ~= nil and type(child) == "table" then
+            if child.GetText ~= nil then
+                local okC, tv = pcall(child.GetText, child)
+                out[#out + 1] = indent .. "|cff3fcf5a" .. ck .. ":GetText() = "
+                    .. (okC and PeekVal(tv) or "?") .. "|r"
+            end
+            if child.GetTexture ~= nil then
+                local okX, xv = pcall(child.GetTexture, child)
+                out[#out + 1] = indent .. ck .. ":GetTexture() = "
+                    .. (okX and PeekVal(xv) or "?")
+            end
+        end
+    end
     -- GetID (บทเรียน BuffFrame: บางปุ่มเก็บ index/slot ไว้ที่นี่)
     if b.GetID ~= nil then
         local okI, iv = pcall(b.GetID, b)
@@ -137,7 +154,7 @@ local function DumpButton(b, indent, out)
     end
 end
 
-local function BuildColA()
+local function BuildColALines()
     local out = {}
     local u = "target"
     out[#out + 1] = "combat = " .. (InCombatLockdown()
@@ -150,7 +167,7 @@ local function BuildColA()
     out[#out + 1] = ""
     out[#out + 1] = "|cff88ccff== A) เดิน path จาก fstack ==|r"
     local af = WalkAuraFrame(out)
-    if af == nil then return JoinLines(out) end
+    if af == nil then return out end
 
     -- ลูกของ Auras frame
     local kids
@@ -160,7 +177,7 @@ local function BuildColA()
     end
     if type(kids) ~= "table" then
         out[#out + 1] = "   |cffff9a9aGetChildren() อ่านไม่ได้|r"
-        return JoinLines(out)
+        return out
     end
     out[#out + 1] = ("   ลูกทั้งหมด = %d เฟรม"):format(#kids)
 
@@ -184,14 +201,14 @@ local function BuildColA()
     if shownN == 0 then
         out[#out + 1] = "   |cffaaaaaa(target ไม่มีออร่า หรือโครงไม่ใช่ลูกตรง ๆ)|r"
     end
-    return JoinLines(out)
+    return out
 end
 
 -- ============================================================
 -- B · legacy global names + ทางเลือกโครงอื่น
 -- ============================================================
 
-local function BuildColB()
+local function BuildColBLines()
     local out = {}
     out[#out + 1] = "|cff88ccff== ชื่อ global แบบเก่า ==|r"
     local found = 0
@@ -254,7 +271,7 @@ local function BuildColB()
             out[#out + 1] = "   |cff3fcf5akey ที่มีคำ aura/buff:|r " .. line
         end
     end
-    return JoinLines(out)
+    return out
 end
 
 -- ============================================================
@@ -298,18 +315,22 @@ local function ProbeIndex(unit, i, filter, method)
         pcall(function() tip:Hide() end)
         return false, nil, nil, ShortErr(err), nil
     end
-    local id, nm
+    local id, nm, rawData
     if tip.GetTooltipData ~= nil then
         local okD, d = pcall(tip.GetTooltipData, tip)
-        if okD and type(d) == "table" then id = d.id end
+        if okD and type(d) == "table" then
+            id = d.id
+            rawData = d
+        end
     end
     if l1 ~= nil and l1.GetText ~= nil then
         local okT, v = pcall(l1.GetText, l1)
         if okT then nm = v end
     end
-    -- ทุกบรรทัด — FontString ชื่อ <tip>TextLeftN (อ่านตรง ไม่ผ่าน GetTooltipData
-    -- เพราะ lines[] ของ data อาจเป็น table ซ้อนที่อ่านยากกว่า)
-    local lines = {}
+    -- ทุกบรรทัด — FontString ชื่อ <tip>TextLeftN / TextRightN
+    -- (อ่านตรง ไม่ผ่าน GetTooltipData เพราะ lines[] ซ้อนอีกชั้น)
+    -- ⚠ ช่อง **ขวา** คือที่ tooltip มาตรฐานเอาไว้ใส่ข้อมูลสั้น ๆ — stack อาจอยู่ที่นี่
+    local lines, rlines = {}, {}
     for li = 1, MAX_TIP_LINES do
         local fs = _G[TIP_NAME .. "TextLeft" .. li]
         if fs == nil or fs.GetText == nil then break end
@@ -317,9 +338,16 @@ local function ProbeIndex(unit, i, filter, method)
         if okL and txt ~= nil then
             lines[#lines + 1] = txt
         end
+        local fr = _G[TIP_NAME .. "TextRight" .. li]
+        if fr ~= nil and fr.GetText ~= nil then
+            local okR, rtxt = pcall(fr.GetText, fr)
+            if okR and rtxt ~= nil then
+                rlines[#rlines + 1] = ("R" .. li .. "=") .. PeekVal(rtxt)
+            end
+        end
     end
     pcall(function() tip:Hide() end)
-    return true, id, nm, nil, lines
+    return true, id, nm, nil, lines, rlines, rawData
 end
 
 local MAX_IDX = 12
@@ -328,7 +356,7 @@ local function EnumUnit(unit, filter, label, out)
     out[#out + 1] = "   |cffffd200" .. label .. "|r"
     local hit, blank = 0, 0
     for i = 1, MAX_IDX do
-        local ok, id, nm, err, lines = ProbeIndex(unit, i, filter, "SetUnitAura")
+        local ok, id, nm, err, lines, rlines, rawData = ProbeIndex(unit, i, filter, "SetUnitAura")
         if not ok then
             out[#out + 1] = ("      [%d] |cffff9a9aTHROW|r %s"):format(i, err or "?")
             break
@@ -347,10 +375,35 @@ local function EnumUnit(unit, filter, label, out)
             blank = 0
             out[#out + 1] = ("      [%d] id=|cff3fcf5a"):format(i) .. PeekVal(id)
                 .. "|r  ชื่อ=" .. PeekVal(nm)
-            -- hit แรก: dump ทุกบรรทัด — ดูว่า stack/เวลาอยู่ในข้อความไหม
-            if hit == 1 and type(lines) == "table" then
-                for li = 2, #lines do
-                    out[#out + 1] = ("         line%d = "):format(li) .. PeekVal(lines[li])
+            -- hit แรก: เค้นทุกซอกที่ stack อาจซ่อนอยู่
+            if hit == 1 then
+                if type(lines) == "table" then
+                    for li = 2, #lines do
+                        out[#out + 1] = ("         L%d = "):format(li) .. PeekVal(lines[li])
+                    end
+                end
+                -- ช่องขวาของทุกบรรทัด (tooltip มาตรฐานเอาไว้ใส่ข้อมูลสั้น)
+                if type(rlines) == "table" and #rlines > 0 then
+                    local rr = "         ขวา: "
+                    for _, t in ipairs(rlines) do rr = rr .. t .. "  " end
+                    out[#out + 1] = rr
+                else
+                    out[#out + 1] = "         |cffaaaaaaช่องขวาว่างทั้งหมด|r"
+                end
+                -- ทุก key ของ GetTooltipData — เราอ่านแค่ .id มาตลอด อาจมี stack หลงอยู่
+                if type(rawData) == "table" then
+                    local ks = {}
+                    pcall(function()
+                        for k, v in pairs(rawData) do
+                            if type(k) == "string" and k ~= "lines" then
+                                ks[#ks + 1] = k .. "=" .. PeekVal(v)
+                            end
+                        end
+                    end)
+                    table.sort(ks)
+                    local kk = "         data: "
+                    for _, t in ipairs(ks) do kk = kk .. t .. "  " end
+                    out[#out + 1] = kk
                 end
             end
         end
@@ -358,14 +411,19 @@ local function EnumUnit(unit, filter, label, out)
     out[#out + 1] = ("      -> เจอ %d ตัว"):format(hit)
 end
 
-local function BuildColC()
+--- @param units table   รายชื่อ unit ที่จะไล่
+--- @param withHead boolean  ใส่หัวข้อ + คำเตือนไหม (เฉพาะคอลัมน์แรก)
+--- @param withApi boolean   ต่อท้ายด้วยหัวข้อเทียบ API ไหม
+local function BuildEnumLines(units, withHead, withApi)
     local out = {}
+    if withHead then
     out[#out + 1] = "|cff88ccff== C) enumerate ด้วย tooltip เพียว ๆ ==|r"
     out[#out + 1] = "|cff44ff44✅ วัดแล้ว 2026-08-18: arg unit ทำงานจริง|r"
     out[#out + 1] = "|cffaaaaaa(target=dummy ได้ Total Damage Done / Touch of the Magi ไม่ใช่ buff ของเรา)"
     out[#out + 1] = "รอบก่อนที่เหมือน player หมด เพราะเลงตัวเองอยู่ ⇒ บรรทัด identity ข้างล่างกันอ่านผิดซ้ำ|r"
     out[#out + 1] = "|cffaaaaaaClearLines ก่อนทุก index (กันอ่านค่าค้างของ index ก่อนหน้า)|r"
     out[#out + 1] = ""
+    end
 
     -- กันอ่านผิด unit: บอกตรง ๆ ว่า unit นี้เป็นตัวเราเองหรือเปล่า
     local function IdentityLine(u)
@@ -394,7 +452,7 @@ local function BuildColC()
         end
     end
 
-    for _, u in ipairs({ "target", "focus", "boss1", "nameplate1" }) do
+    for _, u in ipairs(units) do
         local exists = UnitExists(u)
         out[#out + 1] = "|cff88ccffunit \"" .. u .. "\" "
             .. (exists and "|cff44ff44(มีตัว)|r" or "|cffff9a9a(ไม่มีตัว)|r")
@@ -406,6 +464,8 @@ local function BuildColC()
         end
         out[#out + 1] = ""
     end
+
+    if not withApi then return out end
 
     -- เทียบกับ API ที่ ship แล้ว (ResolveSpellByIndex รับ unit ได้)
     out[#out + 1] = "|cff88ccff== เทียบกับ API PlayerAuraCheck ==|r"
@@ -425,7 +485,29 @@ local function BuildColC()
             end
         end
     end
+    return out
+end
+
+-- ============================================================
+-- จัดเนื้อหาลง 3 คอลัมน์ (ตามที่ user สั่ง 2026-08-18)
+--   1 = A (เดิน path เฟรม) + B (ชื่อ global / key ของ TargetFrame) ต่อกัน
+--   2 = enumerate target + focus      (คู่ที่เอามาเทียบกันบ่อยสุด)
+--   3 = enumerate boss1 + nameplate1 + เทียบ API
+-- ============================================================
+
+local function BuildCol1()
+    local out = BuildColALines()
+    out[#out + 1] = ""
+    for _, l in ipairs(BuildColBLines()) do out[#out + 1] = l end
     return JoinLines(out)
+end
+
+local function BuildCol2()
+    return JoinLines(BuildEnumLines({ "target", "focus" }, true, false))
+end
+
+local function BuildCol3()
+    return JoinLines(BuildEnumLines({ "boss1", "nameplate1" }, false, true))
 end
 
 -- ============================================================
@@ -458,7 +540,7 @@ end
 
 local function Refresh()
     if not colFS[1] then return end
-    local builders = { BuildColA, BuildColB, BuildColC }
+    local builders = { BuildCol1, BuildCol2, BuildCol3 }
     for i = 1, 3 do
         local ok, text = pcall(builders[i])
         colFS[i]:SetText(ok and text or ("พัง: " .. tostring(text)))
