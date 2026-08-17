@@ -54,3 +54,4 @@ NameplateAuraProbe.lua
 DispelCurveTest.lua
 PlayerAuraProbe.lua
 TargetAuraProbe.lua
+AuraSensorLab.lua
