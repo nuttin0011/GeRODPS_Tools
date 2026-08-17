@@ -564,6 +564,100 @@ local function AidAPIBlock(unit, aid)
     return t
 end
 
+
+-- ============================================================
+-- เทียบ spellID กับ DispelAura table ของ Defense Mechanism
+-- ============================================================
+-- ผลวัด 2026-08-17: API ทุกตัวที่รับ auraInstanceID **THROW หมด** (6 ตัว)
+-- ⇒ ไม่มีทางรู้ "ชนิด dispel" จากเกมได้เลยตอน combat
+--   สิ่งเดียวที่อ่านได้จากปุ่ม = spellID · ชื่อเวท · start · dur · cdText · stack
+-- ⇒ **ชนิด dispel ต้องมาจากลิสต์ของเราเอง** (DispelAura pack) โดยเทียบด้วย spellID
+--
+-- ⚠ ข้อจำกัดที่กำหนดสถาปัตยกรรมของฟีเจอร์จริง:
+--   spellID จากปุ่มเป็น **secret** ⇒ `id == entry.spellID` ฝั่ง Lua = compare บน secret = throw
+--   ⇒ ฟีเจอร์จริง **ต้องส่ง spellID ดิบผ่าน STS ให้ AHK เทียบกับลิสต์**
+--     (pattern เดียวกับ nameplate_mob_aura ที่ส่ง sid ให้ AHK match เป๊ะ)
+--   เครื่องมือนี้จึงทำได้แค่ 2 อย่าง:
+--     • นอก combat (spellID ไม่ secret) → lookup ให้เลย
+--     • ใน combat (secret) → โชว์ลิสต์ให้ user เทียบด้วยตา (ชื่อเวทช่วยได้มาก)
+
+local DISPEL_TYPE_OK = { magic = true, enrage = true }
+
+--- คืน entry ของ DispelAura ทั้งหมด (รวมที่ปิด) เป็น array
+local function CollectDispelRows()
+    local rows = {}
+    local D = GeRODPS and GeRODPS.DefendMechanism
+    if not (D and D.EachRow and D.Merged) then return rows, false end
+    D.EachRow("DispelAura", function(e)
+        if e and e.spellID and e.spellID > 0 then rows[#rows + 1] = e end
+    end)
+    return rows, true
+end
+
+local function RowLabel(e)
+    local nm = "?"
+    if C_Spell and C_Spell.GetSpellName then
+        local ok, v = pcall(C_Spell.GetSpellName, e.spellID)
+        if ok and v ~= nil and not IsSecret(v) then nm = tostring(v) end
+    end
+    local tgt  = e.target     or "debuff"
+    local ty   = e.dispelType or "magic"
+    local pol  = e.policy     or "may"
+    local mark = ""
+    if tgt == "buff" and DISPEL_TYPE_OK[ty] and pol ~= "no" then
+        mark = " |cff44ff44[ใช้ได้จริง]|r"
+    end
+    if e.enabled == false then mark = mark .. " |cffff9a9a[ปิดอยู่]|r" end
+    return ("[%d] %s — %s/%s/%s%s"):format(e.spellID, nm, tgt, ty, pol, mark)
+end
+
+--- บล็อกผลการเทียบ ต่อ 1 ปุ่ม
+local function DispelTableBlock(spellID)
+    local NL = string.char(10)
+    local rows, merged = CollectDispelRows()
+    if not merged then
+        return "   |cffff9a9aDispelAura table ยังไม่ merge (ยังไม่ถึง PLAYER_LOGIN?)|r" .. NL
+    end
+
+    local t = "   |cffffd200เทียบกับ DispelAura table (Defense Mechanism):|r" .. NL
+
+    if spellID == nil then
+        return t .. "      (ปุ่มนี้ไม่มี spellID)" .. NL
+    end
+
+    -- นอก combat: spellID เป็น plain → lookup ได้จริง
+    if not IsSecret(spellID) then
+        for _, e in ipairs(rows) do
+            if e.spellID == spellID then
+                return t .. "      |cff44ff44เจอในลิสต์:|r " .. RowLabel(e) .. NL
+            end
+        end
+        return t .. ("      |cffff9a9aไม่มีใน DispelAura table|r (ลิสต์มี %d แถว)")
+            :format(#rows) .. NL
+            .. "      -> เพิ่มที่ DefendMechanism/_USER_CUSTOM.lua" .. NL
+    end
+
+    -- ใน combat: secret → เทียบฝั่ง Lua ไม่ได้
+    t = t .. "      |cffffcc55spellID เป็น secret — เทียบฝั่ง Lua ไม่ได้|r"
+        .. " (ฟีเจอร์จริงต้องส่งให้ AHK เทียบ)" .. NL
+    t = t .. ("      ลิสต์ tgt=\"buff\" ที่มีอยู่ — หาเลข/ชื่อที่ตรงกับข้างบนด้วยตา:") .. NL
+    local shown = 0
+    for _, e in ipairs(rows) do
+        if (e.target or "debuff") == "buff" then
+            shown = shown + 1
+            if shown <= 12 then
+                t = t .. "        " .. RowLabel(e) .. NL
+            end
+        end
+    end
+    if shown == 0 then
+        t = t .. "        |cffff9a9a(ไม่มีแถว tgt=\"buff\" เลยในลิสต์)|r" .. NL
+    elseif shown > 12 then
+        t = t .. ("        ... อีก %d แถว (ทั้งลิสต์ %d แถว)"):format(shown - 12, #rows) .. NL
+    end
+    return t
+end
+
 local function BuildSecretText()
     local NL = string.char(10)
     local t = "|cffffd200== Read Secret — ค่าจริงบนปุ่มออร่า nameplate ==|r" .. NL
@@ -613,7 +707,8 @@ local function BuildSecretText()
                                     .. "    cdText = [" .. PeekVal(cdTxt) .. "]" .. NL
                                 t = t .. "   start = " .. PeekVal(sMs) .. "    dur = " .. PeekVal(dMs)
                                     .. NL
-                                t = t .. AidAPIBlock(unit, btn.auraInstanceID) .. NL
+                                t = t .. AidAPIBlock(unit, btn.auraInstanceID)
+                                t = t .. DispelTableBlock(btn.spellID) .. NL
                             end
                         end
                     end
