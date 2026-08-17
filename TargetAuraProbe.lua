@@ -273,19 +273,30 @@ local function GetTip()
     return _tip, _tipL1
 end
 
---- 1 index: คืน ok(ไม่ throw), id, name  ⚠ ClearLines ก่อนทุกครั้ง
+--- 1 index: คืน ok(ไม่ throw), id, name, err, lines  ⚠ ClearLines ก่อนทุกครั้ง
 --- ถ้าไม่เคลียร์ index ที่ว่างจะอ่านค่าค้างของ index ก่อนหน้า = นับเกินเงียบ ๆ
-local function ProbeIndex(unit, i, filter)
+--- @param method string|nil  "SetUnitAura"(default) / "SetUnitBuff" / "SetUnitDebuff"
+---   2 ตัวหลังรับ (unit, index) ไม่มี filter — เอามาเทียบกันเผื่อตัวไหนให้ข้อมูลมากกว่า
+--- lines = ทุกบรรทัดซ้ายของ tooltip (หา stack/เวลาที่เหลือจากที่นี่ได้ไหม)
+local MAX_TIP_LINES = 6
+local function ProbeIndex(unit, i, filter, method)
     local tip, l1 = GetTip()
-    if tip == nil then return false, nil, nil, "สร้าง tooltip ไม่ได้" end
+    if tip == nil then return false, nil, nil, "สร้าง tooltip ไม่ได้", nil end
+    if method == nil then method = "SetUnitAura" end
+    local fn = tip[method]
+    if fn == nil then return false, nil, nil, "ไม่มี method " .. method, nil end
     local okSet, err = pcall(function()
         tip:SetOwner(UIParent, "ANCHOR_NONE")
         tip:ClearLines()
-        tip:SetUnitAura(unit, i, filter)
+        if method == "SetUnitAura" then
+            fn(tip, unit, i, filter)
+        else
+            fn(tip, unit, i)
+        end
     end)
     if not okSet then
         pcall(function() tip:Hide() end)
-        return false, nil, nil, ShortErr(err)
+        return false, nil, nil, ShortErr(err), nil
     end
     local id, nm
     if tip.GetTooltipData ~= nil then
@@ -296,8 +307,19 @@ local function ProbeIndex(unit, i, filter)
         local okT, v = pcall(l1.GetText, l1)
         if okT then nm = v end
     end
+    -- ทุกบรรทัด — FontString ชื่อ <tip>TextLeftN (อ่านตรง ไม่ผ่าน GetTooltipData
+    -- เพราะ lines[] ของ data อาจเป็น table ซ้อนที่อ่านยากกว่า)
+    local lines = {}
+    for li = 1, MAX_TIP_LINES do
+        local fs = _G[TIP_NAME .. "TextLeft" .. li]
+        if fs == nil or fs.GetText == nil then break end
+        local okL, txt = pcall(fs.GetText, fs)
+        if okL and txt ~= nil then
+            lines[#lines + 1] = txt
+        end
+    end
     pcall(function() tip:Hide() end)
-    return true, id, nm, nil
+    return true, id, nm, nil, lines
 end
 
 local MAX_IDX = 12
@@ -306,7 +328,7 @@ local function EnumUnit(unit, filter, label, out)
     out[#out + 1] = "   |cffffd200" .. label .. "|r"
     local hit, blank = 0, 0
     for i = 1, MAX_IDX do
-        local ok, id, nm, err = ProbeIndex(unit, i, filter)
+        local ok, id, nm, err, lines = ProbeIndex(unit, i, filter, "SetUnitAura")
         if not ok then
             out[#out + 1] = ("      [%d] |cffff9a9aTHROW|r %s"):format(i, err or "?")
             break
@@ -325,6 +347,12 @@ local function EnumUnit(unit, filter, label, out)
             blank = 0
             out[#out + 1] = ("      [%d] id=|cff3fcf5a"):format(i) .. PeekVal(id)
                 .. "|r  ชื่อ=" .. PeekVal(nm)
+            -- hit แรก: dump ทุกบรรทัด — ดูว่า stack/เวลาอยู่ในข้อความไหม
+            if hit == 1 and type(lines) == "table" then
+                for li = 2, #lines do
+                    out[#out + 1] = ("         line%d = "):format(li) .. PeekVal(lines[li])
+                end
+            end
         end
     end
     out[#out + 1] = ("      -> เจอ %d ตัว"):format(hit)
@@ -333,14 +361,46 @@ end
 local function BuildColC()
     local out = {}
     out[#out + 1] = "|cff88ccff== C) enumerate ด้วย tooltip เพียว ๆ ==|r"
-    out[#out + 1] = "|cffaaaaaaถ้าได้ = ใช้กับทุก unit โดยไม่ต้องอ่านเฟรมเลย|r"
+    out[#out + 1] = "|cff44ff44✅ วัดแล้ว 2026-08-18: arg unit ทำงานจริง|r"
+    out[#out + 1] = "|cffaaaaaa(target=dummy ได้ Total Damage Done / Touch of the Magi ไม่ใช่ buff ของเรา)"
+    out[#out + 1] = "รอบก่อนที่เหมือน player หมด เพราะเลงตัวเองอยู่ ⇒ บรรทัด identity ข้างล่างกันอ่านผิดซ้ำ|r"
     out[#out + 1] = "|cffaaaaaaClearLines ก่อนทุก index (กันอ่านค่าค้างของ index ก่อนหน้า)|r"
     out[#out + 1] = ""
-    for _, u in ipairs({ "target", "focus", "player" }) do
+
+    -- กันอ่านผิด unit: บอกตรง ๆ ว่า unit นี้เป็นตัวเราเองหรือเปล่า
+    local function IdentityLine(u)
+        local nm, same, atk
+        local okN, v = pcall(UnitName, u); if okN then nm = v end
+        local okS, v2 = pcall(UnitIsUnit, u, "player"); if okS then same = v2 end
+        local okA, v3 = pcall(UnitCanAttack, "player", u); if okA then atk = v3 end
+        return "   |cffaaaaaaชื่อ=" .. PeekVal(nm)
+            .. "  เป็นตัวเราเอง?=" .. PeekVal(same)
+            .. "  ตีได้?=" .. PeekVal(atk) .. "|r"
+    end
+
+    -- เทียบ 3 method ที่ index 1 — ตัวไหนให้ข้อมูลมากสุด
+    local function MethodCompare(u, out2)
+        out2[#out2 + 1] = "   |cffffd200เทียบ 3 method ที่ index 1:|r"
+        local specs = { { "SetUnitAura", "HARMFUL" }, { "SetUnitBuff", nil },
+                        { "SetUnitDebuff", nil } }
+        for _, sp in ipairs(specs) do
+            local ok, id, nm2, err = ProbeIndex(u, 1, sp[2], sp[1])
+            if not ok then
+                out2[#out2 + 1] = "      " .. sp[1] .. ": |cffff9a9a" .. (err or "?") .. "|r"
+            else
+                out2[#out2 + 1] = "      " .. sp[1] .. ": id=|cff3fcf5a" .. PeekVal(id)
+                    .. "|r  ชื่อ=" .. PeekVal(nm2)
+            end
+        end
+    end
+
+    for _, u in ipairs({ "target", "focus", "boss1", "nameplate1" }) do
         local exists = UnitExists(u)
         out[#out + 1] = "|cff88ccffunit \"" .. u .. "\" "
             .. (exists and "|cff44ff44(มีตัว)|r" or "|cffff9a9a(ไม่มีตัว)|r")
         if exists then
+            out[#out + 1] = IdentityLine(u)
+            MethodCompare(u, out)
             EnumUnit(u, "HELPFUL", "HELPFUL (buff)", out)
             EnumUnit(u, "HARMFUL", "HARMFUL (debuff)", out)
         end
@@ -434,7 +494,8 @@ local function BuildFrame()
 
     local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     hint:SetPoint("LEFT", btnR, "RIGHT", 10, 0)
-    hint:SetText("|cffaaaaaaเล็ง target ที่มีออร่า + อยู่ใน combat · คอลัมน์ 3 = ทางที่ใช้ได้กับทุก unit|r")
+    hint:SetText("|cffaaaaaaเล็ง mob ที่มี DoT ของเรา (ห้ามเล็งตัวเอง) + อยู่ใน combat · "
+        .. "คอลัมน์ 3 dump ทุกบรรทัดของ tooltip เพื่อหา stack/เวลา|r")
 
     -- ⚠ FontString เท่านั้น — ห้าม EditBox (secret unmask ตอน copy)
     for i = 1, 3 do
