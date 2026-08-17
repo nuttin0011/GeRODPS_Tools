@@ -175,6 +175,14 @@ local function BuildSensor()
     end
     sensor:Show()
 
+    -- ** จุดที่ขาดรอบแรก (วัด 2026-08-18: ปุ่ม pre-create 10+10 แต่ไม่ populate เลย
+    -- icon ค้าง 134400) — BBF เรียก container:UpdateAllAuras() หลังตั้งค่าเสมอ (:3147)
+    local okU, errU = pcall(sensor.UpdateAllAuras, sensor)
+    if not okU and statusFS then
+        statusFS:SetText("|cffff3333UpdateAllAuras พัง: " .. ShortErr(errU) .. "|r")
+        return
+    end
+
     if statusFS then
         statusFS:SetText(("|cff44ff44สร้างแล้ว|r unit=%s · filter id %d ตัว"
             .. " (0 = เอาทุก aura) · ปุ่มจะโผล่ในแถบล่างเมื่อ aura ตรงเงื่อนไข")
@@ -199,6 +207,18 @@ local function BuildReport()
         out[#out + 1] = ""
         out[#out + 1] = "|cffffcc55ยังไม่ได้สร้าง sensor — ใส่ unit + spellID แล้วกด [สร้าง Sensor]|r"
         return out
+    end
+
+    -- S8: UpdateAllAuras ใน combat ทำได้ไหม (เรียกทุก Refresh — ถ้า throw
+    -- แปลว่า container ต้องพึ่ง event ของตัวเองใน combat ห้ามสั่งเอง)
+    do
+        local okU, errU = pcall(sensor.UpdateAllAuras, sensor)
+        out[#out + 1] = ""
+        if okU then
+            out[#out + 1] = "S8: UpdateAllAuras() |cff44ff44ไม่ throw|r"
+        else
+            out[#out + 1] = "S8: UpdateAllAuras(): |cffff9a9aTHROW|r " .. ShortErr(errU)
+        end
     end
 
     -- S5: enumeration API ใน combat ทำได้ไหม (BBF เลี่ยง — วัดให้เห็นกับตา)
