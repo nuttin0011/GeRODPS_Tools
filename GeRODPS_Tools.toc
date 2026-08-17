@@ -52,3 +52,4 @@ CDMRouteTest.lua
 CustomAuraProbe.lua
 NameplateAuraProbe.lua
 DispelCurveTest.lua
+PlayerAuraProbe.lua
