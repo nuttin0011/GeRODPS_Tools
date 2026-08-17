@@ -26,6 +26,19 @@
          · user ยืนยันด้วย GetSpellInfo) + TextLeft1 = ชื่อเวท
          ⇒ ทางนี้คือขา identity ของ DefPlayerDebuff v2
 
+    ** `count` = **stack จริง** — source เขียน `count = auraData.applications`
+       ทั้งฝั่ง buff (BuffFrame.lua:655) และ debuff (:770) — ไม่ต้องเดา
+       ⚠ ยกเว้นแถว TempEnchant ที่ count = chargesRemaining (จำนวนครั้ง ไม่ใช่ stack)
+
+    ** `btn:GetID()` — วัดเจอทั้ง nil และ 16 (2026-08-18) · source อธิบายครบ:
+       `AuraButtonMixin:GetID()` (BuffFrame.lua:1105) คืน `self.buttonInfo.ID`
+       และ field `ID` ถูกเซ็ต**ที่เดียว** คือแถว TempEnchant (`ID = slot`, :690)
+       ⇒ **nil = ออร่าจริง** · **16/17/18 = inventory slot ของอาวุธ** (MAINHAND/OFFHAND/RANGED)
+       = ปุ่ม rune/oil/poison บนอาวุธ **ไม่ใช่ aura instance ID**
+       ⇒ มีประโยชน์: Blizzard เองใช้ `not self:GetID()` เป็นตัวแยกออร่าจาก enchant (:975)
+       ⇒ **writer v2 ต้องข้ามแถวที่ ID ~= nil / auraType == "TempEnchant"**
+         (แถวนั้นไม่มี `index` ด้วย ⇒ SetUnitAura เรียกไม่ได้ ต้องข้ามอยู่ดี)
+
     ที่มาของ field (source dump bfsrc/Blizzard_BuffFrame/BuffFrame.lua):
       · frame.auraInfo[]  = { auraType, debuffType(=dispelName!), index, texture,
                               count, duration, expirationTime, timeMod }  — ไม่มี spellId
@@ -87,7 +100,8 @@ local function JoinLines(out)
     return t
 end
 
-local ROW_FIELDS = { "auraType", "debuffType", "index", "texture", "count",
+-- ID = inventory slot ของแถว TempEnchant (ไม่มีในแถวออร่าจริง) — เอามาคัดแถวทิ้ง
+local ROW_FIELDS = { "auraType", "debuffType", "index", "ID", "texture", "count",
                      "duration", "expirationTime", "timeMod", "auraInstanceID",
                      "spellID", "hideUnlessExpanded" }
 local BTN_FIELDS = { "auraType", "timeLeft", "hasValidInfo", "isExample",
@@ -196,8 +210,16 @@ local function ProbeFrame(frameName, out)
                     out[#out + 1] = ("   |cffffd200[ปุ่ม %d]|r"):format(i)
                     DumpKnown(b, BTN_FIELDS, "      ", out)
                     local okID, idv = pcall(b.GetID, b)
+                    local idMean = ""
+                    if okID then
+                        if idv == nil then
+                            idMean = "  |cff3fcf5a(nil = ออร่าจริง)|r"
+                        else
+                            idMean = "  |cffffcc55(= inventory slot → ปุ่ม TempEnchant ไม่ใช่ออร่า)|r"
+                        end
+                    end
                     out[#out + 1] = "      GetID() = "
-                        .. (okID and PeekVal(idv) or ShortErr(idv))
+                        .. (okID and PeekVal(idv) or ShortErr(idv)) .. idMean
                     if b.Duration ~= nil and b.Duration.GetText ~= nil then
                         local okT, txt = pcall(b.Duration.GetText, b.Duration)
                         out[#out + 1] = "      Duration:GetText() = "
@@ -315,7 +337,8 @@ local function BuildCol3()
     -- call เดียวกับ Blizzard OnEnter fallback (bfsrc/BuffFrame.lua:909) ·
     -- index จาก auraInfo เป็น plain · เฟรมของเราเอง = taint ไม่โดน GameTooltip จริง
     out[#out + 1] = ""
-    out[#out + 1] = "|cffffd200Scanning tooltip (ทุก icon · ไม่ต้อง hover) — data.id ต่อแถว:|r"
+    out[#out + 1] = "|cffffd200Scanning tooltip (ทุก icon · ไม่ต้อง hover) — spellID + stack ต่อแถว:|r"
+    out[#out + 1] = "|cffaaaaaacnt = count จาก auraInfo = applications = stack (ยืนยันจาก source)|r"
     do
         local tip = _G["GeRODPSToolsPAPScanTip"]
         if tip == nil then
@@ -335,7 +358,12 @@ local function BuildCol3()
                 local r2 = info[i]
                 local idx = (type(r2) == "table") and r2.index or nil
                 if idx == nil then
-                    out[#out + 1] = ("      [%d] index=nil — ข้าม"):format(i)
+                    -- แถว TempEnchant ไม่มี index (มี ID = slot แทน) ⇒ SetUnitAura เรียกไม่ได้
+                    local why = "index=nil"
+                    if type(r2) == "table" and r2.ID ~= nil then
+                        why = "TempEnchant (ID=" .. PeekVal(r2.ID) .. " = ช่องอาวุธ)"
+                    end
+                    out[#out + 1] = ("      [%d] ข้าม — "):format(i) .. why
                 else
                     local okSet, errSet = pcall(function()
                         tip:SetOwner(UIParent, "ANCHOR_NONE")
@@ -354,8 +382,11 @@ local function BuildCol3()
                             local okT, nm = pcall(fsL.GetText, fsL)
                             if okT then nmPart = PeekVal(nm) end
                         end
+                        local cntPart = "nil"
+                        if r2.count ~= nil then cntPart = PeekVal(r2.count) end
                         out[#out + 1] = ("      [%d] idx="):format(i) .. PeekVal(idx)
-                            .. "  data.id=|cff3fcf5a" .. idPart .. "|r  ชื่อ=" .. nmPart
+                            .. "  data.id=|cff3fcf5a" .. idPart .. "|r"
+                            .. "  cnt=|cff3fcf5a" .. cntPart .. "|r  ชื่อ=" .. nmPart
                     end
                 end
             end
