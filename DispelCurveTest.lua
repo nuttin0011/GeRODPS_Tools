@@ -166,6 +166,91 @@ local function LayoutChildren(listFrame)
     return children
 end
 
+
+-- ============================================================
+-- ขั้น 4: หา auraInstanceID จากเฟรมอื่นของ Blizzard
+-- ============================================================
+-- nameplate ไม่วาด buff ของศัตรู (วัดแล้ว children=0 เสมอ)
+-- แต่ **Target Frame โชว์ buff ของเป้าหมาย** — ที่คนเห็น Enrage กันปกติ
+-- เป็นเฟรมที่ Blizzard วาดเอง = Route B ที่ใช้ได้ในคอมแบต
+--
+-- ชื่อ field ของปุ่มเปลี่ยนไปมาหลาย patch ⇒ **ไม่เดาชื่อ**
+-- แต่ไล่ลูกแบบ recursive แล้วเก็บทุกเฟรมที่มี field `auraInstanceID`
+-- (จำกัดความลึก กัน loop ด้วย visited set)
+
+local AURA_ROOTS = {
+    "TargetFrame", "FocusFrame",
+    "Boss1TargetFrame", "Boss2TargetFrame", "Boss3TargetFrame", "Boss4TargetFrame",
+}
+
+--- ไล่หาเฟรมที่มี auraInstanceID ใต้ root (depth จำกัด)
+local function FindAuraFrames(root, depth, seen, hits)
+    if root == nil or depth > 4 then return end
+    if seen[root] then return end
+    seen[root] = true
+
+    local ok, aid = pcall(function() return root.auraInstanceID end)
+    if ok and aid ~= nil then
+        local vis = false
+        pcall(function() vis = root:IsVisible() == true end)
+        hits[#hits + 1] = { frame = root, aid = aid, visible = vis }
+    end
+
+    local kids
+    local okC = pcall(function() kids = { root:GetChildren() } end)
+    if okC and type(kids) == "table" then
+        for _, k in ipairs(kids) do
+            FindAuraFrames(k, depth + 1, seen, hits)
+        end
+    end
+end
+
+local function ProbeOtherFrames(curve, out)
+    out[#out + 1] = "-- ขั้น 4: หา auraInstanceID จากเฟรมอื่น (Target/Focus/Boss) --"
+    out[#out + 1] = "   nameplate ไม่วาด buff ของศัตรู — แต่ Target Frame โชว์ให้ (Enrage/Magic)"
+
+    local total, good = 0, 0
+    for _, rootName in ipairs(AURA_ROOTS) do
+        local root = _G[rootName]
+        if root ~= nil then
+            local hits = {}
+            FindAuraFrames(root, 0, {}, hits)
+            if #hits == 0 then
+                out[#out + 1] = ("  [%s] |cffaaaaaaไม่เจอเฟรมที่มี auraInstanceID|r"):format(rootName)
+            else
+                local unit = "target"
+                if rootName == "FocusFrame" then unit = "focus"
+                elseif rootName:match("^Boss(%d)") then unit = "boss" .. rootName:match("^Boss(%d)") end
+                out[#out + 1] = ("  [%s] เจอ %d เฟรม  (unit ที่ใช้ถาม = %s)")
+                    :format(rootName, #hits, unit)
+                local shown = 0
+                for _, h in ipairs(hits) do
+                    if h.visible then
+                        shown = shown + 1
+                        if shown <= 6 then
+                            total = total + 1
+                            local nm = "?"
+                            pcall(function() nm = h.frame:GetName() or "(ไม่มีชื่อ)" end)
+                            out[#out + 1] = ("      %s  aid=%s  spellID=%s")
+                                :format(tostring(nm), SafeStr(h.aid), SafeStr(h.frame.spellID))
+                            if TryCurve(unit, h.aid, curve, out, "          ") then
+                                good = good + 1
+                            end
+                        end
+                    end
+                end
+                out[#out + 1] = ("      -> ที่โชว์จริง %d / %d"):format(shown, #hits)
+            end
+        end
+    end
+    if total == 0 then
+        out[#out + 1] = "  |cffff5555ไม่มีเฟรมออร่าที่โชว์อยู่เลย|r"
+            .. " — ต้องเล็ง mob ที่มีออร่า (buff หรือ debuff) ตอนกด"
+    end
+    out[#out + 1] = ("  สรุปขั้น 4: curve หิน %d/%d"):format(good, total)
+    return total, good
+end
+
 -- ============================================================
 -- Report
 -- ============================================================
@@ -263,8 +348,20 @@ local function BuildReport()
     end
     out[#out + 1] = ""
 
+    local nOther, nOtherGood = ProbeOtherFrames(curve, out)
+    out[#out + 1] = ""
+
     -- ── สรุป ──
     out[#out + 1] = "-- สรุป --"
+    if nOther > 0 then
+        if nOtherGood > 0 then
+            out[#out + 1] = ("  |cff44ff44Target/Focus/Boss frame ใช้ได้ %d/%d|r"
+                .. " — นี่คือทางเข้าถึง buff ของ mob"):format(nOtherGood, nOther)
+        else
+            out[#out + 1] = ("  |cffff9a9aTarget/Focus/Boss frame หา aid ได้ %d แต่ curve ไม่ผ่าน|r")
+                :format(nOther)
+        end
+    end
     if nBtn == 0 then
         out[#out + 1] = "  ยังตัดสินไม่ได้ — ไม่มี auraInstanceID ให้ลอง"
     elseif nGood > 0 then
