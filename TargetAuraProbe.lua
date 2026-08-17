@@ -169,7 +169,95 @@ local function BuildColALines()
     local af = WalkAuraFrame(out)
     if af == nil then return out end
 
-    -- ลูกของ Auras frame
+    -- ผลวัด 2026-08-18: .Auras มีจริงแต่ GetChildren() = 0
+    -- ⇒ ปุ่มอยู่ลึกกว่า · ขุดต่อ 4 ทาง (เดินตามโครงที่ BuffFrame ใช้จริง)
+
+    -- ทาง 1: field ของตัว Auras เอง (BuffFrame เก็บ auraInfo/auraFrames ไว้บนตัว AuraFrame)
+    out[#out + 1] = "   |cffffd200field บน .Auras เอง:|r"
+    for _, k in ipairs({ "auraInfo", "auraFrames", "AuraContainer", "maxAuras",
+                         "numHideableBuffs", "auraPools", "unit" }) do
+        local v = af[k]
+        if v ~= nil then
+            if type(v) == "table" then
+                local cnt = 0
+                pcall(function() cnt = #v end)
+                out[#out + 1] = "      |cff3fcf5a" .. k .. " = <table> #" .. cnt .. "|r"
+            else
+                out[#out + 1] = "      " .. k .. " = " .. PeekVal(v)
+            end
+        end
+    end
+    do
+        local hits = {}
+        pcall(function()
+            for k in pairs(af) do
+                if type(k) == "string" then
+                    local lk = k:lower()
+                    if lk:find("aura") or lk:find("buff") or lk:find("pool") then
+                        hits[#hits + 1] = k
+                    end
+                end
+            end
+        end)
+        table.sort(hits)   -- ชื่อ key = plain ⇒ sort ได้
+        if #hits > 0 then
+            local line = ""
+            for _, k in ipairs(hits) do line = line .. k .. ", " end
+            out[#out + 1] = "      |cff888888key ที่มี aura/buff/pool: " .. line .. "|r"
+        end
+    end
+
+    -- ทาง 2: GetLayoutChildren() — แพตเทิร์นเดียวกับ nameplate list frame
+    -- (NameplateAuraCheck ใช้อยู่ — layout children ≠ GetChildren)
+    if af.GetLayoutChildren ~= nil then
+        local okL, lc = pcall(af.GetLayoutChildren, af)
+        if okL and type(lc) == "table" then
+            out[#out + 1] = ("   |cff3fcf5aGetLayoutChildren() = %d เฟรม|r"):format(#lc)
+            for li = 1, math.min(#lc, 3) do
+                out[#out + 1] = ("   |cffffd200[layout %d]|r"):format(li)
+                if type(lc[li]) == "table" then DumpButton(lc[li], "      ", out) end
+            end
+        else
+            out[#out + 1] = "   GetLayoutChildren(): " .. (okL and "ไม่ใช่ table" or "THROW")
+        end
+    else
+        out[#out + 1] = "   |cffaaaaaaไม่มี GetLayoutChildren|r"
+    end
+
+    -- ทาง 3: TargetFrame:GetAuraContainer() — method ที่เจอจากการกวาด key
+    do
+        local tf = _G["TargetFrame"]
+        if tf ~= nil and tf.GetAuraContainer ~= nil then
+            local okG, ac = pcall(tf.GetAuraContainer, tf)
+            if okG and type(ac) == "table" then
+                out[#out + 1] = "   |cff3fcf5aGetAuraContainer() คืน frame|r"
+                if ac.GetChildren ~= nil then
+                    local okC2, res2 = pcall(function() return { ac:GetChildren() } end)
+                    if okC2 and type(res2) == "table" then
+                        out[#out + 1] = ("      ลูก = %d เฟรม"):format(#res2)
+                        for ci = 1, math.min(#res2, 3) do
+                            if type(res2[ci]) == "table" then
+                                out[#out + 1] = ("      |cffffd200[ลูก %d]|r"):format(ci)
+                                DumpButton(res2[ci], "         ", out)
+                            end
+                        end
+                    end
+                end
+                if ac.GetLayoutChildren ~= nil then
+                    local okL2, lc2 = pcall(ac.GetLayoutChildren, ac)
+                    if okL2 and type(lc2) == "table" then
+                        out[#out + 1] = ("      GetLayoutChildren() = %d"):format(#lc2)
+                    end
+                end
+            else
+                out[#out + 1] = "   GetAuraContainer(): " .. (okG and "ไม่ใช่ frame" or "THROW")
+            end
+        else
+            out[#out + 1] = "   |cffaaaaaaไม่มี TargetFrame:GetAuraContainer|r"
+        end
+    end
+
+    -- ทาง 4: GetChildren() ตามเดิม (เก็บไว้เทียบ)
     local kids
     if af.GetChildren ~= nil then
         local okC, res = pcall(function() return { af:GetChildren() } end)
@@ -179,7 +267,7 @@ local function BuildColALines()
         out[#out + 1] = "   |cffff9a9aGetChildren() อ่านไม่ได้|r"
         return out
     end
-    out[#out + 1] = ("   ลูกทั้งหมด = %d เฟรม"):format(#kids)
+    out[#out + 1] = ("   GetChildren() = %d เฟรม"):format(#kids)
 
     local shownN = 0
     for i = 1, #kids do
@@ -392,17 +480,22 @@ local function EnumUnit(unit, filter, label, out)
                 end
                 -- ทุก key ของ GetTooltipData — เราอ่านแค่ .id มาตลอด อาจมี stack หลงอยู่
                 if type(rawData) == "table" then
-                    local ks = {}
+                    -- ⚠ ห้าม table.sort ที่นี่ — PeekVal(v) คืน secret string เมื่อ v เป็น secret
+                    -- และ sort เทียบสมาชิกด้วย `<` ⇒ compare secret string ⇒ THROW
+                    -- (เจอจริง 2026-08-18: คอลัมน์ 2/3 พังหมด) — เรียง key ก่อนค่อย render
+                    local kn = {}
                     pcall(function()
-                        for k, v in pairs(rawData) do
+                        for k in pairs(rawData) do
                             if type(k) == "string" and k ~= "lines" then
-                                ks[#ks + 1] = k .. "=" .. PeekVal(v)
+                                kn[#kn + 1] = k
                             end
                         end
                     end)
-                    table.sort(ks)
+                    table.sort(kn)      -- ชื่อ key เป็น plain เสมอ — sort ได้
                     local kk = "         data: "
-                    for _, t in ipairs(ks) do kk = kk .. t .. "  " end
+                    for _, k in ipairs(kn) do
+                        kk = kk .. k .. "=" .. PeekVal(rawData[k]) .. "  "
+                    end
                     out[#out + 1] = kk
                 end
             end
