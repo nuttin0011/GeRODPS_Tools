@@ -211,6 +211,11 @@ local function BuildColALines()
     out[#out + 1] = "combat = " .. (InCombatLockdown()
         and "|cff44ff44IN COMBAT|r" or "|cffff9a9aOUT (ผลหลอก!)|r")
     out[#out + 1] = "target มีตัวไหม = " .. (UnitExists(u) and "|cff44ff44yes|r" or "|cffff9a9ano|r")
+    if not UnitExists(u) then
+        out[#out + 1] = "|cffff3333>>> ไม่มี target — ปุ่มออร่าไม่ถูกสร้าง ทุกชั้นจะเป็น 0/ว่างหมด"
+        out[#out + 1] = "เลงเป้าที่มี debuff stack (เช่น dummy ที่เห็น 16/8 บน nameplate)"
+        out[#out + 1] = "แล้วกด Refresh ใหม่ — ผลรอบนี้สรุปอะไรไม่ได้ <<<|r"
+    end
     if C_Secrets ~= nil and C_Secrets.ShouldAurasBeSecret ~= nil then
         local okS, sv = pcall(C_Secrets.ShouldAurasBeSecret)
         out[#out + 1] = "ShouldAurasBeSecret() = " .. (okS and PeekVal(sv) or ShortErr(sv))
@@ -316,7 +321,7 @@ local function BuildColALines()
         out[#out + 1] = "   |cffffd200สแกนลูกหลานหา FontString ที่มีข้อความ:|r"
         local found = 0
         local function ScanRegions(fr, depth, path)
-            if depth > 2 or found >= 8 then return end
+            if depth > 4 or found >= 12 then return end
             local okR, regs = pcall(function() return { fr:GetRegions() } end)
             if okR and type(regs) == "table" then
                 for _, rg in ipairs(regs) do
@@ -341,7 +346,9 @@ local function BuildColALines()
                 end
             end
         end
-        pcall(ScanRegions, af, 0, "Auras")
+        -- ราก = TargetFrame ทั้งต้น (เดิมเริ่มที่ .Auras ซึ่งลูก = 0 ⇒ สแกนไม่เจออะไรแน่นอน
+        -- · ปุ่มอาจเป็นลูกของชั้นอื่น ไม่ใช่ของ .Auras ตรง ๆ)
+        pcall(ScanRegions, _G["TargetFrame"], 0, "TF")
         if found == 0 then
             out[#out + 1] = "      |cffaaaaaaไม่เจอ FontString ที่มีข้อความเลย|r"
         end
