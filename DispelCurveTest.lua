@@ -466,6 +466,104 @@ local function PeekVal(v)
     return "<เรนเดอร์ไม่ได้>"
 end
 
+
+--- ตัดข้อความ error ให้สั้น (บรรทัดแรกพอ — "Lua Taint: ..." บรรทัดสองตัดทิ้ง)
+local function ShortErr(e)
+    return (tostring(e):gsub("\n.*", ""))
+end
+
+--- เอา aid (secret) ไปลองกับทุก API ที่รับ auraInstanceID แล้วรายงานเป็นข้อความ
+--- ผลอาจเป็น secret — เรนเดอร์ผ่าน PeekVal ให้อ่านด้วยตาทั้งหมด
+local function AidAPIBlock(unit, aid)
+    local NL = string.char(10)
+    if aid == nil then return "" end
+    local t = "   |cffffd200ลอง aid กับ API ที่รับ instanceID:|r" .. NL
+
+    -- 1) GetAuraDataByAuraInstanceID — ถ้าได้ table = จบเกม (dispelName อยู่ในนั้น)
+    if C_UnitAuras and C_UnitAuras.GetAuraDataByAuraInstanceID then
+        local ok, d = pcall(C_UnitAuras.GetAuraDataByAuraInstanceID, unit, aid)
+        if not ok then
+            t = t .. "   GetAuraDataByAuraInstanceID: |cffff9a9aTHROW|r " .. ShortErr(d) .. NL
+        elseif d == nil then
+            t = t .. "   GetAuraDataByAuraInstanceID: nil" .. NL
+        else
+            t = t .. "   |cff44ff44GetAuraDataByAuraInstanceID: ได้ table|r" .. NL
+            t = t .. "      dispelName = |cff44ff44" .. PeekVal(d.dispelName) .. "|r"
+                .. "    isStealable = " .. PeekVal(d.isStealable)
+                .. "    applications = " .. PeekVal(d.applications) .. NL
+            t = t .. "      duration = " .. PeekVal(d.duration)
+                .. "    expirationTime = " .. PeekVal(d.expirationTime)
+                .. "    sourceUnit = " .. PeekVal(d.sourceUnit) .. NL
+        end
+    end
+
+    -- 2) GetAuraDuration — DurationObj (ถ้า obj ไม่ nil → method ไม่คืน nil ตาม contract)
+    if C_UnitAuras and C_UnitAuras.GetAuraDuration then
+        local ok, obj = pcall(C_UnitAuras.GetAuraDuration, unit, aid)
+        if not ok then
+            t = t .. "   GetAuraDuration: |cffff9a9aTHROW|r " .. ShortErr(obj) .. NL
+        elseif obj == nil then
+            t = t .. "   GetAuraDuration: nil" .. NL
+        else
+            local rem, tot
+            local okR, r = pcall(obj.GetRemainingDuration, obj)
+            if okR then rem = r end
+            local okT, v = pcall(obj.GetTotalDuration, obj)
+            if okT then tot = v end
+            t = t .. "   |cff44ff44GetAuraDuration: ได้ DurationObj|r  remain = "
+                .. PeekVal(rem) .. "    total = " .. PeekVal(tot) .. NL
+        end
+    end
+
+    -- 3) IsAuraFilteredOutByInstanceID — "คลาสเราปลดได้ไหม" เกมตอบเอง talent-aware
+    --    ผลเป็น secret boolean ก็เรนเดอร์ได้ (tostring → "true"/"false")
+    if C_UnitAuras and C_UnitAuras.IsAuraFilteredOutByInstanceID then
+        for _, flt in ipairs({ "HELPFUL|RAID_PLAYER_DISPELLABLE",
+                               "HARMFUL|RAID_PLAYER_DISPELLABLE" }) do
+            local ok, fo = pcall(C_UnitAuras.IsAuraFilteredOutByInstanceID, unit, aid, flt)
+            if not ok then
+                t = t .. "   Filter " .. flt .. ":" .. NL
+                    .. "      |cffff9a9aTHROW|r " .. ShortErr(fo) .. NL
+            else
+                t = t .. "   Filter " .. flt .. ":" .. NL
+                    .. "      filteredOut = |cff44ff44" .. PeekVal(fo)
+                    .. "|r  |cffaaaaaa(false = ปลดได้)|r" .. NL
+            end
+        end
+    end
+
+    -- 4) C_TooltipInfo — เส้น display เดียวกับ tooltip จริง (ในเกม tooltip ยังโชว์ชื่อ buff ได้)
+    if C_TooltipInfo then
+        for _, spec in ipairs({ { fn = "GetUnitBuffByAuraInstanceID",   label = "TooltipInfo(Buff)" },
+                                { fn = "GetUnitDebuffByAuraInstanceID", label = "TooltipInfo(Debuff)" } }) do
+            local fn = C_TooltipInfo[spec.fn]
+            if fn ~= nil then
+                local ok, data = pcall(fn, unit, aid)
+                if not ok then
+                    t = t .. "   " .. spec.label .. ": |cffff9a9aTHROW|r " .. ShortErr(data) .. NL
+                elseif data == nil then
+                    t = t .. "   " .. spec.label .. ": nil" .. NL
+                else
+                    t = t .. "   |cff44ff44" .. spec.label .. ": ได้ data|r"
+                    local lines = data.lines
+                    if type(lines) == "table" then
+                        for li = 1, math.min(#lines, 3) do
+                            local ln = lines[li]
+                            if type(ln) == "table" then
+                                t = t .. NL .. "      line" .. li .. " = "
+                                    .. PeekVal(ln.leftText)
+                            end
+                        end
+                    end
+                    t = t .. NL
+                end
+            end
+        end
+    end
+
+    return t
+end
+
 local function BuildSecretText()
     local NL = string.char(10)
     local t = "|cffffd200== Read Secret — ค่าจริงบนปุ่มออร่า nameplate ==|r" .. NL
@@ -514,7 +612,8 @@ local function BuildSecretText()
                                     .. "    stack = [" .. PeekVal(stkTxt) .. "]"
                                     .. "    cdText = [" .. PeekVal(cdTxt) .. "]" .. NL
                                 t = t .. "   start = " .. PeekVal(sMs) .. "    dur = " .. PeekVal(dMs)
-                                    .. NL .. NL
+                                    .. NL
+                                t = t .. AidAPIBlock(unit, btn.auraInstanceID) .. NL
                             end
                         end
                     end
