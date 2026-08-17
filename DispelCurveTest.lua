@@ -206,8 +206,9 @@ local function FindAuraFrames(root, depth, seen, hits)
 end
 
 local function ProbeOtherFrames(curve, out)
-    out[#out + 1] = "-- ขั้น 4: หา auraInstanceID จากเฟรมอื่น (Target/Focus/Boss) --"
-    out[#out + 1] = "   nameplate ไม่วาด buff ของศัตรู — แต่ Target Frame โชว์ให้ (Enrage/Magic)"
+    out[#out + 1] = "-- |cffffd200ขั้น 4: **เป้าหมายหลัก** — buff ของ mob จาก Target/Focus/Boss frame|r --"
+    out[#out + 1] = "   nameplate ไม่วาด buff ของศัตรู — แต่ Target Frame โชว์ให้ (ที่คนเห็น Enrage/Magic กัน)"
+    out[#out + 1] = "   |cffaaaaaaขั้นนี้ไม่ต้องมี DoT — แค่เล็ง mob ที่มี buff นั้นอยู่จริง|r"
 
     local total, good = 0, 0
     for _, rootName in ipairs(AURA_ROOTS) do
@@ -314,8 +315,9 @@ local function BuildReport()
     out[#out + 1] = ""
 
     -- ── ขั้น 3: ของจริง — aid จากปุ่มบน nameplate (Route B, secret) ──
-    out[#out + 1] = "-- ขั้น 3: **ของจริง** aid จากปุ่มออร่าบน nameplate (Route B) --"
-    out[#out + 1] = "   แหล่งเดียวที่ยังหา auraInstanceID ได้ตอน combat · ค่าเป็น secret"
+    out[#out + 1] = "-- ขั้น 3: aid จากปุ่มออร่าบน nameplate (Route B) --"
+    out[#out + 1] = "   |cffaaaaaaเสริมเท่านั้น — nameplate วาดเฉพาะ debuff ที่ source = เราเอง"
+        .. " ⇒ ทดสอบกลไก curve ได้ แต่**ไม่ใช่ buff ของ mob**|r"
     local nBtn, nGood = 0, 0
     for i = 1, MAX_PLATES do
         local unit = "nameplate" .. i
@@ -342,9 +344,8 @@ local function BuildReport()
         end
     end
     if nBtn == 0 then
-        out[#out + 1] = "  |cffff5555ไม่มีปุ่มออร่าให้ทดสอบเลย|r"
-        out[#out + 1] = "     ต้องมี DoT ของเราติด mob (Blizzard วาดเฉพาะดีบัฟที่ source = เรา)"
-        out[#out + 1] = "     ถ้าอยากได้ buff ของ mob: Blizzard ไม่วาดให้ — วัดแล้ว children=0 เสมอ"
+        out[#out + 1] = "  |cffaaaaaaไม่มีปุ่มออร่าบน nameplate (ต้องมี DoT ของเรา) — ข้ามได้"
+            .. " เป้าหมายหลักอยู่ขั้น 4|r"
     end
     out[#out + 1] = ""
 
@@ -415,8 +416,13 @@ local function BuildFrame()
     hint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -SIDE_PAD, -(TITLE_H + 8))
     hint:SetJustifyH("LEFT")
     hint:SetSpacing(3)
-    hint:SetText("ต้องกดตอน: |cffffcc55อยู่ในดัน + combat + มี DoT ของเราติด mob|r"
-        .. "  (นอก combat ออร่าไม่ secret -> ผลหลอก)")
+    hint:SetText(
+        "|cffffd200เป้าหมายหลัก (ขั้น 4):|r อยู่ในดัน + combat + "
+        .. "|cffffcc55เล็ง mob ที่มี buff Magic/Enrage|r (ไอคอนต้องโผล่บน Target Frame) "
+        .. "— |cffaaaaaaไม่ต้องมี DoT|r"
+        .. "|n|cffffd200เสริม (ขั้น 3):|r ถ้ามี DoT ของเราติด mob จะทดสอบ curve "
+        .. "จากปุ่มบน nameplate ให้ด้วย (ได้แค่ debuff ของเราเอง ไม่ใช่ buff ของ mob)"
+        .. "  |cffaaaaaa(นอก combat ออร่าไม่ secret -> ผลหลอก)|r")
 
     local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btn:SetSize(120, 24)
