@@ -736,11 +736,12 @@ local colFS = {}
 local pageLabel
 
 -- เนื้อหาทั้งหมดเป็นบรรทัดเดียว ๆ แล้วไหลลง 3 คอลัมน์ต่อหน้าแบบหนังสือพิมพ์
--- (user ขอ 2026-08-18: ข้อมูลเต็มเฟรม ทำเป็นหลายหน้า)
-local _lines = {}
-local _page  = 1
-local LINE_H = 16          -- ChatFontNormal ~14 + spacing 2 (บรรทัด wrap อาจกิน 2 แถว —
-                           -- ค่าประมาณพอ เปลี่ยนหน้า/ขยายหน้าต่างได้)
+-- ⚠ ห้ามนับบรรทัดแบบตายตัว (LINE_H) — บรรทัดยาว wrap เป็นหลายแถวจอ
+--   ทำคอลัมน์ล้นเฟรมแล้วโดน clip ท้าย (user เจอ 2026-08-18: ข้อความขาดหาย
+--   ด้านล่าง) ⇒ แบ่งหน้าด้วยความสูงจริงจาก GetStringHeight() ทีละบรรทัด
+local _lines    = {}
+local _page     = 1
+local _colTexts = {}   -- ข้อความต่อคอลัมน์ที่จัดแล้ว (เก็บ secret string ใน table ได้)
 
 local TITLE_H  = 24
 local SIDE_PAD = 12
@@ -763,30 +764,43 @@ local function Relayout()
     end
 end
 
-local function LinesPerCol()
+local function ColMaxH()
     local h = 600
-    if frame ~= nil then h = frame:GetHeight() - TOP_ROW - 28 end
-    local n = math.floor(h / LINE_H)
-    if n < 10 then n = 10 end
-    return n
+    if frame ~= nil then h = frame:GetHeight() - TOP_ROW - 30 end
+    if h < 100 then h = 100 end
+    return h
+end
+
+--- จัดเนื้อหาลงคอลัมน์โดยวัดความสูงจริงทีละบรรทัด (ใช้ colFS[1] เป็นไม้วัด —
+--- ความกว้างเท่ากันทุกคอลัมน์) · บรรทัดเดียวที่สูงเกินคอลัมน์ยังต้องใส่ (กัน loop ค้าง)
+--- ผลเก็บใน _colTexts — RenderPage แค่หยิบไปโชว์ ไม่ต้องวัดซ้ำ
+local function ComputePages()
+    _colTexts = {}
+    if not colFS[1] or #_lines == 0 then return end
+    local fs, maxH = colFS[1], ColMaxH()
+    local i = 1
+    while i <= #_lines do
+        local t, first = "", true
+        while i <= #_lines do
+            local cand = t .. _lines[i] .. NL   -- ต่อด้วย .. (secret string ได้)
+            fs:SetText(cand)
+            if fs:GetStringHeight() > maxH and not first then break end
+            t = cand
+            i = i + 1
+            first = false
+        end
+        _colTexts[#_colTexts + 1] = t
+    end
 end
 
 local function RenderPage()
     if not colFS[1] then return end
-    local per = LinesPerCol()
-    local totalPages = math.ceil(#_lines / (per * 3))
+    local totalPages = math.ceil(#_colTexts / 3)
     if totalPages < 1 then totalPages = 1 end
     if _page > totalPages then _page = totalPages end
     if _page < 1 then _page = 1 end
     for c = 1, 3 do
-        local startIdx = (_page - 1) * per * 3 + (c - 1) * per + 1
-        local t = ""
-        local last = startIdx + per - 1
-        if last > #_lines then last = #_lines end
-        for i = startIdx, last do
-            t = t .. _lines[i] .. NL       -- ต่อด้วย .. (บรรทัดอาจเป็น secret string)
-        end
-        colFS[c]:SetText(t)
+        colFS[c]:SetText(_colTexts[(_page - 1) * 3 + c] or "")
     end
     if pageLabel ~= nil then
         pageLabel:SetText(("หน้า %d/%d · %d บรรทัด"):format(_page, totalPages, #_lines))
@@ -815,6 +829,7 @@ local function Refresh()
     add(BuildEnumLines, { "target", "focus" }, true, false)
     add(BuildPlateLines)
     _page = 1
+    ComputePages()
     RenderPage()
 end
 
@@ -835,10 +850,7 @@ local function BuildFrame()
     frame:SetClampedToScreen(true)
     frame:SetClipsChildren(true)
     frame:SetFrameStrata("DIALOG")
-    frame:SetScript("OnSizeChanged", function()
-        Relayout()
-        RenderPage()
-    end)
+    frame:SetScript("OnSizeChanged", Relayout)
     if frame.TitleText then frame.TitleText:SetText("Target Aura Probe — TargetFrame / tooltip enum") end
     table.insert(UISpecialFrames, "GeRODPSToolsTargetAuraProbe")
 
@@ -894,7 +906,11 @@ local function BuildFrame()
         end
     end)
     resize:SetScript("OnMouseUp", function(_, button)
-        if button == "LeftButton" then frame:StopMovingOrSizing() end
+        if button == "LeftButton" then
+            frame:StopMovingOrSizing()
+            ComputePages()      -- ขนาดเปลี่ยน = ความสูง/กว้างคอลัมน์เปลี่ยน — วัดใหม่ตอนปล่อยเมาส์
+            RenderPage()
+        end
     end)
 
     return frame
