@@ -286,6 +286,50 @@ local function BuildReport()
                     out[#out + 1] = "   GetCooldownTimes: THROW " .. ShortErr(st)
                 end
             end
+
+            -- ตามคำสั่ง user 2026-08-18: หา .applications บนปุ่ม — ความหวังแบบ
+            -- CDM route B (itemFrame.auraDataCached อ่านได้รวม in-combat)
+            -- ⚠ ใน combat ปุ่มเป็น forbidden object — แม้แค่ index field ก็อาจ throw
+            --   ⇒ ห่อ pcall ทีละ field แล้วรายงานผลรายตัว
+            do
+                local function Field(label, fn)
+                    local okF, v = pcall(fn)
+                    if not okF then
+                        return "   " .. label .. " = |cffff9a9aTHROW|r"
+                    end
+                    if type(v) == "table" then
+                        return "   " .. label .. " = <table>"
+                    end
+                    return "   " .. label .. " = " .. PeekVal(v)
+                end
+                out[#out + 1] = Field("btn.applications", function() return e.btn.applications end)
+                out[#out + 1] = Field("btn.auraDataCached", function() return e.btn.auraDataCached end)
+                local okAD, ad = pcall(function() return e.btn.auraDataCached end)
+                if okAD and type(ad) == "table" then
+                    out[#out + 1] = Field("  .applications", function() return ad.applications end)
+                    out[#out + 1] = Field("  .spellId", function() return ad.spellId end)
+                    out[#out + 1] = Field("  .expirationTime", function() return ad.expirationTime end)
+                    out[#out + 1] = Field("  .dispelName", function() return ad.dispelName end)
+                end
+                -- กวาดชื่อ value key ของปุ่ม (นอก combat จะเห็นว่ามี field อะไรให้ลุ้น)
+                local names = {}
+                local okP = pcall(function()
+                    for k, v in pairs(e.btn) do
+                        if type(k) == "string" and type(v) ~= "function"
+                            and k ~= "gerIcon" then
+                            names[#names + 1] = k
+                        end
+                    end
+                end)
+                if okP and #names > 0 then
+                    table.sort(names)     -- ชื่อ key เป็น plain เสมอ
+                    local line = ""
+                    for _, k in ipairs(names) do line = line .. k .. " " end
+                    out[#out + 1] = "   |cff888888value keys: " .. line .. "|r"
+                elseif not okP then
+                    out[#out + 1] = "   |cff888888pairs(btn): THROW (forbidden ใน combat)|r"
+                end
+            end
         end
     end
     return out
