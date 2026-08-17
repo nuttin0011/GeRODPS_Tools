@@ -217,7 +217,8 @@ local function BuildText()
     if C_UnitAuras ~= nil and C_UnitAuras.GetAuraDataByIndex ~= nil then
         local okA, d = pcall(C_UnitAuras.GetAuraDataByIndex, "player", 1, "HARMFUL")
         if not okA then
-            out[#out + 1] = 'เส้นเก่า GetAuraDataByIndex("player",1,"HARMFUL") : |cffff9a9aTHROW|r ' .. ShortErr(d)
+            out[#out + 1] = 'เส้นเก่า GetAuraDataByIndex("player",1,"HARMFUL") : |cffff9a9aTHROW|r '
+                .. ShortErr(d)
         elseif d == nil then
             out[#out + 1] = 'เส้นเก่า GetAuraDataByIndex("player",1,"HARMFUL") : nil'
                 .. ' (ไม่มี debuff หรือโดนบล็อกเงียบ)'
