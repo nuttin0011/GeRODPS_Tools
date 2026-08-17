@@ -21,8 +21,10 @@
       ❌ C_TooltipInfo.GetUnitBuff/GetUnitDebuff (index) THROW — tooltip-by-index ตายด้วย
       ❌ timeLeft/exp arithmetic THROW → remain ต้องให้ AHK ลบ (exp เป็นวินาที + now)
       ⚠ buff ถาวร: ปุ่ม timeLeft = nil → writer จริงใช้ auraInfo rows ไม่ใช่ปุ่ม
-      ⇒ เหลือทางเดียวที่ยังไม่วัด: scanning tooltip ของเราเอง (ไม่ hover) —
-         call เดียวกับ Blizzard OnEnter fallback (SetUnitAura ด้วย index plain)
+      ✅ รอบสาม (2026-08-18): scanning tooltip ของเราเอง — SetUnitAura **ไม่ throw**
+         data.id = spellID จริง (367521 = Bone Bolt · iconID 135537 ตรงกับ texture ในแถว
+         · user ยืนยันด้วย GetSpellInfo) + TextLeft1 = ชื่อเวท
+         ⇒ ทางนี้คือขา identity ของ DefPlayerDebuff v2
 
     ที่มาของ field (source dump bfsrc/Blizzard_BuffFrame/BuffFrame.lua):
       · frame.auraInfo[]  = { auraType, debuffType(=dispelName!), index, texture,
@@ -193,6 +195,9 @@ local function ProbeFrame(frameName, out)
                 if shown == 1 then
                     out[#out + 1] = ("   |cffffd200[ปุ่ม %d]|r"):format(i)
                     DumpKnown(b, BTN_FIELDS, "      ", out)
+                    local okID, idv = pcall(b.GetID, b)
+                    out[#out + 1] = "      GetID() = "
+                        .. (okID and PeekVal(idv) or ShortErr(idv))
                     if b.Duration ~= nil and b.Duration.GetText ~= nil then
                         local okT, txt = pcall(b.Duration.GetText, b.Duration)
                         out[#out + 1] = "      Duration:GetText() = "
@@ -214,8 +219,10 @@ local function ProbeFrame(frameName, out)
                         local okT, txt = pcall(b.Duration.GetText, b.Duration)
                         if okT then durTxt = "  Dur=" .. PeekVal(txt) end
                     end
+                    local okID2, idv2 = pcall(b.GetID, b)
                     out[#out + 1] = ("   |cffffd200[ปุ่ม %d]|r "):format(i)
                         .. "timeLeft=" .. PeekVal(b.timeLeft) .. durTxt
+                        .. "  GetID=" .. (okID2 and PeekVal(idv2) or "?")
                 end
             end
         end
@@ -304,52 +311,58 @@ local function BuildCol3()
     TipByIndex("GetUnitBuff", "GetUnitBuff", _G["BuffFrame"])
     TipByIndex("GetUnitDebuff", "GetUnitDebuff", _G["DebuffFrame"])
 
-    -- (ก2) scanning tooltip ของเราเอง — **ไม่ต้อง hover**
-    -- Blizzard OnEnter fallback ใช้ GameTooltip:SetUnitAura(unit, index, filter)
-    -- ตรง ๆ (bfsrc/BuffFrame.lua:909) — เราสร้าง tooltip ของเราเองแล้วเรียก
-    -- call เดียวกัน (เฟรมของเรา = taint ไม่โดน GameTooltip จริง — บทเรียน CDM)
+    -- (ก2) scanning tooltip ของเราเอง — **ทุก icon ทั้ง 2 เฟรม ไม่ต้อง hover**
+    -- call เดียวกับ Blizzard OnEnter fallback (bfsrc/BuffFrame.lua:909) ·
+    -- index จาก auraInfo เป็น plain · เฟรมของเราเอง = taint ไม่โดน GameTooltip จริง
     out[#out + 1] = ""
-    out[#out + 1] = "|cffffd200Scanning tooltip ของเราเอง (ไม่ต้อง hover):|r"
+    out[#out + 1] = "|cffffd200Scanning tooltip (ทุก icon · ไม่ต้อง hover) — data.id ต่อแถว:|r"
     do
         local tip = _G["GeRODPSToolsPAPScanTip"]
         if tip == nil then
             tip = CreateFrame("GameTooltip", "GeRODPSToolsPAPScanTip", nil,
                 "GameTooltipTemplate")
         end
-        local df2 = _G["DebuffFrame"]
-        local info2 = df2 and df2.auraInfo
-        local row1 = (type(info2) == "table") and info2[1] or nil
-        local idx = (type(row1) == "table") and row1.index or 1
-        local okSet, errSet = pcall(function()
-            tip:SetOwner(UIParent, "ANCHOR_NONE")
-            tip:SetUnitAura("player", idx, "HARMFUL")
-        end)
-        if not okSet then
-            out[#out + 1] = "   SetUnitAura(player," .. PeekVal(idx)
-                .. ",HARMFUL): |cffff9a9aTHROW|r " .. ShortErr(errSet)
-        else
-            out[#out + 1] = "   |cff44ff44SetUnitAura: ไม่ throw|r"
-            local fsL = _G["GeRODPSToolsPAPScanTipTextLeft1"]
-            if fsL ~= nil and fsL.GetText ~= nil then
-                local okT, nm = pcall(fsL.GetText, fsL)
-                out[#out + 1] = "   TextLeft1 (ชื่อเวท?) = "
-                    .. (okT and PeekVal(nm) or ShortErr(nm))
+        local fsL = _G["GeRODPSToolsPAPScanTipTextLeft1"]
+        local function ScanAll(frameName, filter)
+            out[#out + 1] = "   |cff88ccff" .. frameName .. " (" .. filter .. "):|r"
+            local fr = _G[frameName]
+            local info = fr and fr.auraInfo
+            if type(info) ~= "table" or #info == 0 then
+                out[#out + 1] = "      (ไม่มีแถว auraInfo)"
+                return
             end
-            if tip.GetTooltipData ~= nil then
-                local okD, d = pcall(tip.GetTooltipData, tip)
-                if okD and type(d) == "table" then
-                    out[#out + 1] = "   data.id (spellID?) = " .. PeekVal(d.id)
-                    if type(d.lines) == "table" and type(d.lines[1]) == "table" then
-                        out[#out + 1] = "   line1 = " .. PeekVal(d.lines[1].leftText)
-                    end
-                elseif not okD then
-                    out[#out + 1] = "   GetTooltipData: |cffff9a9aTHROW|r " .. ShortErr(d)
+            for i = 1, math.min(#info, 10) do
+                local r2 = info[i]
+                local idx = (type(r2) == "table") and r2.index or nil
+                if idx == nil then
+                    out[#out + 1] = ("      [%d] index=nil — ข้าม"):format(i)
                 else
-                    out[#out + 1] = "   GetTooltipData = " .. PeekVal(d)
+                    local okSet, errSet = pcall(function()
+                        tip:SetOwner(UIParent, "ANCHOR_NONE")
+                        tip:SetUnitAura("player", idx, filter)
+                    end)
+                    if not okSet then
+                        out[#out + 1] = ("      [%d] idx="):format(i) .. PeekVal(idx)
+                            .. " |cffff9a9aTHROW|r " .. ShortErr(errSet)
+                    else
+                        local idPart, nmPart = "nil", "nil"
+                        if tip.GetTooltipData ~= nil then
+                            local okD, d = pcall(tip.GetTooltipData, tip)
+                            if okD and type(d) == "table" then idPart = PeekVal(d.id) end
+                        end
+                        if fsL ~= nil and fsL.GetText ~= nil then
+                            local okT, nm = pcall(fsL.GetText, fsL)
+                            if okT then nmPart = PeekVal(nm) end
+                        end
+                        out[#out + 1] = ("      [%d] idx="):format(i) .. PeekVal(idx)
+                            .. "  data.id=|cff3fcf5a" .. idPart .. "|r  ชื่อ=" .. nmPart
+                    end
                 end
             end
-            pcall(function() tip:Hide() end)
         end
+        ScanAll("BuffFrame", "HELPFUL")
+        ScanAll("DebuffFrame", "HARMFUL")
+        pcall(function() tip:Hide() end)
     end
 
     -- (ข) GameTooltip ตอน hover — Blizzard (secure) เป็นคน fill ให้เอง
