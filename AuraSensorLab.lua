@@ -1,35 +1,37 @@
 --[[
     GeRODPS_Tools / AuraSensorLab.lua
 
-    "Aura Sensor Lab" — พิสูจน์ดีไซน์ **sensor container**: สร้าง CustomAuraContainer
-    ของเราเองผูกกับ unit ใดก็ได้ แล้วให้ **ฝั่ง C วาดข้อมูล aura ลง widget ของเรา**
-    จากนั้นเราอ่าน widget ตัวเอง (ทางที่พิสูจน์แล้วกับปุ่ม nameplate)
+    "Aura Sensor Lab" v2 — พิสูจน์ดีไซน์ **sensor slot**: CustomAuraContainer +
+    AddAuraSlot ให้ **ฝั่ง C เขียนข้อมูล aura ลง widget ของเรา** แล้วเราอ่าน widget
+    ตัวเองใน combat (ทางเดียวกับที่อ่านปุ่ม nameplate สำเร็จ)
 
-    ═══ ที่มา (อ่านจาก BetterBlizzFrames midnight/modules/auras.lua · 2026-08-18) ═══
-      container = CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")
-      container:SetUnit(unit)
-      container:AddAuraGroup(key, filterString, {
-          maxFrameCount = n, layout = {...},
-          initializeFrame = function(button) ... end,   -- 🔑 เรียกตอน C สร้างปุ่ม
-      })
-      container:SetAuraGroupCandidateFilters(key, { includeSpellIDs = {[id]=true} })
-      -- ต่อปุ่ม: ยื่น widget ให้ C เขียน
-      button:SetIcon(texture) · button:SetApplicationCount(fontString)
-      button:SetDurationCooldown(cooldownFrame)
-      filterString ใช้ AuraUtil.AuraFilters ("HELPFUL"/"HARMFUL" + "!" negation)
+    ═══ ทำไม v2 ═══
+    v1 ใช้ AddAuraGroup ตามแบบ BetterBlizzFrames — ตั้งครบทุกอย่างแล้ว
+    (filter/candidate/maxFrameCount/layout/SetEnabled/UpdateAllAuras) ก็ยัง
+    **ไม่ populate** (ปุ่ม pre-create 10+10 icon ค้าง 134400 shown=false ตลอด)
+    ⇒ สลับมาเส้นทางที่ **พิสูจน์แล้วในบ้านเราเอง**: CustomAuraProbe.lua (session
+    ก่อน) ใช้ **AddAuraSlot** แล้ววาดจริง (memory: "Blizzard วาดต่อใน combat")
 
-    ── สิ่งที่ lab นี้ต้องตอบ (ยังไม่เคยวัดสักข้อ) ────────────────────────
-      S1 CreateFrame("AuraContainer") จากโค้ดเราทำงานไหม (BBF ทำได้ = น่าจะได้)
-      S2 initializeFrame ถูกเรียกจริง + ปุ่มเกิดเมื่อ aura ตรง filter โผล่
-      S3 **ใน combat**: C ยังเขียน stack ลง FontString ของเรา + fill Cooldown ต่อไหม
-      S4 อ่าน widget ตัวเอง: Count:GetText() / Cooldown:GetCooldownTimes() /
-         btn:IsShown() — ตัวไหน plain ตัวไหน secret (คาด: เหมือนปุ่ม nameplate)
-      S5 GetAuraGroupFrameCount/GetAuraGroupFrame ใน combat = ได้เลข? throw?
-         (BBF gate ด้วย AurasAreSecret ⇒ คาดว่า throw — วัดให้เห็น)
-      S6 includeSpellIDs whitelist ทำงานไหม (ใส่ id แล้วโชว์เฉพาะตัวนั้น)
-      S7 ปุ่มเกิดกลาง combat: initializeFrame ยังถูกเรียกไหม (ตัวชี้ขาดดีไซน์จริง)
+    ═══ สูตรที่พิสูจน์แล้ว (ลอกจาก CustomAuraProbe.lua:418-470) ═══
+      · **container ต่อ 1 slot** · สร้างบน UIParent ก่อน แล้วค่อยย้าย parent
+      · **ห้ามสร้างใน combat** (เสี่ยง taint template — กติกาเดียวกับ CMC)
+      · container:SetUnit(unit)
+      · container:AddAuraSlot(key, filterString, {
+            initializeFrame  = function(slotBtn) ... end,
+            candidateFilters = { includeSpellIDs = { [id] = true } },  -- MAP (optional)
+        })
+      · ใน initializeFrame: slotBtn:SetSize + สร้าง region แล้วยื่นให้ C เขียน:
+            SetIcon(texture) · SetDurationCooldown(cd) · SetApplicationCount(fs, nil)
+            SetDurationText(fs, nil) · SetSpellName(fs) · SetDispelTypeText(fs, nil)
+      · ไม่ต้อง UpdateAllAuras / SetEnabled / maxFrameCount / layout ใด ๆ
 
-    ⚠ อ่าน/สร้างของเราเองเท่านั้น — ไม่แตะเฟรม aura ของ Blizzard เลย (กัน taint)
+    ── สิ่งที่ v2 ต้องตอบ ────────────────────────────────────────────────
+      S3 ใน combat: C ยังอัปเดต widget ของเราต่อไหม (icon/stack/cooldown/ชื่อ/dispel)
+      S4 อ่าน widget ตัวเอง: ตัวไหน plain ตัวไหน secret
+      S6 candidateFilters ราย spellID ทำงานไหม (pin id แล้วโชว์เฉพาะตัวนั้น)
+      S9 SetSpellName / SetDispelTypeText — C เขียนให้จริงไหม (BBF ไม่ได้ใช้ด้วยซ้ำ)
+
+    ⚠ อ่าน/สร้างของเราเองเท่านั้น — ไม่แตะเฟรม aura ของ Blizzard (กัน taint)
     ⚠ FontString รายงานเท่านั้น ห้าม EditBox โชว์ค่า (secret unmask ตอน copy)
     ⚠ secret string: ต่อด้วย .. เท่านั้น ห้าม table.concat/:sub/table.sort กับค่า
 ]]
@@ -37,9 +39,10 @@
 local TOOL = GeRODPS_Tools
 
 local NL = string.char(10)
+local CONTAINER_TEMPLATE = "CustomAuraContainerTemplate"
 
 -- ============================================================
--- helpers (ชุดเดียวกับ probe อื่น)
+-- helpers
 -- ============================================================
 
 local function IsSecret(v)
@@ -63,156 +66,181 @@ local function ShortErr(e)
 end
 
 -- ============================================================
--- sensor state
+-- state
 -- ============================================================
 
-local frame, reportFS, unitEB, idsEB, statusFS
-local sensor            -- AuraContainer ของเรา
-local sensorStrip       -- แถบที่ให้ C วาดปุ่ม (มองเห็นจริง = หลักฐานว่ามันวาด)
-local _buttons = {}     -- ปุ่มที่ initializeFrame เคยเห็น: { btn=..., grp=..., born=GetTime, inCombat=bool }
-local _initLog = {}     -- log เหตุการณ์ initializeFrame (พิสูจน์ S2/S7)
+local frame, reportFS, unitEB, idsEB, statusFS, sensorStrip
+local _slots = {}      -- { key, filter, spellID, container, btn, icon, cd,
+                       --   countFS, durFS, nameFS, dispelFS, initLog, born }
 
-local GROUPS = {
-    { key = "buff",   filter = "HELPFUL" },
-    { key = "debuff", filter = "HARMFUL" },
-}
+local SLOT_W, SLOT_H, SLOT_GAP = 42, 42, 8
 
 local function ParseIDs(text)
-    local set, n = {}, 0
+    local list = {}
     for tok in tostring(text or ""):gmatch("[^,%s]+") do
         local id = tonumber(tok)
-        if id and id > 0 then
-            set[id] = true
-            n = n + 1
-        end
+        if id and id > 0 then list[#list + 1] = id end
     end
-    return set, n
+    return list
 end
 
---- ผูก widget ของเราเข้าปุ่มที่ C เพิ่งสร้าง (ลอกลำดับจาก BBF InitAuraButton)
-local function InitSensorButton(button, grpKey)
-    _initLog[#_initLog + 1] = ("%.1f %s%s"):format(GetTime(), grpKey,
-        InCombatLockdown() and " |cffff9a9a(เกิดกลาง combat!)|r" or "")
+-- ============================================================
+-- slot build (ลอกลำดับจาก CustomAuraProbe.BuildSlotRegions)
+-- ============================================================
 
-    local icon = button:CreateTexture(nil, "BACKGROUND")
-    icon:SetAllPoints(button)
-    button.gerIcon = icon
-    button:SetIcon(icon)
+local function BuildSlotRegions(entry, slotBtn)
+    entry.btn = slotBtn
+    local log = {}
+    local function try(name, fn)
+        local ok, err = pcall(fn)
+        log[#log + 1] = ok and (name .. ":ok") or (name .. ":|cffff9a9aERR|r " .. ShortErr(err))
+    end
 
-    local cd = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
+    slotBtn:SetSize(SLOT_W - 2, SLOT_H - 2)
+
+    local icon = slotBtn:CreateTexture(nil, "ARTWORK")
+    icon:SetAllPoints(slotBtn)
+    entry.icon = icon
+    try("SetIcon", function() slotBtn:SetIcon(icon) end)
+
+    local cd = CreateFrame("Cooldown", nil, slotBtn, "CooldownFrameTemplate")
     cd:SetAllPoints(icon)
     cd:SetReverse(true)
     cd:SetDrawEdge(true)
-    cd:SetDrawBling(false)
     cd:SetHideCountdownNumbers(false)
-    button.gerCooldown = cd
-    button:SetDurationCooldown(cd)
+    entry.cd = cd
+    try("SetDurationCooldown", function() slotBtn:SetDurationCooldown(cd) end)
 
-    local overlay = CreateFrame("Frame", nil, button)
-    overlay:SetAllPoints(button)
-    overlay:SetFrameLevel(cd:GetFrameLevel() + 1)
-    local cnt = overlay:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
-    cnt:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, 0)
-    button.gerCount = cnt
-    button:SetApplicationCount(cnt)
+    local countFS = slotBtn:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+    countFS:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", -1, 1)
+    entry.countFS = countFS
+    try("SetApplicationCount", function() slotBtn:SetApplicationCount(countFS, nil) end)
 
-    _buttons[#_buttons + 1] = {
-        btn = button, grp = grpKey,
-        born = GetTime(), inCombat = InCombatLockdown() and true or false,
+    -- 3 ตัวนี้ BBF ไม่ได้ใช้ด้วยซ้ำ — C เขียน "ข้อความ" ให้ตรง ๆ (S9)
+    local durFS = slotBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    durFS:SetPoint("TOP", slotBtn, "BOTTOM", 0, -1)
+    entry.durFS = durFS
+    try("SetDurationText", function() slotBtn:SetDurationText(durFS, nil) end)
+
+    local nameFS = slotBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    nameFS:SetPoint("BOTTOM", slotBtn, "TOP", 0, 1)
+    entry.nameFS = nameFS
+    try("SetSpellName", function() slotBtn:SetSpellName(nameFS) end)
+
+    local dispelFS = slotBtn:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    dispelFS:SetPoint("TOP", durFS, "BOTTOM", 0, -1)
+    entry.dispelFS = dispelFS
+    try("SetDispelTypeText", function() slotBtn:SetDispelTypeText(dispelFS, nil) end)
+
+    entry.initLog = table.concat(log, "  ")   -- ทุกชิ้น plain string ของเรา
+end
+
+local function DestroySlots()
+    for _, e in ipairs(_slots) do
+        if e.container ~= nil then
+            pcall(function() e.container:Hide() end)
+            pcall(function() e.container:SetParent(nil) end)
+        end
+    end
+    _slots = {}
+end
+
+--- สร้าง 1 slot (container ต่อ slot — สูตรที่พิสูจน์แล้ว)
+local function MakeSlot(unit, filter, spellID, xOff)
+    local entry = {
+        key = ("s%d"):format(#_slots + 1),
+        filter = filter, spellID = spellID, born = GetTime(),
     }
-end
 
-local function DestroySensor()
-    if sensor ~= nil then
-        pcall(function() sensor:Hide() end)
-        pcall(function() sensor:SetParent(nil) end)
-        sensor = nil
+    local okC, container = pcall(CreateFrame, "AuraContainer", nil, UIParent,
+        CONTAINER_TEMPLATE)
+    if not okC or container == nil then
+        return nil, "CreateFrame: " .. ShortErr(container)
     end
-    _buttons = {}
-    _initLog = {}
+    entry.container = container
+
+    local okU, errU = pcall(function() container:SetUnit(unit) end)
+    if not okU then return nil, "SetUnit: " .. ShortErr(errU) end
+
+    local slotOpts = {
+        initializeFrame = function(slotBtn) BuildSlotRegions(entry, slotBtn) end,
+    }
+    if spellID ~= nil then
+        slotOpts.candidateFilters = { includeSpellIDs = { [spellID] = true } }
+    end
+
+    local okS, errS = pcall(function()
+        container:AddAuraSlot("gerodps_lab_" .. entry.key, filter, slotOpts)
+    end)
+    if not okS then return nil, "AddAuraSlot: " .. ShortErr(errS) end
+
+    -- ย้ายเข้าแถบ sensor (สร้างบน UIParent ก่อนตาม idiom เดิม)
+    container:SetParent(sensorStrip)
+    container:SetSize(SLOT_W, SLOT_H)
+    container:SetPoint("TOPLEFT", sensorStrip, "TOPLEFT", 6 + xOff, -6)
+    container:Show()
+
+    _slots[#_slots + 1] = entry
+    return entry
 end
 
---- สร้าง sensor ใหม่ตามช่อง unit + spellID CSV
 local function BuildSensor()
-    DestroySensor()
-
-    local unit = (unitEB and unitEB:GetText() ~= "" ) and unitEB:GetText() or "target"
-    local ids, nIDs = ParseIDs(idsEB and idsEB:GetText() or "")
-
-    local ok, c = pcall(CreateFrame, "AuraContainer", nil, sensorStrip,
-        "CustomAuraContainerTemplate")
-    if not ok or c == nil then
+    -- กติกาจาก probe เดิม: สร้าง container ใน combat เสี่ยง taint template
+    if InCombatLockdown() then
         if statusFS then
-            statusFS:SetText("|cffff3333CreateFrame(AuraContainer) พัง: "
-                .. ShortErr(c) .. "|r")
+            statusFS:SetText("|cffff3333อยู่ใน combat — สร้าง sensor ไม่ได้ (taint template) "
+                .. "ออก combat ก่อนแล้วกดใหม่ · ของที่สร้างไว้แล้วยังอ่านต่อได้|r")
         end
         return
     end
-    sensor = c
-    sensor:SetPoint("TOPLEFT", sensorStrip, "TOPLEFT", 4, -4)
-    sensor:SetSize(1, 1)
-    sensor:SetUnit(unit)
-    if sensor.SetFlowLayoutAxis then
-        sensor:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Horizontal)
-        sensor:SetFlowLayoutAnchorPoint("TOPLEFT")
-        sensor:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,
-            AnchorUtil.FlowDirection.Down)
-        sensor:SetFlowLayoutPadding(0, 0, 0, 0)
-    end
+    DestroySlots()
 
-    -- ลำดับ apply ครบชุดตาม BBF ConfigureContainer (:1454-1526) — รอบก่อน
-    -- ไม่ populate เพราะขาด SetAuraGroupMaxFrameCount (explicit) + layout ใช้
-    -- key ผิด (elementSize ไม่มีจริง — ของจริงคือ elementWidth/elementHeight
-    -- จาก ApplyGroupLayout :1372 ⇒ ปุ่มอาจ 0x0)
-    for gi, g in ipairs(GROUPS) do
-        local grpKey = g.key
-        sensor:AddAuraGroup(grpKey, g.filter, {
-            maxFrameCount = 0,
-            initializeFrame = function(button)
-                InitSensorButton(button, grpKey)
-            end,
-        })
-        -- candidate filters: BBF เรียกเสมอ (ว่าง = ไม่กรอง)
-        if sensor.SetAuraGroupCandidateFilters then
-            if nIDs > 0 then
-                sensor:SetAuraGroupCandidateFilters(grpKey, { includeSpellIDs = ids })
-            else
-                sensor:SetAuraGroupCandidateFilters(grpKey, {})
-            end
+    local unit = (unitEB and unitEB:GetText() ~= "") and unitEB:GetText() or "target"
+    local ids = ParseIDs(idsEB and idsEB:GetText() or "")
+
+    -- ไม่ใส่ id: slot เปล่า 2 ตัว (aura แรกที่เข้า filter) · ใส่ id: id ละ 2 slot
+    local defs = {}
+    if #ids == 0 then
+        defs[#defs + 1] = { filter = "HELPFUL", id = nil }
+        defs[#defs + 1] = { filter = "HARMFUL", id = nil }
+    else
+        for i = 1, math.min(#ids, 4) do
+            defs[#defs + 1] = { filter = "HELPFUL", id = ids[i] }
+            defs[#defs + 1] = { filter = "HARMFUL", id = ids[i] }
         end
-        -- จำนวนปุ่มที่ให้แสดง — BBF: 0 = ปิด group ⇒ ต้องตั้ง explicit
-        sensor:SetAuraGroupMaxFrameCount(grpKey, 8)
-        -- layout: field ชื่อจริงจาก BBF layoutScratch (:1381-1386)
-        sensor:SetAuraGroupLayout(grpKey, {
-            elementSpacing   = 3,
-            lineSpacing      = 3,
-            elementWidth     = 30,
-            elementHeight    = 30,
-            layoutIndex      = gi,
-            groupLineSpacing = 3,
-        })
     end
-    if sensor.SetEnabled then sensor:SetEnabled(true) end
-    sensor:Show()
 
-    -- ** จุดที่ขาดรอบแรก (วัด 2026-08-18: ปุ่ม pre-create 10+10 แต่ไม่ populate เลย
-    -- icon ค้าง 134400) — BBF เรียก container:UpdateAllAuras() หลังตั้งค่าเสมอ (:3147)
-    local okU, errU = pcall(sensor.UpdateAllAuras, sensor)
-    if not okU and statusFS then
-        statusFS:SetText("|cffff3333UpdateAllAuras พัง: " .. ShortErr(errU) .. "|r")
-        return
+    local made, firstErr = 0, nil
+    for i, d in ipairs(defs) do
+        local e, err = MakeSlot(unit, d.filter, d.id, (i - 1) * (SLOT_W + SLOT_GAP))
+        if e then
+            made = made + 1
+        elseif firstErr == nil then
+            firstErr = err
+        end
     end
 
     if statusFS then
-        statusFS:SetText(("|cff44ff44สร้างแล้ว|r unit=%s · filter id %d ตัว"
-            .. " (0 = เอาทุก aura) · ปุ่มจะโผล่ในแถบล่างเมื่อ aura ตรงเงื่อนไข")
-            :format(unit, nIDs))
+        if firstErr then
+            statusFS:SetText(("|cffff3333สร้างได้ %d/%d — พังตัวแรก: %s|r")
+                :format(made, #defs, firstErr))
+        else
+            statusFS:SetText(("|cff44ff44สร้างแล้ว %d slot|r unit=%s · "
+                .. "AddAuraSlot ไม่ต้องสั่ง update — C เติมเอง")
+                :format(made, unit))
+        end
     end
 end
 
 -- ============================================================
 -- รายงาน
 -- ============================================================
+
+local function ReadFS(fs)
+    if fs == nil or fs.GetText == nil then return "nil" end
+    local ok, v = pcall(fs.GetText, fs)
+    return ok and PeekVal(v) or ("THROW " .. ShortErr(v))
+end
 
 local function BuildReport()
     local out = {}
@@ -223,92 +251,42 @@ local function BuildReport()
         local okS, sv = pcall(C_Secrets.ShouldAurasBeSecret)
         out[#out + 1] = "ShouldAurasBeSecret() = " .. (okS and PeekVal(sv) or ShortErr(sv))
     end
-    if sensor == nil then
+    if #_slots == 0 then
         out[#out + 1] = ""
-        out[#out + 1] = "|cffffcc55ยังไม่ได้สร้าง sensor — ใส่ unit + spellID แล้วกด [สร้าง Sensor]|r"
+        out[#out + 1] = "|cffffcc55ยังไม่มี slot — ใส่ unit (+spellID ถ้าจะ pin) แล้วกด [สร้าง Sensor]|r"
         return out
     end
 
-    do
-        local okE, ev = pcall(sensor.IsEnabled, sensor)
-        out[#out + 1] = "IsEnabled() = " .. (okE and PeekVal(ev) or ShortErr(ev))
-    end
-
-    -- S8: UpdateAllAuras ใน combat ทำได้ไหม (เรียกทุก Refresh — ถ้า throw
-    -- แปลว่า container ต้องพึ่ง event ของตัวเองใน combat ห้ามสั่งเอง)
-    do
-        local okU, errU = pcall(sensor.UpdateAllAuras, sensor)
+    local nowMs = GetTime() * 1000
+    for i, e in ipairs(_slots) do
         out[#out + 1] = ""
-        if okU then
-            out[#out + 1] = "S8: UpdateAllAuras() |cff44ff44ไม่ throw|r"
+        out[#out + 1] = ("|cffffd200[slot %d]|r %s%s"):format(i, e.filter,
+            e.spellID and ("  pin id=" .. e.spellID) or "  (aura แรกที่เข้า filter)")
+        if e.btn == nil then
+            out[#out + 1] = "   |cffff9a9ainitializeFrame ยังไม่ถูกเรียก|r"
         else
-            out[#out + 1] = "S8: UpdateAllAuras(): |cffff9a9aTHROW|r " .. ShortErr(errU)
-        end
-    end
-
-    -- S5: enumeration API ใน combat ทำได้ไหม (BBF เลี่ยง — วัดให้เห็นกับตา)
-    out[#out + 1] = ""
-    out[#out + 1] = "|cff88ccff== S5: enumeration API (คาดว่า throw ใน combat) ==|r"
-    for _, g in ipairs(GROUPS) do
-        local okN, n = pcall(sensor.GetAuraGroupFrameCount, sensor, g.key)
-        if okN then
-            out[#out + 1] = "   GetAuraGroupFrameCount(" .. g.key .. ") = " .. PeekVal(n)
-        else
-            out[#out + 1] = "   GetAuraGroupFrameCount(" .. g.key .. "): |cffff9a9aTHROW|r "
-                .. ShortErr(n)
-        end
-    end
-
-    -- S2/S7: ปุ่มที่เคยเกิด + log
-    out[#out + 1] = ""
-    out[#out + 1] = ("|cff88ccff== ปุ่มที่ initializeFrame เคยเห็น = %d ==|r"):format(#_buttons)
-    for i = 1, math.min(#_initLog, 6) do
-        out[#out + 1] = "   |cff888888init: " .. _initLog[i] .. "|r"
-    end
-
-    -- S3/S4: อ่าน widget ของเราเอง
-    local nowS = GetTime()
-    for i, rec in ipairs(_buttons) do
-        if i > 10 then
-            out[#out + 1] = ("   ... อีก %d ปุ่ม"):format(#_buttons - 10)
-            break
-        end
-        local b = rec.btn
-        local shown = "?"
-        local okV, sv = pcall(function() return b:IsShown() end)
-        if okV then shown = PeekVal(sv) end
-        out[#out + 1] = ("|cffffd200[%d · %s]|r shown=%s"):format(i, rec.grp, shown)
-
-        if b.gerCount ~= nil then
-            local okT, tv = pcall(b.gerCount.GetText, b.gerCount)
-            out[#out + 1] = "   stack (Count:GetText) = |cff3fcf5a"
-                .. (okT and PeekVal(tv) or ShortErr(tv)) .. "|r"
-        end
-        if b.gerCooldown ~= nil then
-            local okC, st, du = pcall(b.gerCooldown.GetCooldownTimes, b.gerCooldown)
-            if okC then
-                out[#out + 1] = "   GetCooldownTimes: st=" .. PeekVal(st)
-                    .. "  dur=" .. PeekVal(du)
-                    .. "  |cffaaaaaa(now*1000=" .. ("%.0f"):format(nowS * 1000) .. ")|r"
-            else
-                out[#out + 1] = "   GetCooldownTimes: |cffff9a9aTHROW|r " .. ShortErr(st)
+            out[#out + 1] = "   init: " .. (e.initLog or "?")
+            local okV, sv = pcall(function() return e.btn:IsShown() end)
+            out[#out + 1] = "   btn shown = " .. (okV and PeekVal(sv) or "?")
+            out[#out + 1] = "   |cff3fcf5astack|r = " .. ReadFS(e.countFS)
+                .. "   |cff3fcf5aชื่อ|r = " .. ReadFS(e.nameFS)
+            out[#out + 1] = "   |cff3fcf5adispel|r = " .. ReadFS(e.dispelFS)
+                .. "   durText = " .. ReadFS(e.durFS)
+            if e.icon ~= nil then
+                local okI, iv = pcall(e.icon.GetTexture, e.icon)
+                out[#out + 1] = "   icon = " .. (okI and PeekVal(iv) or "?")
             end
-            if b.gerCooldown.GetCountdownFontString ~= nil then
-                local okF, fs2 = pcall(b.gerCooldown.GetCountdownFontString, b.gerCooldown)
-                if okF and fs2 ~= nil then
-                    local okX, xv = pcall(fs2.GetText, fs2)
-                    out[#out + 1] = "   countdown text = " .. (okX and PeekVal(xv) or "?")
+            if e.cd ~= nil then
+                local okC2, st, du = pcall(e.cd.GetCooldownTimes, e.cd)
+                if okC2 then
+                    out[#out + 1] = "   GetCooldownTimes: st=" .. PeekVal(st)
+                        .. "  dur=" .. PeekVal(du)
+                        .. "  |cffaaaaaa(now*1000=" .. ("%.0f"):format(nowMs) .. ")|r"
+                else
+                    out[#out + 1] = "   GetCooldownTimes: THROW " .. ShortErr(st)
                 end
             end
         end
-        if b.gerIcon ~= nil then
-            local okI, iv = pcall(b.gerIcon.GetTexture, b.gerIcon)
-            out[#out + 1] = "   icon = " .. (okI and PeekVal(iv) or "?")
-        end
-    end
-    if #_buttons == 0 then
-        out[#out + 1] = "   |cffaaaaaa(ยังไม่มีปุ่มเกิด — unit นั้นยังไม่มี aura ที่ตรง filter"
-        out[#out + 1] = "   หรือ filter id ไม่ตรงสักตัว)|r"
     end
     return out
 end
@@ -351,10 +329,9 @@ local function BuildFrame()
     frame:SetClampedToScreen(true)
     frame:SetClipsChildren(true)
     frame:SetFrameStrata("DIALOG")
-    if frame.TitleText then frame.TitleText:SetText("Aura Sensor Lab — CustomAuraContainer") end
+    if frame.TitleText then frame.TitleText:SetText("Aura Sensor Lab v2 — AddAuraSlot") end
     table.insert(UISpecialFrames, "GeRODPSToolsAuraSensorLab")
 
-    -- แถวควบคุม (Rule 10: เผื่อ title bar)
     local unitLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     unitLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", SIDE_PAD, -(TITLE_H + 12))
     unitLbl:SetText("unit:")
@@ -367,10 +344,10 @@ local function BuildFrame()
 
     local idsLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     idsLbl:SetPoint("LEFT", unitEB, "RIGHT", 12, 0)
-    idsLbl:SetText("spellID (CSV, ว่าง=ทุกตัว):")
+    idsLbl:SetText("spellID pin (CSV ≤4, ว่าง=aura แรก):")
 
     idsEB = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    idsEB:SetSize(220, 20)
+    idsEB:SetSize(180, 20)
     idsEB:SetPoint("LEFT", idsLbl, "RIGHT", 8, 0)
     idsEB:SetAutoFocus(false)
     idsEB:SetText("")
@@ -394,21 +371,19 @@ local function BuildFrame()
     statusFS:SetPoint("TOPLEFT", unitLbl, "BOTTOMLEFT", 0, -8)
     statusFS:SetPoint("RIGHT", frame, "RIGHT", -SIDE_PAD, 0)
     statusFS:SetJustifyH("LEFT")
-    statusFS:SetText("|cffaaaaaaใส่ unit (target/focus/player) + spellID ที่จะเฝ้า แล้วกด สร้าง Sensor|r")
+    statusFS:SetText("|cffaaaaaaสร้างนอก combat เท่านั้น (taint template) · in combat อ่านต่อได้|r")
 
-    -- แถบ sensor (ให้ C วาดปุ่มตรงนี้ — มองเห็นจริง = หลักฐาน)
-    sensorStrip = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    sensorStrip:SetPoint("TOPLEFT", frame, "TOPLEFT", SIDE_PAD, -(TITLE_H + 62))
+    sensorStrip = CreateFrame("Frame", nil, frame)
+    sensorStrip:SetPoint("TOPLEFT", frame, "TOPLEFT", SIDE_PAD, -(TITLE_H + 66))
     sensorStrip:SetPoint("RIGHT", frame, "RIGHT", -SIDE_PAD, 0)
-    sensorStrip:SetHeight(76)
+    sensorStrip:SetHeight(SLOT_H + 34)
     local bg = sensorStrip:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(sensorStrip)
     bg:SetColorTexture(0.06, 0.10, 0.06, 0.6)
     local stripLbl = sensorStrip:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    stripLbl:SetPoint("BOTTOMLEFT", sensorStrip, "BOTTOMLEFT", 4, 3)
-    stripLbl:SetText("|cff3fcf5aแถบ sensor — ปุ่มที่ C วาดจะโผล่ตรงนี้|r")
+    stripLbl:SetPoint("BOTTOMLEFT", sensorStrip, "BOTTOMLEFT", 4, 2)
+    stripLbl:SetText("|cff3fcf5aแถบ sensor — icon/stack/swipe ที่ C วาดจะโผล่ตรงนี้|r")
 
-    -- รายงาน
     reportFS = frame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
     reportFS:SetPoint("TOPLEFT", sensorStrip, "BOTTOMLEFT", 0, -8)
     reportFS:SetPoint("RIGHT", frame, "RIGHT", -SIDE_PAD, 0)
