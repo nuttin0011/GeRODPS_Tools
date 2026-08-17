@@ -95,6 +95,57 @@ local GUESS_FIELDS = { "spellID", "spellId", "auraInstanceID", "isBuff", "auraTy
                        "debuffType", "index", "count", "duration", "expirationTime",
                        "timeMod", "texture", "unit", "filter", "buttonInfo", "auraData" }
 
+--- dump **ทุก** string key ของ frame — แยกฟังก์ชันออกจากค่า
+--- ⚠ เดิมกรองแค่ key ที่มีคำ aura/buff/pool ⇒ key ชื่อ count/stack/num*
+---   ไม่มีทางโผล่เลยแม้มีอยู่จริง (user จับได้ 2026-08-18) — ห้ามกรองอีก
+local function DumpAllKeys(fr, label, indent, out)
+    local vals, fns = {}, {}
+    local ok = pcall(function()
+        for k, v in pairs(fr) do
+            if type(k) == "string" then
+                if type(v) == "function" then
+                    fns[#fns + 1] = k
+                else
+                    vals[#vals + 1] = k
+                end
+            end
+        end
+    end)
+    if not ok then
+        out[#out + 1] = indent .. "|cffff9a9a" .. label .. ": pairs() THROW|r"
+        return
+    end
+    table.sort(vals)   -- ชื่อ key เป็น plain เสมอ ⇒ sort ได้
+    table.sort(fns)
+    out[#out + 1] = indent .. "|cffffd200" .. label .. " — ค่า (" .. #vals .. "):|r"
+    if #vals == 0 then
+        out[#out + 1] = indent .. "   |cffaaaaaa(ไม่มี)|r"
+    end
+    for _, k in ipairs(vals) do
+        local v = fr[k]
+        local shown
+        if type(v) == "table" then
+            local cnt = 0
+            pcall(function() cnt = #v end)
+            shown = "<table> #" .. cnt
+        else
+            shown = PeekVal(v)
+        end
+        -- ไฮไลต์ key ที่น่าจะเป็น stack
+        local lk = k:lower()
+        if lk:find("count") or lk:find("stack") or lk:find("num") then
+            out[#out + 1] = indent .. "   |cff3fcf5a" .. k .. " = " .. shown .. "|r"
+        else
+            out[#out + 1] = indent .. "   " .. k .. " = " .. shown
+        end
+    end
+    -- ชื่อฟังก์ชันรวมบรรทัดเดียว (ไม่กินที่)
+    local fl = ""
+    for _, k in ipairs(fns) do fl = fl .. k .. " " end
+    out[#out + 1] = indent .. "|cff888888" .. label .. " — ฟังก์ชัน (" .. #fns .. "): "
+        .. fl .. "|r"
+end
+
 local function DumpButton(b, indent, out)
     local seen = {}
     for _, k in ipairs(GUESS_FIELDS) do
@@ -175,40 +226,8 @@ local function BuildColALines()
     -- ผลวัด 2026-08-18: .Auras มีจริงแต่ GetChildren() = 0
     -- ⇒ ปุ่มอยู่ลึกกว่า · ขุดต่อ 4 ทาง (เดินตามโครงที่ BuffFrame ใช้จริง)
 
-    -- ทาง 1: field ของตัว Auras เอง (BuffFrame เก็บ auraInfo/auraFrames ไว้บนตัว AuraFrame)
-    out[#out + 1] = "   |cffffd200field บน .Auras เอง:|r"
-    for _, k in ipairs({ "auraInfo", "auraFrames", "AuraContainer", "maxAuras",
-                         "numHideableBuffs", "auraPools", "unit" }) do
-        local v = af[k]
-        if v ~= nil then
-            if type(v) == "table" then
-                local cnt = 0
-                pcall(function() cnt = #v end)
-                out[#out + 1] = "      |cff3fcf5a" .. k .. " = <table> #" .. cnt .. "|r"
-            else
-                out[#out + 1] = "      " .. k .. " = " .. PeekVal(v)
-            end
-        end
-    end
-    do
-        local hits = {}
-        pcall(function()
-            for k in pairs(af) do
-                if type(k) == "string" then
-                    local lk = k:lower()
-                    if lk:find("aura") or lk:find("buff") or lk:find("pool") then
-                        hits[#hits + 1] = k
-                    end
-                end
-            end
-        end)
-        table.sort(hits)   -- ชื่อ key = plain ⇒ sort ได้
-        if #hits > 0 then
-            local line = ""
-            for _, k in ipairs(hits) do line = line .. k .. ", " end
-            out[#out + 1] = "      |cff888888key ที่มี aura/buff/pool: " .. line .. "|r"
-        end
-    end
+    -- ทาง 1: **ทุก** key บนตัว Auras เอง (ห้ามกรอง — count อาจอยู่ตรงนี้)
+    DumpAllKeys(af, ".Auras", "   ", out)
 
     -- ทาง 2: GetLayoutChildren() — แพตเทิร์นเดียวกับ nameplate list frame
     -- (NameplateAuraCheck ใช้อยู่ — layout children ≠ GetChildren)
@@ -234,6 +253,7 @@ local function BuildColALines()
             local okG, ac = pcall(tf.GetAuraContainer, tf)
             if okG and type(ac) == "table" then
                 out[#out + 1] = "   |cff3fcf5aGetAuraContainer() คืน frame|r"
+                DumpAllKeys(ac, "AuraContainer", "      ", out)
                 if ac.GetChildren ~= nil then
                     local okC2, res2 = pcall(function() return { ac:GetChildren() } end)
                     if okC2 and type(res2) == "table" then
@@ -412,22 +432,8 @@ local function BuildColBLines()
         if not any then
             out[#out + 1] = "   |cffaaaaaaไม่เจอชื่อที่เดาไว้เลย|r"
         end
-        -- กวาด key ของ TargetFrame ที่มีคำว่า aura/buff (case-insensitive)
-        local hits = {}
-        pcall(function()
-            for k in pairs(tf) do
-                if type(k) == "string" then
-                    local lk = k:lower()
-                    if lk:find("aura") or lk:find("buff") then hits[#hits + 1] = k end
-                end
-            end
-        end)
-        if #hits > 0 then
-            table.sort(hits)
-            local line = ""
-            for _, k in ipairs(hits) do line = line .. k .. ", " end
-            out[#out + 1] = "   |cff3fcf5akey ที่มีคำ aura/buff:|r " .. line
-        end
+        -- **ทุก** key ของ TargetFrame (เดิมกรองแค่ aura/buff — พลาด count ไป)
+        DumpAllKeys(tf, "TargetFrame", "   ", out)
     end
     return out
 end
