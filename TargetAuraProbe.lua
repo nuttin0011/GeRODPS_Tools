@@ -22,6 +22,19 @@
          (nil เงียบ = ใช้เป็นจุดหยุด loop ได้ · throw = ต้องรู้จำนวนจากที่อื่น ·
           คืนค่าค้างของ tooltip เดิม = **อันตรายที่สุด** ต้องเคลียร์ก่อนทุกครั้ง)
 
+    ═══ คำตัดสินสายเฟรม (2026-08-18 · จาก source Gethe/wow-ui-source + วัดจริง) ═══
+    ปุ่มออร่าของ TargetFrame สร้างด้วย self.auraPools:CreatePool("AuraButton", ...)
+    template TargetFrameBuff/DebuffButtonTemplate — มี <Texture parentKey="Icon"> +
+    <FontString parentKey="Count" inherits="NumberFontNormalSmall"> มุมขวาล่าง +
+    Cooldown · stack เซ็ตด้วย self.Count:SetText(auraData.applications)
+    ⇒ โครงเหมือน BuffFrame ทุกอย่าง... แต่:
+    ❌ mixin แบ่งเป็น Inbound (public) / **Private** + มี template ตระกูล **Forbidden...**
+       วัดจริง (in combat + target มี debuff โชว์ไอคอน): ค่าบน .Auras = 0 key ·
+       GetChildren()=0 · ไม่เห็น auraPools — ทั้งที่ source บอกว่ามี
+       ⇒ **ปุ่มอยู่ฝั่ง private sandbox — โค้ด addon มองไม่เห็นโดยดีไซน์** (ตันถาวร)
+    ✅ stack ของ unit ใช้ทางที่พิสูจน์แล้วแทน: ปุ่ม nameplate ของ unit นั้น
+       (CountFrame — GetAllAuraFromSetOfNamePlate) + identity/remain/dispel จาก tooltip
+
     ⚠ ต้องมี target ที่มีออร่า + อยู่ใน combat (นอก combat ค่าไม่ secret = ผลหลอก)
     ⚠ อ่านอย่างเดียว ห่อ pcall · FontString เท่านั้น (copy = unmask secret)
     ⚠ secret string ห้าม table.concat / :sub / :gsub — ต่อด้วย .. เท่านั้น
