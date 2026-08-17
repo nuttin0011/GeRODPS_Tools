@@ -68,14 +68,6 @@ local function ShortErr(e)
     return (tostring(e):gsub("\n.*", ""):sub(1, 110))
 end
 
-local function JoinLines(out)
-    local t = ""
-    for _, line in ipairs(out) do
-        t = t .. line .. NL
-    end
-    return t
-end
-
 -- ============================================================
 -- A · ค้นโครงเฟรมของ target ตอน runtime
 -- ============================================================
@@ -706,20 +698,9 @@ end
 --   3 = enumerate boss1 + nameplate1 + เทียบ API
 -- ============================================================
 
-local function BuildCol1()
-    local out = BuildColALines()
-    out[#out + 1] = ""
-    for _, l in ipairs(BuildColBLines()) do out[#out + 1] = l end
-    return JoinLines(out)
-end
-
-local function BuildCol2()
-    return JoinLines(BuildEnumLines({ "target", "focus" }, true, false))
-end
-
 --- คอลัมน์ 3: nameplate หลายตัว + boss — สร้างลิสต์ตอน runtime
 --- (user ชี้ 2026-08-18: สนามจริง nameplate เยอะมาก และนอก raid ไม่มี boss1)
-local function BuildCol3()
+local function BuildPlateLines()
     local units, nBoss, nPlate = {}, 0, 0
     for b = 1, 4 do
         if UnitExists("boss" .. b) then
@@ -740,10 +721,10 @@ local function BuildCol3()
         :format(nBoss, nPlate, #units)
     if #units == 0 then
         head[#head + 1] = "|cffff9a9aไม่มี unit เลย (เปิด nameplate ด้วยปุ่ม V ก่อน)|r"
-        return JoinLines(head)
+        return head
     end
     for _, l in ipairs(BuildEnumLines(units, false, true)) do head[#head + 1] = l end
-    return JoinLines(head)
+    return head
 end
 
 -- ============================================================
@@ -752,6 +733,14 @@ end
 
 local frame
 local colFS = {}
+local pageLabel
+
+-- เนื้อหาทั้งหมดเป็นบรรทัดเดียว ๆ แล้วไหลลง 3 คอลัมน์ต่อหน้าแบบหนังสือพิมพ์
+-- (user ขอ 2026-08-18: ข้อมูลเต็มเฟรม ทำเป็นหลายหน้า)
+local _lines = {}
+local _page  = 1
+local LINE_H = 16          -- ChatFontNormal ~14 + spacing 2 (บรรทัด wrap อาจกิน 2 แถว —
+                           -- ค่าประมาณพอ เปลี่ยนหน้า/ขยายหน้าต่างได้)
 
 local TITLE_H  = 24
 local SIDE_PAD = 12
@@ -774,13 +763,59 @@ local function Relayout()
     end
 end
 
+local function LinesPerCol()
+    local h = 600
+    if frame ~= nil then h = frame:GetHeight() - TOP_ROW - 28 end
+    local n = math.floor(h / LINE_H)
+    if n < 10 then n = 10 end
+    return n
+end
+
+local function RenderPage()
+    if not colFS[1] then return end
+    local per = LinesPerCol()
+    local totalPages = math.ceil(#_lines / (per * 3))
+    if totalPages < 1 then totalPages = 1 end
+    if _page > totalPages then _page = totalPages end
+    if _page < 1 then _page = 1 end
+    for c = 1, 3 do
+        local startIdx = (_page - 1) * per * 3 + (c - 1) * per + 1
+        local t = ""
+        local last = startIdx + per - 1
+        if last > #_lines then last = #_lines end
+        for i = startIdx, last do
+            t = t .. _lines[i] .. NL       -- ต่อด้วย .. (บรรทัดอาจเป็น secret string)
+        end
+        colFS[c]:SetText(t)
+    end
+    if pageLabel ~= nil then
+        pageLabel:SetText(("หน้า %d/%d · %d บรรทัด"):format(_page, totalPages, #_lines))
+    end
+end
+
+local function PageStep(d)
+    _page = _page + d
+    RenderPage()
+end
+
 local function Refresh()
     if not colFS[1] then return end
-    local builders = { BuildCol1, BuildCol2, BuildCol3 }
-    for i = 1, 3 do
-        local ok, text = pcall(builders[i])
-        colFS[i]:SetText(ok and text or ("พัง: " .. tostring(text)))
+    _lines = {}
+    local function add(arrFn, ...)
+        local ok, arr = pcall(arrFn, ...)
+        if ok and type(arr) == "table" then
+            for _, l in ipairs(arr) do _lines[#_lines + 1] = l end
+        else
+            _lines[#_lines + 1] = "|cffff9a9aพัง: " .. tostring(arr) .. "|r"
+        end
+        _lines[#_lines + 1] = ""
     end
+    add(BuildColALines)
+    add(BuildColBLines)
+    add(BuildEnumLines, { "target", "focus" }, true, false)
+    add(BuildPlateLines)
+    _page = 1
+    RenderPage()
 end
 
 local function BuildFrame()
@@ -800,7 +835,10 @@ local function BuildFrame()
     frame:SetClampedToScreen(true)
     frame:SetClipsChildren(true)
     frame:SetFrameStrata("DIALOG")
-    frame:SetScript("OnSizeChanged", Relayout)
+    frame:SetScript("OnSizeChanged", function()
+        Relayout()
+        RenderPage()
+    end)
     if frame.TitleText then frame.TitleText:SetText("Target Aura Probe — TargetFrame / tooltip enum") end
     table.insert(UISpecialFrames, "GeRODPSToolsTargetAuraProbe")
 
@@ -810,8 +848,24 @@ local function BuildFrame()
     btnR:SetText("Refresh")
     btnR:SetScript("OnClick", Refresh)
 
+    local btnPrev = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnPrev:SetSize(28, 24)
+    btnPrev:SetPoint("LEFT", btnR, "RIGHT", 8, 0)
+    btnPrev:SetText("<")
+    btnPrev:SetScript("OnClick", function() PageStep(-1) end)
+
+    local btnNext = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnNext:SetSize(28, 24)
+    btnNext:SetPoint("LEFT", btnPrev, "RIGHT", 4, 0)
+    btnNext:SetText(">")
+    btnNext:SetScript("OnClick", function() PageStep(1) end)
+
+    pageLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    pageLabel:SetPoint("LEFT", btnNext, "RIGHT", 8, 0)
+    pageLabel:SetText("หน้า 1/1")
+
     local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hint:SetPoint("LEFT", btnR, "RIGHT", 10, 0)
+    hint:SetPoint("LEFT", pageLabel, "RIGHT", 12, 0)
     hint:SetText("|cffaaaaaaเล็ง mob ที่มี DoT ของเรา (ห้ามเล็งตัวเอง) + อยู่ใน combat · "
         .. "คอลัมน์ 3 dump ทุกบรรทัดของ tooltip เพื่อหา stack/เวลา|r")
 
