@@ -57,4 +57,5 @@ TargetAuraProbe.lua
 AuraSensorLab.lua
 BlizAuraDrawLab.lua
 BlizPlateReviveLab.lua
+NPAuraLiveView.lua
 ScreenRuler.lua

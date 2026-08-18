@@ -1,4 +1,10 @@
 --[[
+    ⚠ ผลวัด 2026-08-18: ทาง Revive แพ้ — hook Show ของ Plater ซ่อนกลับทันที
+    (ปลุกไม่ขึ้น) · **ทางที่ได้ผลจริงคือเปิด option Plater
+    "Show Debuffs Blizzard Nameplates show"** (aura_show_debuff_as_blizzard_does)
+    — Plater จะไม่ถอน event ⇒ DebuffListFrame ของ Blizzard populate ใต้ผ้าคลุม
+    (อ่านได้โดยไม่ต้องปลุกเลย) · ดูสดๆ ด้วย NPAuraLiveView.lua
+
     BlizPlateReviveLab.lua — อ่าน aura จาก **Blizzard nameplate** ขณะมี addon
     nameplate (Plater ฯลฯ) ทำงานอยู่ — โดยปลุกเฟรม Blizzard กลับมาแบบมองไม่เห็น
 
