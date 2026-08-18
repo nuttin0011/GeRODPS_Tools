@@ -55,4 +55,5 @@ DispelCurveTest.lua
 PlayerAuraProbe.lua
 TargetAuraProbe.lua
 AuraSensorLab.lua
+BlizAuraDrawLab.lua
 ScreenRuler.lua
