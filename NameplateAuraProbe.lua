@@ -455,6 +455,14 @@ local function ProbeButton(btn, kind, idx, out, unitToken)
                 local okS, shown = Get(fs, "IsShown")
                 local okV, vis   = Get(fs, "IsVisible")
                 local okT, txt   = Get(fs, "GetText")
+                -- visible=false เกิดได้ 2 สาเหตุ และต้องแยกให้ออก:
+                --   (ก) Blizzard ไม่ได้วาดเลขนี้ (เวลาเหลือยาวเกินเกณฑ์) → cd/btn ยัง visible
+                --   (ข) ทั้ง plate/ปุ่มไม่ถูกวาดตอนนั้น → cd/btn ก็ false ด้วย
+                -- สองกรณีนี้ต้องทำคนละอย่างฝั่ง reader (ก = "-" ตัดสินไม่ได้ · ข = ข้ามทั้ง mob)
+                local _, btnVis = Get(btn, "IsVisible")
+                local _, cdVis  = Get(cd,  "IsVisible")
+                out[#out + 1] = ("        cdText chain: btn.visible=%s  cooldown.visible=%s")
+                    :format(SafeStr(btnVis), SafeStr(cdVis))
                 out[#out + 1] = ("        cdText: shown=%s visible=%s  text=%s")
                     :format(okS and SafeStr(shown) or "ERR", okV and SafeStr(vis) or "ERR",
                             okT and SafeStr(txt) or "ERR")
