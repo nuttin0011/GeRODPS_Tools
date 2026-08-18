@@ -1,4 +1,11 @@
 --[[
+    ⛔ โปรเจกต์นี้ถูกยกเลิก (user · 2026-08-18) — เก็บ tool ไว้เป็นหลักฐาน
+    ผลสุดท้าย: ทำให้ Blizzard วาดลง container ของเราได้จริง (รวมใน combat)
+    แต่ **อ่านค่าจาก custom container ไม่ได้** — ใน combat ทั้ง subtree เป็น
+    forbidden object (รวม widget ที่เราสร้างเอง แม้แต่ IsShown ก็ throw)
+    ทางที่เหลือคือ AHK อ่าน pixel ซึ่ง user เลือกไม่ไปต่อ
+    บันทึกเต็ม: docs/AURA_API_121.md §5 (GeRODPS repo)
+
     BlizAuraDrawLab.lua — สร้าง CustomAuraContainer ของเราเอง แล้วให้ Blizzard
     วาด aura ของ nameplate1 ลงไป (โจทย์: "ทำให้ Bliz วาดให้ได้ก่อน" — อ่านค่าทีหลัง)
 
