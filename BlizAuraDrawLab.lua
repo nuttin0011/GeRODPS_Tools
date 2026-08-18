@@ -101,6 +101,27 @@ local function InitAuraButton(btn)
     btn.CountText:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 1, 0)
     pcall(btn.SetApplicationCount, btn, btn.CountText)
 
+    -- ── ขั้นพิสูจน์ "C เขียนข้อความใน combat" — ให้เห็นด้วยตา ────────────
+    -- ใน combat Lua อ่านอะไรไม่ได้เลย (forbidden ทั้ง subtree — วัด 2026-08-18)
+    -- ⇒ production จะอ่านผ่าน pixel (ฟอนต์ PixelTiny) · lab นี้ใช้ฟอนต์ปกติ
+    --   เพื่อยืนยันก่อนว่า field ข้อความทั้ง 3 ถูก C เขียนจริงตอน combat
+    btn.NameFS = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    btn.NameFS:SetPoint("TOP", btn, "BOTTOM", 0, -2)
+    btn.NameFS:SetWidth(70)
+    btn.NameFS:SetWordWrap(false)
+    pcall(btn.SetSpellName, btn, btn.NameFS)
+
+    btn.DispelFS = btn:CreateFontString(nil, "OVERLAY", "GameFontGreenSmall")
+    btn.DispelFS:SetPoint("TOP", btn.NameFS, "BOTTOM", 0, -1)
+    pcall(btn.SetDispelTypeText, btn, btn.DispelFS)
+
+    btn.DurFS = btn:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    btn.DurFS:SetPoint("TOP", btn.DispelFS, "BOTTOM", 0, -1)
+    if C_StringUtil and C_StringUtil.CreateNumericRuleFormatter then
+        pcall(btn.SetDurationText, btn, btn.DurFS,
+              { textFormatter = C_StringUtil.CreateNumericRuleFormatter() })
+    end
+
     created[#created + 1] = btn
 end
 
@@ -151,8 +172,8 @@ local function BindNP1()
     end
 
     local layout = {
-        elementSpacing   = ICON_GAP,
-        lineSpacing      = ICON_GAP,
+        elementSpacing   = ICON_GAP + 46,   -- เผื่อที่ข้อความข้าง/ใต้ปุ่ม (NameFS กว้าง 70)
+        lineSpacing      = ICON_GAP + 44,   -- แถวถัดไปไม่ทับข้อความ
         groupSpacing     = ICON_GAP,
         groupLineSpacing = ICON_GAP,
         elementWidth     = ICON_W,
@@ -523,7 +544,7 @@ local function BuildFrame()
     drawArea = CreateFrame("Frame", nil, frame)
     drawArea:SetPoint("TOPLEFT", areaLabel, "BOTTOMLEFT", 0, -4)
     drawArea:SetPoint("RIGHT", frame, "RIGHT", -SIDE_PAD, 0)
-    drawArea:SetHeight((ICON_H + ICON_GAP) * 3 + 8)
+    drawArea:SetHeight((ICON_H + 46 + ICON_GAP) * 2 + 8)   -- มีข้อความใต้ปุ่มแล้ว
     local bg = drawArea:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
     bg:SetColorTexture(0, 0, 0, 0.6)
