@@ -37,7 +37,8 @@ local TOOL = GeRODPS_Tools
 local TITLE_H  = 28
 local SIDE_PAD = 12
 
-local frame, statusBox, npInfoFS
+local frame, statusBox, npInfoFS, verdictFS
+local lastRecCount, lastChangeAt = -1, nil   -- จับการขยับของข้อมูล (นับเฉพาะค่า plain)
 local keepAlive = false
 local reviveCount = 0
 local logLines = {}
@@ -202,6 +203,45 @@ end
 -- ============================================================
 -- UI
 -- ============================================================
+--- ตัดสิน "Bliz nameplate1 ทำงานไหม" เป็นบรรทัดเดียว
+--- นิยาม "ทำงาน" = reader ตัวจริงของ addon อ่าน record ได้ (นั่นคือ
+--- สิ่งเดียวที่ production สนใจ) · ไม่ทำงาน = บอกด้วยว่าติดชั้นไหน + กดปุ่มไหนต่อ
+local function VerdictText()
+    local uf = BlizUnitFrame()
+    if uf == nil then
+        return "|cffff5555ยังไม่ทำงาน|r — ไม่มี nameplate1 (เล็ง mob ให้มี plate ก่อน)"
+    end
+
+    -- นับ record จาก reader ตัวจริง (ค่าใน record เป็น secret แต่ "จำนวน" เป็น plain)
+    local nRec = 0
+    if GeRODPS and GeRODPS.GetAllAuraFromSetOfNamePlate then
+        local okR, recs = pcall(GeRODPS.GetAllAuraFromSetOfNamePlate, { "nameplate1" })
+        if okR and type(recs) == "table" then nRec = #recs end
+    end
+    if nRec ~= lastRecCount then
+        lastRecCount = nRec
+        lastChangeAt = date("%H:%M:%S")
+    end
+
+    if nRec > 0 then
+        return ("|cff44ff44ทำงาน!|r อ่านได้ %d aura  (เลขขยับล่าสุด %s — ขยับตาม DoT = สดจริง)")
+            :format(nRec, lastChangeAt or "-")
+    end
+
+    -- ยัง 0 — ชี้ชั้นที่ติด เรียงตามลำดับการแก้
+    local okV, vis = pcall(uf.IsVisible, uf)
+    if not (okV and vis == true) then
+        return "|cffff5555ยังไม่ทำงาน|r — เฟรมถูกซ่อนอยู่ → กด |cffffd200(1) Revive|r + ติ๊ก Keep alive"
+    end
+    local okE, evA = pcall(uf.IsEventRegistered, uf, "UNIT_AURA")
+    if not (okE and evA == true) then
+        return "|cffff5555ยังไม่ทำงาน|r — เฟรมโชว์แล้วแต่ event ถูกถอน → กด |cffffd200(2) Re-register|r"
+            .. " · ไม่ขึ้นค่อย |cffffd200(3) Toggle option|r แล้วหันกล้องหนี/กลับ"
+    end
+    return "|cffffcc55เกือบแล้ว|r — เฟรมโชว์ + event มา แต่ลิสต์ยังว่าง → "
+        .. "ใส่ DoT ของเราบนตัวนี้ (ลิสต์ debuff เอาเฉพาะของเราเท่านั้น)"
+end
+
 --- แถบ NP1: Exists / Name / isTarget (เทียบเฟรม — UnitIsUnit เป็น secret boolean)
 local function NP1InfoText()
     if not UnitExists("nameplate1") then
@@ -228,6 +268,7 @@ local function Tick()
     if frame == nil or not frame:IsShown() then return end
     if keepAlive then ReviveOnce(false) end
     if npInfoFS then npInfoFS:SetText(NP1InfoText()) end
+    if verdictFS then verdictFS:SetText(VerdictText()) end
 
     local out = {}
     for _, l in ipairs(logLines) do out[#out + 1] = l end
@@ -275,7 +316,7 @@ local function BuildFrame()
     local btnRevive = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btnRevive:SetSize(150, 24)
     btnRevive:SetPoint("LEFT", btnState, "RIGHT", 6, 0)
-    btnRevive:SetText("Revive NP1 (ครั้งเดียว)")
+    btnRevive:SetText("(1) Revive NP1")
     btnRevive:SetScript("OnClick", function()
         wipe(logLines)
         Log("== Revive · %s ==", date("%H:%M:%S"))
@@ -294,24 +335,31 @@ local function BuildFrame()
     local btnEvents = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btnEvents:SetSize(150, 24)
     btnEvents:SetPoint("TOPLEFT", btnState, "BOTTOMLEFT", 0, -6)
-    btnEvents:SetText("Re-register events")
+    btnEvents:SetText("(2) Re-register events")
     btnEvents:SetScript("OnClick", function() ReRegisterEvents(); Tick() end)
 
     local btnOpt = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btnOpt:SetSize(260, 24)
     btnOpt:SetPoint("LEFT", btnEvents, "RIGHT", 6, 0)
-    btnOpt:SetText("Toggle Plater 'as blizzard' option")
+    btnOpt:SetText("(3) Toggle Plater 'as blizzard'")
     btnOpt:SetScript("OnClick", function() TogglePlaterOption(); Tick() end)
 
     -- แถบดู NP1 — user เคาะ: จำกัดเฉพาะ nameplate1 เสมอ ขอแค่ Exists/isTarget/Name
     npInfoFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    npInfoFS:SetPoint("TOPLEFT", btnEvents, "BOTTOMLEFT", 0, -8)
+    npInfoFS:SetPoint("TOPLEFT", btnEvents, "BOTTOMLEFT", 0, -10)
     npInfoFS:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -SIDE_PAD, 0)
     npInfoFS:SetJustifyH("LEFT")
     npInfoFS:SetText("NP1: ...")
 
+    -- ผลตัดสิน — คำตอบของคำถาม "Bliz NP1 ทำงานไหม" บรรทัดเดียว ตัวใหญ่
+    verdictFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    verdictFS:SetPoint("TOPLEFT", npInfoFS, "BOTTOMLEFT", 0, -6)
+    verdictFS:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -SIDE_PAD, 0)
+    verdictFS:SetJustifyH("LEFT")
+    verdictFS:SetText("...")
+
     local scroll = CreateFrame("ScrollFrame", "$parentScroll", frame, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", npInfoFS, "BOTTOMLEFT", 0, -8)
+    scroll:SetPoint("TOPLEFT", verdictFS, "BOTTOMLEFT", 0, -8)
     scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28, 12)
 
     statusBox = CreateFrame("EditBox", nil, scroll)
