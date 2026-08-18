@@ -880,6 +880,8 @@ function TOOL.RunNameplateAuraProbe(showAll)
     out[#out + 1] = ""
 
     local units, anyAura, plateCount = {}, false, 0
+    -- บล็อกราย nameplate (หน้าละ 2 ตัว ตัวละคอลัมน์) — ส่วนที่เหลือไป out = ส่วนรวม
+    local plateBlocks = {}
 
     out[#out + 1] = "-- ส่วน D: enumerate ด้วย API ตรง (ทางที่ ThreatPlates ใช้) -----"
     out[#out + 1] = "   ถ้าคืน table ได้ = ทางนี้รอด · aura.dispelName คือคำตอบของเรื่อง dispel"
@@ -928,18 +930,21 @@ function TOOL.RunNameplateAuraProbe(showAll)
             end
 
             if auraN > 0 then anyAura = true end
-            -- ⚠ พิมพ์บล็อกนี้เสมอแม้ 0 ปุ่ม — กรณี "0 ปุ่ม" คือกรณีที่ต้องการข้อมูลมากสุด
-            if true then
+            -- ⚠ เก็บบล็อกนี้เสมอแม้ 0 ปุ่ม — กรณี "0 ปุ่ม" คือกรณีที่ต้องการข้อมูลมากสุด
+            -- บล็อกของแต่ละ nameplate เก็บแยกกัน — UI เอาไปวางคนละคอลัมน์ (หน้าละ 2 ตัว)
+            do
                 units[#units + 1] = unit
-                out[#out + 1] = ("[%s] %s  enemy=%s  auras=%d  via %s")
+                local blk = {}
+                blk[#blk + 1] = ("[%s] %s  enemy=%s  auras=%d  via %s")
                     :format(unit, SafeStr(name), SafeStr(canAttack), auraN, af and how or ("-- " .. tostring(how)))
                 -- แยกรายลิสต์เสมอ แม้ 0 ปุ่ม — ตัวชี้ว่า "buff ไม่โผล่" เกิดที่ลิสต์ไหน
                 if af then
                     for _, L in ipairs(LISTS) do
-                        DumpListConfig(af[L.field], L.kind, out)
+                        DumpListConfig(af[L.field], L.kind, blk)
                     end
                 end
-                for _, l in ipairs(lines) do out[#out + 1] = l end
+                for _, l in ipairs(lines) do blk[#blk + 1] = l end
+                plateBlocks[#plateBlocks + 1] = { unit = unit, lines = blk }
             end
         end
     end
@@ -970,11 +975,25 @@ function TOOL.RunNameplateAuraProbe(showAll)
             out[#out + 1] = "API คืนค่าไม่ใช่ table: " .. SafeStr(recs)
         else
             out[#out + 1] = ("units=%d  records=%d"):format(#units, #recs)
+            -- record เป็นของราย unit ⇒ ย้ายไปอยู่กับบล็อกของ nameplate นั้น (อ่านเทียบกับส่วน A ได้เลย)
+            local byUnit = {}
+            for _, b in ipairs(plateBlocks) do byUnit[b.unit] = b end
             for i, r in ipairs(recs) do
-                out[#out + 1] = ("  #%d unit=%s kind=%s spellID=%s stack=%s startMs=%s durationMs=%s nowMs=%s")
+                local ln = ("  #%d unit=%s kind=%s spellID=%s stack=%s startMs=%s durationMs=%s nowMs=%s")
                     :format(i, tostring(r.unit), tostring(r.kind), SafeStr(r.spellID),
                             SafeStr(r.stack), SafeStr(r.startMs), SafeStr(r.durationMs),
                             SafeStr(r.nowMs))
+                local b = byUnit[tostring(r.unit)]
+                if b then
+                    if not b._apiHdr then
+                        b._apiHdr = true
+                        b.lines[#b.lines + 1] = ""
+                        b.lines[#b.lines + 1] = "-- ส่วน B: record จาก GetAllAuraFromSetOfNamePlate --"
+                    end
+                    b.lines[#b.lines + 1] = ln
+                else
+                    out[#out + 1] = ln
+                end
             end
             if #recs == 0 then
                 out[#out + 1] = "  (ว่าง — ตรงกับส่วน A ที่ไม่มีปุ่มออร่า)"
@@ -992,7 +1011,12 @@ function TOOL.RunNameplateAuraProbe(showAll)
     out[#out + 1] = ""
     out[#out + 1] = "-- อ่านผล: SECRET xxx = ผ่าน (ส่ง STS ให้ AHK ได้) / ERR = ใช้ไม่ได้ / nil = ไม่มีค่า"
     out[#out + 1] = "--         [+0 ok] = คำนวณฝั่ง Lua ได้ · [+0 ERR] = ต้องส่งดิบให้ AHK คิด"
-    return table.concat(out, "\n")
+
+    local plates = {}
+    for _, b in ipairs(plateBlocks) do
+        plates[#plates + 1] = { unit = b.unit, text = table.concat(b.lines, "\n") }
+    end
+    return { shared = table.concat(out, "\n"), plates = plates }
 end
 
 -- ============================================================
@@ -1089,7 +1113,12 @@ end
 -- UI
 -- ============================================================
 
-local frame, editBox, scrollFrame
+local frame, editBox, scrollFrame          -- editBox/scrollFrame = คอลัมน์ซ้าย (index 1)
+local colBox, colScroll, colTitle = {}, {}, {}   -- 2 คอลัมน์ = 2 nameplate ต่อหน้า
+local pageLabel, btnPrev, btnNext
+local _report = nil                        -- { shared = "...", plates = { {unit,text}, ... } }
+local _page   = 1
+local PER_PAGE = 2                         -- user เคาะ: 1 หน้า = 2 nameplate เรียงข้างกัน
 local peekBox, peekFS
 
 local function RefreshPeek()
@@ -1103,11 +1132,69 @@ local function RefreshPeek()
     end
 end
 
+--- จำนวนหน้า (อย่างน้อย 1 เสมอ เพื่อให้ป้ายไม่โชว์ 0/0)
+local function TotalPages()
+    local n = (_report and #_report.plates) or 0
+    local t = math.ceil(n / PER_PAGE)
+    if t < 1 then t = 1 end
+    return t
+end
+
+--- วาดหน้าปัจจุบันลง 2 คอลัมน์ (คอลัมน์ที่ไม่มี nameplate = ว่าง)
+local function RenderPage()
+    if not colBox[1] then return end
+    local total = TotalPages()
+    if _page > total then _page = total end
+    if _page < 1 then _page = 1 end
+
+    local names = {}
+    for c = 1, PER_PAGE do
+        local idx = (_page - 1) * PER_PAGE + c
+        local pl  = _report and _report.plates[idx]
+        local body, head
+        if pl then
+            head = ("|cffffd200%s|r  (ตัวที่ %d/%d)"):format(pl.unit, idx, #_report.plates)
+            body = pl.text
+            names[#names + 1] = pl.unit
+        else
+            head = "|cff888888(ไม่มี nameplate ช่องนี้)|r"
+            body = ""
+        end
+        colTitle[c]:SetText(head)
+        colBox[c]:SetText(body)
+        colBox[c]:SetCursorPosition(0)
+    end
+
+    if pageLabel then
+        local n = (_report and #_report.plates) or 0
+        local who = (#names > 0) and table.concat(names, ", ") or "-"
+        pageLabel:SetText(("หน้า %d/%d  ·  nameplate ทั้งหมด %d  ·  หน้านี้: %s")
+            :format(_page, total, n, who))
+    end
+    if btnPrev then btnPrev:SetEnabled(_page > 1) end
+    if btnNext then btnNext:SetEnabled(_page < total) end
+end
+
+local function PageStep(d)
+    _page = _page + d
+    RenderPage()
+end
+
 local function Refresh(showAll)
     if not editBox then return end
-    local ok, text = pcall(TOOL.RunNameplateAuraProbe, showAll)
-    editBox:SetText(ok and text or ("Probe พัง: " .. tostring(text)))
+    local ok, res = pcall(TOOL.RunNameplateAuraProbe, showAll)
+    if not ok or type(res) ~= "table" then
+        _report = nil
+        editBox:SetText("Probe พัง: " .. tostring(res))
+        editBox:SetCursorPosition(0)
+        RenderPage()
+        return
+    end
+    _report = res
+    _page = 1
+    editBox:SetText(res.shared)              -- กล่องล่าง = ส่วนรวม (ไม่ขึ้นกับหน้า)
     editBox:SetCursorPosition(0)
+    RenderPage()
     if peekBox and peekBox:IsShown() then RefreshPeek() end
 end
 
@@ -1224,8 +1311,84 @@ local function BuildFrame()
         editBox:SetCursorPosition(0)
     end)
 
+    -- ── แถวเปลี่ยนหน้า (1 หน้า = 2 nameplate เรียงข้างกัน) ──────────────
+    btnPrev = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnPrev:SetSize(40, 24)
+    btnPrev:SetPoint("TOPLEFT", btn, "BOTTOMLEFT", 0, -6)
+    btnPrev:SetText("<")
+    btnPrev:SetScript("OnClick", function() PageStep(-1) end)
+
+    btnNext = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnNext:SetSize(40, 24)
+    btnNext:SetPoint("LEFT", btnPrev, "RIGHT", 6, 0)
+    btnNext:SetText(">")
+    btnNext:SetScript("OnClick", function() PageStep(1) end)
+
+    pageLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    pageLabel:SetPoint("LEFT", btnNext, "RIGHT", 12, 0)
+    pageLabel:SetJustifyH("LEFT")
+    pageLabel:SetText("หน้า 1/1")
+
+    -- ── 2 คอลัมน์: คอลัมน์ละ 1 nameplate (กล่องเลื่อนแยกกัน copy ได้ทั้งคู่) ──
+    -- ครองพื้นที่ส่วนบน · ส่วนรวมอยู่กล่องล่าง (scrollFrame เดิม)
+    local COL_GAP  = 10
+    local SHARED_H = 150                    -- ความสูงของกล่อง "ส่วนรวม" ด้านล่าง
+    for c = 1, PER_PAGE do
+        colTitle[c] = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        colTitle[c]:SetJustifyH("LEFT")
+        colTitle[c]:SetText("")
+
+        colScroll[c] = CreateFrame("ScrollFrame", "$parentCol" .. c, frame,
+                                   "UIPanelScrollFrameTemplate")
+        colBox[c] = CreateFrame("EditBox", nil, colScroll[c])
+        colBox[c]:SetMultiLine(true)
+        colBox[c]:SetAutoFocus(false)
+        colBox[c]:SetFontObject(ChatFontNormal)
+        colBox[c]:SetMaxLetters(0)
+        colBox[c]:SetCountInvisibleLetters(false)
+        colBox[c]:EnableMouse(true)
+        colBox[c]:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+        colBox[c]:SetScript("OnCursorChanged", function(self, _, y, _, ch)
+            ScrollingEdit_OnCursorChanged(self, 0, y, 0, ch)
+        end)
+        colScroll[c]:SetScript("OnSizeChanged", function(_, w)
+            if colBox[c] then colBox[c]:SetWidth(w) end
+        end)
+        colScroll[c]:SetScrollChild(colBox[c])
+    end
+
+    -- วาง/ปรับขนาดคอลัมน์ตามความกว้างกรอบ (เรียกซ้ำได้ตอน resize)
+    local function LayoutColumns()
+        local w = frame:GetWidth() - SIDE_PAD * 2 - 30
+        if w < 200 then w = 200 end
+        local colW = (w - COL_GAP) / PER_PAGE
+        for c = 1, PER_PAGE do
+            local dx = (c - 1) * (colW + COL_GAP)
+            -- ยึดกับปุ่มเปลี่ยนหน้าจริง — อย่าเดา offset จากขอบบน (hint สูงไม่คงที่
+            -- ตามความกว้างกรอบ ⇒ ตัวเลขตายตัวจะทับแถวปุ่มเวลาย่อกรอบ)
+            colTitle[c]:ClearAllPoints()
+            colTitle[c]:SetPoint("TOPLEFT", btnPrev, "BOTTOMLEFT", dx, -8)
+            colTitle[c]:SetWidth(colW)
+
+            -- สูงมาจาก anchor บน+ล่าง (ไม่คำนวณเอง) → resize กรอบแล้วตามเอง
+            colScroll[c]:ClearAllPoints()
+            colScroll[c]:SetPoint("TOPLEFT", colTitle[c], "BOTTOMLEFT", 0, -4)
+            colScroll[c]:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT",
+                                  SIDE_PAD + dx, SHARED_H + 46)
+            colScroll[c]:SetWidth(colW)
+            colBox[c]:SetWidth(colW)
+        end
+    end
+    frame._LayoutColumns = LayoutColumns
+    LayoutColumns()
+
+    -- กล่อง "ส่วนรวม" (env / CVar / ส่วน D / สรุป) — ไม่ขึ้นกับหน้า
+    local sharedTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    sharedTitle:SetPoint("TOPLEFT", colScroll[1], "BOTTOMLEFT", 0, -6)
+    sharedTitle:SetText("|cffaaffaaส่วนรวม (ไม่ขึ้นกับหน้า)|r")
+
     scrollFrame = CreateFrame("ScrollFrame", "$parentScroll", frame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", btn, "BOTTOMLEFT", 0, -8)
+    scrollFrame:SetPoint("TOPLEFT", sharedTitle, "BOTTOMLEFT", 0, -4)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 22)
 
     editBox = CreateFrame("EditBox", nil, scrollFrame)
@@ -1249,7 +1412,7 @@ local function BuildFrame()
     -- ขนาดคงที่ตามกรอบ ไม่วัดข้อความ (กฎข้อ 3) — ยาวเกินก็โดนตัดล่าง
     -- ให้ user กด Full Screen หรือลากขยายกรอบเอา
     peekBox = CreateFrame("Frame", nil, frame)
-    peekBox:SetPoint("TOPLEFT", scrollFrame, "TOPLEFT", 0, 0)
+    peekBox:SetPoint("TOPLEFT", colScroll[1], "TOPLEFT", 0, 0)
     peekBox:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 22)
     peekBox:Hide()
     local peekBg = peekBox:CreateTexture(nil, "BACKGROUND")
@@ -1279,7 +1442,14 @@ local function BuildFrame()
         end
     end)
     resize:SetScript("OnMouseUp", function(_, button)
-        if button == "LeftButton" then frame:StopMovingOrSizing() end
+        if button == "LeftButton" then
+            frame:StopMovingOrSizing()
+            if frame._LayoutColumns then frame._LayoutColumns() end
+        end
+    end)
+    -- ปุ่ม Full Screen / Restore ก็เปลี่ยนขนาดกรอบ → จัดคอลัมน์ตามด้วย
+    frame:SetScript("OnSizeChanged", function(self)
+        if self._LayoutColumns then self._LayoutColumns() end
     end)
 
     return frame
