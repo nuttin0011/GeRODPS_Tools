@@ -1114,7 +1114,9 @@ local colBox, colScroll, colTitle = {}, {}, {}   -- 2 คอลัมน์ = 2 
 local pageLabel, btnPrev, btnNext
 local _report = nil                        -- { shared = "...", plates = { {unit,text}, ... } }
 local _page   = 1
-local PER_PAGE = 2                         -- user เคาะ: 1 หน้า = 2 nameplate เรียงข้างกัน
+-- user เคาะ 2026-08-18: เหลือหน้าละ 1 nameplate — ดูแค่ NP1 อยู่แล้ว
+-- และต้องการที่ว่างสำหรับรายละเอียดที่จะเพิ่มทีหลัง (เปลี่ยนค่านี้ค่าเดียว layout ตามเอง)
+local PER_PAGE = 1
 local peekBox, peekFS
 
 local function RefreshPeek()
