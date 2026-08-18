@@ -76,22 +76,12 @@ local function IsSecret(v)
     return res == true
 end
 
+--- ค่า secret แสดงเป็น [s] เฉย ๆ — สั้นพอสำหรับคอลัมน์แคบ และเป็นข้อมูลเดียวที่ต้องรู้
+--- (จะเป็น number หรือ string ก็เอาไปคำนวณ/เทียบฝั่ง Lua ไม่ได้อยู่ดี ⇒ ต้องส่งดิบให้ AHK)
 local function SafeStr(v)
     if v == nil then return "nil" end
-    if IsSecret(v) then
-        local ok, t = pcall(type, v)
-        return "SECRET " .. (ok and t or "?")
-    end
+    if IsSecret(v) then return "[s]" end
     return tostring(v)
-end
-
---- ลองบวก 0 — ตัวตัดสินว่าค่านั้นเอาไปคำนวณฝั่ง Lua ได้ไหม
---- (secret number = throw ⇒ ต้องส่งดิบให้ AHK)
-local function ArithTag(v)
-    if v == nil then return "" end
-    local ok = pcall(function() return v + 0 end)
-    if ok then return " |cff44ff44[+0 ok]|r" end
-    return " |cffff9a9a[+0 ERR]|r"
 end
 
 --- เรียก getter แบบปลอดภัย — คืน (okFlag, value) โดยที่ค่า secret ถือว่า ok
@@ -179,7 +169,7 @@ end
 -- (เหลือแค่แยก Magic / Enrage ซึ่งเป็นหน้าที่ของ atlas)
 --
 -- ⚠ ค่า atlas อาจเป็น secret ถ้า Blizzard ตั้งมาจาก dispelName ที่ secret
---   → รายงานจะบอกให้เห็นเอง (SafeStr + [+0] tag) ก่อนตัดสินใจว่าจะเทียบฝั่งไหน
+--   → รายงานจะบอกให้เห็นเอง (SafeStr → [s]) ก่อนตัดสินใจว่าจะเทียบฝั่งไหน
 
 local TEX_FIELD_GUESS = {
     "Border", "DebuffBorder", "Symbol", "Overlay", "EdgeHighlight",
@@ -281,7 +271,7 @@ function ProbeDispelViaCurveID(unit, aid, out, pad)
 
     local r = color.r
     if r == nil and type(color) == "table" then r = color[1] end
-    local line = pad .. "curve: ได้สี  r=" .. SafeStr(r) .. ArithTag(r)
+    local line = pad .. "curve: ได้สี  r=" .. SafeStr(r)
     if r ~= nil and not IsSecret(r) then
         local okF, id = pcall(function() return math.floor(r * 255 + 0.5) end)
         if okF then
@@ -341,7 +331,7 @@ local function ProbeDispelSignature(unit, btn, out)
 
     for _, k in ipairs(DATA_FIELD_GUESS) do
         if btn[k] ~= nil then
-            out[#out + 1] = "          btn." .. k .. " = " .. SafeStr(btn[k]) .. ArithTag(btn[k])
+            out[#out + 1] = "          btn." .. k .. " = " .. SafeStr(btn[k])
         end
     end
 
@@ -390,8 +380,8 @@ local function ProbeButton(btn, kind, idx, out, unitToken)
     local aid  = btn.auraInstanceID
     local isB  = btn.isBuff
 
-    out[#out + 1] = ("    [%s #%d] spellID=%s%s  auraInstanceID=%s%s  isBuff=%s")
-        :format(kind, idx, SafeStr(sid), ArithTag(sid), SafeStr(aid), ArithTag(aid), SafeStr(isB))
+    out[#out + 1] = ("    [%s #%d] spellID=%s  auraInstanceID=%s  isBuff=%s")
+        :format(kind, idx, SafeStr(sid), SafeStr(aid), SafeStr(isB))
 
     -- ── Stack: CountFrame.Count (Blizzard :Hide() เมื่อ applications <= 1) ──
     local cf = btn.CountFrame
@@ -404,9 +394,8 @@ local function ProbeButton(btn, kind, idx, out, unitToken)
         else
             local okS, shown = Get(fs, "IsShown")
             local okT, txt   = Get(fs, "GetText")
-            out[#out + 1] = ("        stack: Count shown=%s text=%s%s   %s")
+            out[#out + 1] = ("        stack: Count shown=%s text=%s   %s")
                 :format(okS and SafeStr(shown) or "ERR", okT and SafeStr(txt) or "ERR",
-                        okT and ArithTag(txt) or "",
                         (okS and shown ~= true and not IsSecret(shown))
                             and "|cffaaaaaa(ซ่อน = stack 1)|r" or "")
         end
@@ -424,9 +413,8 @@ local function ProbeButton(btn, kind, idx, out, unitToken)
             if not ok then
                 out[#out + 1] = "        remain: GetCooldownTimes ERR: " .. tostring(sMs)
             else
-                out[#out + 1] = ("        remain: startMs=%s%s  durationMs=%s%s  (now=%.0f)")
-                    :format(SafeStr(sMs), ArithTag(sMs), SafeStr(dMs), ArithTag(dMs),
-                            GetTime() * 1000)
+                out[#out + 1] = ("        remain: startMs=%s  durationMs=%s  (now=%.0f)")
+                    :format(SafeStr(sMs), SafeStr(dMs), GetTime() * 1000)
                 -- ทดสอบสูตรจริงที่ AHK จะใช้ — ถ้าอันนี้ ok = คำนวณฝั่ง Lua ได้เลย
                 local okCalc = pcall(function()
                     return (sMs + dMs - GetTime() * 1000) / 1000
@@ -451,9 +439,9 @@ local function ProbeButton(btn, kind, idx, out, unitToken)
         local okH, hidden = Get(cd, "GetHideCountdownNumbers")
         local okM, minMs  = Get(cd, "GetMinimumCountdownDuration")
         local okD, dispD  = Get(cd, "GetCooldownDisplayDuration")
-        out[#out + 1] = ("        cdText: hideNumbers=%s  minDuration=%s  displayDuration=%s%s")
+        out[#out + 1] = ("        cdText: hideNumbers=%s  minDuration=%s  displayDuration=%s")
             :format(okH and SafeStr(hidden) or "ERR", okM and SafeStr(minMs) or "ERR",
-                    okD and SafeStr(dispD) or "ERR", okD and ArithTag(dispD) or "")
+                    okD and SafeStr(dispD) or "ERR")
 
         if cd.GetCountdownFontString == nil then
             out[#out + 1] = "        cdText: |cffff9a9aไม่มี GetCountdownFontString บน widget นี้|r"
@@ -467,9 +455,9 @@ local function ProbeButton(btn, kind, idx, out, unitToken)
                 local okS, shown = Get(fs, "IsShown")
                 local okV, vis   = Get(fs, "IsVisible")
                 local okT, txt   = Get(fs, "GetText")
-                out[#out + 1] = ("        cdText: shown=%s visible=%s  text=%s%s")
+                out[#out + 1] = ("        cdText: shown=%s visible=%s  text=%s")
                     :format(okS and SafeStr(shown) or "ERR", okV and SafeStr(vis) or "ERR",
-                            okT and SafeStr(txt) or "ERR", okT and ArithTag(txt) or "")
+                            okT and SafeStr(txt) or "ERR")
                 -- ⚠ ห้ามเทียบ txt ~= "" ตรง ๆ ตอนเป็น secret (compare = unmask)
                 -- secret string = "มีข้อความแน่นอน" อยู่แล้ว → usable
                 local usable
@@ -619,7 +607,7 @@ local function DumpAuraData(a, out, pad)
     for _, k in ipairs(keys) do
         local v = a[k]
         if v ~= nil then
-            out[#out + 1] = pad .. k .. " = " .. SafeStr(v) .. ArithTag(v)
+            out[#out + 1] = pad .. k .. " = " .. SafeStr(v)
         end
     end
 end
@@ -1009,8 +997,8 @@ function TOOL.RunNameplateAuraProbe(showAll)
     end
 
     out[#out + 1] = ""
-    out[#out + 1] = "-- อ่านผล: SECRET xxx = ผ่าน (ส่ง STS ให้ AHK ได้) / ERR = ใช้ไม่ได้ / nil = ไม่มีค่า"
-    out[#out + 1] = "--         [+0 ok] = คำนวณฝั่ง Lua ได้ · [+0 ERR] = ต้องส่งดิบให้ AHK คิด"
+    out[#out + 1] = "-- อ่านผล: [s] = ค่า secret (อ่านได้ ส่ง STS ให้ AHK ได้ แต่คำนวณ/เทียบฝั่ง Lua ไม่ได้)"
+    out[#out + 1] = "--         ERR = ใช้ไม่ได้ / nil = ไม่มีค่า"
 
     local plates = {}
     for _, b in ipairs(plateBlocks) do
