@@ -224,6 +224,106 @@ local function Unbind()
 end
 
 -- ============================================================
+-- Probe Icon 1 — เจาะปุ่มตัวแรกที่มี texture: อ่านทุกอย่างที่อ่านได้
+-- ============================================================
+-- คำถามที่ต้องตอบ (เรียงตามความสำคัญต่อการเอาไปใช้จริง):
+--   1. Cooldown:GetCooldownTimes()  → start/dur — ได้ไหม secret ไหม (= remain)
+--   2. CountText:GetText()          → stack — ได้ไหม (render ผ่าน STS ได้ถ้า secret)
+--   3. Icon:GetTexture()            → iconID — อาจใช้เป็น key match แทน spellID
+--      (ฝั่งเราสร้าง map spellID→iconID ได้จาก C_Spell.GetSpellTexture ซึ่งเป็น
+--       spell API ไม่ใช่ aura API — ยังเรียกได้ปกติ)
+--   4. field ที่ C แอบตั้งบนปุ่ม (pairs ทุก key — บทเรียน "ไม่ได้ดูเหรอ")
+--   5. method น่าสนใจ: GetID / GetAuraInstanceID มีไหม · GetAuraData **ห้ามเรียก**
+--      (HARD RULE จาก CDM — เรียกแล้ว taint) แค่รายงานว่ามี
+--- dump ทุก key ของ table/frame (per-call pcall) — เผื่อ C แอบตั้งอะไรไว้
+local function DumpKeys(obj, label)
+    Log("-- ตัวแปรบน %s (pairs ทุก key) --", label)
+    local okP = pcall(function()
+        local keys = {}
+        for k, v in pairs(obj) do
+            local tv = type(v)
+            if tv == "table" or tv == "function" or tv == "userdata" then
+                keys[#keys + 1] = ("  %s = <%s>"):format(tostring(k), tv)
+            else
+                keys[#keys + 1] = ("  %s = %s"):format(tostring(k), SafeStr(v))
+            end
+        end
+        table.sort(keys)
+        for _, l in ipairs(keys) do Log("%s", l) end
+        if #keys == 0 then Log("  (ไม่มี key เลย)") end
+    end)
+    if not okP then Log("  |cffff5555pairs THROW (forbidden object?)|r") end
+end
+
+local function ProbeIcon1()
+    local target, idx
+    for i, btn in ipairs(created) do
+        local okT, tex = pcall(btn.Icon.GetTexture, btn.Icon)
+        if okT and tex ~= nil then target, idx = btn, i; break end
+    end
+    Log("")
+    Log("== Probe icon (%s) · combat=%s · %s ==",
+        target and ("btn#" .. idx) or "ไม่มีปุ่มที่มี texture",
+        tostring(InCombatLockdown()), date("%H:%M:%S"))
+
+    -- container เองก่อน — เผื่อ C ตั้ง field น่าสนใจ (ลิสต์ aura / unit / cache)
+    if container ~= nil then
+        DumpKeys(container, "container")
+        if container.GetUnit then
+            local okU, u = pcall(container.GetUnit, container)
+            Log("  GetUnit() = %s", okU and SafeStr(u) or ("ERR " .. tostring(u)))
+        end
+    end
+    if target == nil then return end
+
+    -- 4) ทุก key บนปุ่ม — per-key pcall (ใน combat ปุ่มอาจ forbidden ทั้งใบ)
+    DumpKeys(target, "btn#" .. idx)
+
+    -- 5) method
+    Log("-- method --")
+    local okID, id = pcall(target.GetID, target)
+    Log("  GetID() = %s", okID and SafeStr(id) or ("ERR " .. tostring(id)))
+    Log("  GetAuraData = %s", target.GetAuraData and "มี (ห้ามเรียก — taint)" or "ไม่มี")
+    if target.GetAuraInstanceID then
+        local okA, aid = pcall(target.GetAuraInstanceID, target)
+        Log("  GetAuraInstanceID() = %s", okA and SafeStr(aid) or ("ERR " .. tostring(aid)))
+    else
+        Log("  GetAuraInstanceID = ไม่มี")
+    end
+
+    -- 1-3) widget ของเรา
+    Log("-- widget ของเรา (ทางที่จะใช้จริง) --")
+    local okT, tex = pcall(target.Icon.GetTexture, target.Icon)
+    Log("  Icon:GetTexture()          = %s", okT and SafeStr(tex) or ("ERR " .. tostring(tex)))
+
+    local okC, cnt = pcall(target.CountText.GetText, target.CountText)
+    local okCS, cntS = pcall(target.CountText.IsShown, target.CountText)
+    Log("  CountText:GetText()        = %s   IsShown=%s",
+        okC and SafeStr(cnt) or ("ERR " .. tostring(cnt)),
+        okCS and SafeStr(cntS) or "ERR")
+
+    local okD, sMs, dMs = pcall(target.Cooldown.GetCooldownTimes, target.Cooldown)
+    Log("  Cooldown:GetCooldownTimes()= %s / %s   (now*1000 = %d)",
+        okD and SafeStr(sMs) or ("ERR " .. tostring(sMs)),
+        okD and SafeStr(dMs) or "", math.floor(GetTime() * 1000))
+
+    if target.Cooldown.GetCountdownFontString then
+        local okF, fs = pcall(target.Cooldown.GetCountdownFontString, target.Cooldown)
+        if okF and fs ~= nil then
+            local okX, txt = pcall(fs.GetText, fs)
+            local okS2, shn = pcall(fs.IsShown, fs)
+            local okV2, vis = pcall(fs.IsVisible, fs)
+            Log("  cdText: GetText=%s IsShown=%s IsVisible=%s",
+                okX and SafeStr(txt) or "ERR", okS2 and SafeStr(shn) or "ERR",
+                okV2 and SafeStr(vis) or "ERR")
+        else
+            Log("  cdText: GetCountdownFontString คืน nil/ERR")
+        end
+    end
+    Log("== จบ probe — [s] = secret (ส่ง STS ให้ AHK ได้ · คำนวณฝั่ง Lua ไม่ได้) ==")
+end
+
+-- ============================================================
 -- Live status (ticker)
 -- ============================================================
 local function BuildLive()
@@ -339,11 +439,17 @@ local function BuildFrame()
     btnOff:SetText("Disable")
     btnOff:SetScript("OnClick", function() Unbind(); Tick() end)
 
+    local btnProbe = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnProbe:SetSize(110, 24)
+    btnProbe:SetPoint("LEFT", btnOff, "RIGHT", 6, 0)
+    btnProbe:SetText("Probe Icon 1")
+    btnProbe:SetScript("OnClick", function() ProbeIcon1(); Tick() end)
+
     -- filter radio 3 ตัว
-    local anchor = btnOff
+    local anchor = btnProbe
     for _, f in ipairs({ "HARMFUL|PLAYER", "HARMFUL", "HELPFUL" }) do
         local r = CreateFrame("CheckButton", nil, frame, "UIRadioButtonTemplate")
-        r:SetPoint("LEFT", anchor, "RIGHT", (anchor == btnOff) and 14 or 4, 0)
+        r:SetPoint("LEFT", anchor, "RIGHT", (anchor == btnProbe) and 14 or 4, 0)
         r.text:SetText(f)
         r:SetChecked(f == curFilter)
         r:SetScript("OnClick", function(self)
