@@ -60,6 +60,34 @@ end
 
 local KIND_TAG = { debuff = "[d]", buff = "[b]", cc = "[cc]", unknown = "[?]" }
 
+--- นับลูกของ list frame ของ Blizzard ตรง ๆ — แยกให้ออกว่า "ลิสต์ไหนว่าง"
+--- (reader รวมทุกลิสต์เป็นก้อนเดียว ⇒ ถ้า buff ว่างจะดูไม่ออกจากผลรวม)
+--- ใช้ตอนลอง option ของ Plater: ติ๊กแล้วลิสต์ไหนขยับ
+local LIST_KEYS = {
+    { field = "DebuffListFrame",        tag = "debuff" },
+    { field = "BuffListFrame",          tag = "buff" },
+    { field = "CrowdControlListFrame",  tag = "cc" },
+}
+
+local function ListCounts(unit)
+    local out = { debuff = "-", buff = "-", cc = "-" }
+    if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return out end
+    local plate = C_NamePlate.GetNamePlateForUnit(unit)
+    if plate == nil then return out end
+    local uf = plate.UnitFrame
+    if uf == nil then return out end
+    local af = uf.AurasFrame or uf.NameplateAurasFrame
+    if af == nil then return out end
+    for _, L in ipairs(LIST_KEYS) do
+        local lf = af[L.field]
+        if lf ~= nil and lf.GetLayoutChildren then
+            local ok, kids = pcall(lf.GetLayoutChildren, lf)
+            if ok and type(kids) == "table" then out[L.tag] = tostring(#kids) end
+        end
+    end
+    return out
+end
+
 -- ============================================================
 -- วาด
 -- ============================================================
@@ -69,14 +97,30 @@ local function UpdateStatus()
     local parts = combat and "|cffff5555IN COMBAT|r" or "|cff44ff44out of combat|r"
 
     local P = _G.Plater
-    if P then
-        local opt = P.db and P.db.profile and P.db.profile.aura_show_debuff_as_blizzard_does
-        parts = parts .. "   ·   Plater: มี · as-blizzard = "
-            .. (opt == true and "|cff44ff44true|r" or "|cffff5555" .. tostring(opt) .. "|r")
-    else
+    local prof = P and P.db and P.db.profile
+    if prof == nil then
         parts = parts .. "   ·   Plater: ไม่ได้โหลด (Blizzard UI ล้วน)"
+        statusFS:SetText(parts)
+        return
     end
-    statusFS:SetText(parts)
+
+    -- option ของ Plater ที่เกี่ยวกับ aura — สลับทีละตัวแล้วดูว่าลิสต์ไหนขยับ
+    -- (อ่านอย่างเดียว — ไม่เคยเขียน profile ของ user)
+    local OPTS = {
+        { k = "aura_show_debuff_as_blizzard_does", n = "as-blizzard(debuff)" },
+        { k = "aura_show_dispellable",             n = "dispellable" },
+        { k = "aura_show_buff_on_enemy_npc",       n = "buff-enemy-npc" },
+        { k = "aura_show_buff_by_the_player",      n = "buff-by-you" },
+        { k = "aura_show_crowdcontrol",            n = "cc" },
+        { k = "debuff_show_cc",                    n = "cc-in-debuff" },
+    }
+    local line = "Plater:"
+    for _, o in ipairs(OPTS) do
+        local v = prof[o.k]
+        line = line .. "  " .. o.n .. "="
+            .. (v == true and "|cff44ff44on|r" or "|cffff9a9a" .. tostring(v) .. "|r")
+    end
+    statusFS:SetText(parts .. "\n" .. line)
 end
 
 local function UpdateColumn(c, unit)
@@ -93,7 +137,14 @@ local function UpdateColumn(c, unit)
     if tgt == true then
         tgtTxt = "  |cff44ff44<< target|r"
     end
-    col.header:SetText(("|cffffd200%s|r  %s%s"):format(unit, name, tgtTxt))
+    local lc = ListCounts(unit)
+    local function paint(n)
+        if n == "-" then return "|cff666666-|r" end
+        if n == "0" then return "|cffff9a9a0|r" end
+        return "|cff44ff44" .. n .. "|r"
+    end
+    col.header:SetText(("|cffffd200%s|r  %s%s\n  list: debuff %s · buff %s · cc %s")
+        :format(unit, name, tgtTxt, paint(lc.debuff), paint(lc.buff), paint(lc.cc)))
 
     local recs = {}
     if GeRODPS and GeRODPS.GetAllAuraFromSetOfNamePlate then
@@ -154,7 +205,7 @@ local function LayoutColumns()
         col.header:SetWidth(colW)
         for i, fs in ipairs(col.rows) do
             fs:ClearAllPoints()
-            fs:SetPoint("TOPLEFT", col.header, "BOTTOMLEFT", 0, -4 - (i - 1) * ROW_H)
+            fs:SetPoint("TOPLEFT", col.header, "BOTTOMLEFT", 0, -6 - (i - 1) * ROW_H)
             fs:SetWidth(colW)
         end
     end
@@ -200,6 +251,7 @@ local function BuildFrame()
         local col = { rows = {} }
         col.header = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         col.header:SetJustifyH("LEFT")
+        col.header:SetSpacing(2)          -- header มี 2 บรรทัด (ชื่อ + จำนวนต่อลิสต์)
         for i = 1, MAX_ROWS do
             local fs = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             fs:SetJustifyH("LEFT")
