@@ -242,32 +242,52 @@ local function BuildLive()
         out[#out + 1] = ("GetAuraGroupFrameCount(group1) = %s"):format(ok and SafeStr(n) or ("ERR: " .. tostring(n)))
     end
 
-    local nVis = 0
+    -- ⚠ วัดจริง 2026-08-18: ปุ่มที่ provider ของ container สร้าง
+    --   (Blizzard_AuraContainerFrameProviders.lua) — IsVisible()/IsShown() คืน
+    --   **secret boolean** (ต่างจากปุ่มบน nameplate ที่เป็น plain)!
+    --   เพราะ "ปุ่มโชว์ไหม" = "unit มีออร่านี้ไหม" ⇒ ห้ามเทียบ/if-test เด็ดขาด
+    --   การยืนยันว่า "วาดแล้ว" ใช้ 2 ทาง: ตาดูพื้นที่ดำ + texture ~= nil (nil-check
+    --   บน secret ทำได้)
+    local nVisPlain, nVisSecret, nHasTex = 0, 0, 0
     for _, btn in ipairs(created) do
         local ok, vis = pcall(btn.IsVisible, btn)
-        if ok and vis == true then nVis = nVis + 1 end
-    end
-    out[#out + 1] = ("ปุ่มที่ C สร้างผ่าน initializeFrame = %d  ·  มองเห็น = %d"):format(#created, nVis)
-
-    if nVis > 0 then
-        out[#out + 1] = "|cff44ff44>>> Blizzard วาดลง container ของเราแล้ว! <<<|r"
-        for i, btn in ipairs(created) do
-            local ok, vis = pcall(btn.IsVisible, btn)
-            if ok and vis == true then
-                local okT, tex = pcall(btn.Icon.GetTexture, btn.Icon)
-                local okC, txt = pcall(btn.CountText.GetText, btn.CountText)
-                local sMs, dMs
-                if btn.Cooldown and btn.Cooldown.GetCooldownTimes then
-                    local okD, a, b = pcall(btn.Cooldown.GetCooldownTimes, btn.Cooldown)
-                    if okD then sMs, dMs = a, b end
-                end
-                out[#out + 1] = ("  btn#%d icon=%s count=%s cd=%s/%s")
-                    :format(i, okT and SafeStr(tex) or "ERR", okC and SafeStr(txt) or "ERR",
-                            SafeStr(sMs), SafeStr(dMs))
+        if ok then
+            if IsSecret(vis) then
+                nVisSecret = nVisSecret + 1
+            elseif vis == true then
+                nVisPlain = nVisPlain + 1
             end
         end
+        local okT, tex = pcall(btn.Icon.GetTexture, btn.Icon)
+        if okT and tex ~= nil then nHasTex = nHasTex + 1 end
+    end
+    out[#out + 1] = ("ปุ่มที่ C สร้างผ่าน initializeFrame = %d  ·  vis:plain-true=%d secret=%d  ·  มี texture=%d")
+        :format(#created, nVisPlain, nVisSecret, nHasTex)
+
+    if nHasTex > 0 then
+        out[#out + 1] = "|cff44ff44>>> C เขียน icon ลง widget ของเราแล้ว — ดูพื้นที่ดำประกอบ <<<|r"
+    elseif #created > 0 then
+        out[#out + 1] = "(ปุ่มมีแล้วแต่ texture ยังว่าง — ใส่ DoT บน nameplate1 / เช็ค filter / ดูพื้นที่ดำ)"
     else
-        out[#out + 1] = "(ยังไม่มีปุ่มโผล่ — ใส่ DoT บน nameplate1 / เช็ค filter / ดู log ข้างบน)"
+        out[#out + 1] = "(ยังไม่มีปุ่มเลย — ดู log ข้างบนว่า step ไหน ERR)"
+    end
+
+    for i, btn in ipairs(created) do
+        local okV, vis = pcall(btn.IsVisible, btn)
+        local okT, tex = pcall(btn.Icon.GetTexture, btn.Icon)
+        -- โชว์เฉพาะปุ่มที่มีร่องรอยข้อมูล (texture ไม่ nil) — กัน log ท่วมด้วยปุ่มว่าง
+        if okT and tex ~= nil then
+            local okC, txt = pcall(btn.CountText.GetText, btn.CountText)
+            local sMs, dMs
+            if btn.Cooldown and btn.Cooldown.GetCooldownTimes then
+                local okD, a, b = pcall(btn.Cooldown.GetCooldownTimes, btn.Cooldown)
+                if okD then sMs, dMs = a, b end
+            end
+            out[#out + 1] = ("  btn#%d vis=%s icon=%s count=%s cd=%s/%s")
+                :format(i, okV and SafeStr(vis) or "ERR",
+                        SafeStr(tex), okC and SafeStr(txt) or "ERR",
+                        SafeStr(sMs), SafeStr(dMs))
+        end
     end
     return table.concat(out, "\n")
 end
