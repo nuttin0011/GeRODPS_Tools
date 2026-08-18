@@ -512,6 +512,22 @@ local function BuildFrame()
     scroll:SetScript("OnSizeChanged", function(_, w) statusBox:SetWidth(w) end)
     scroll:SetScrollChild(statusBox)
 
+    -- สามเหลี่ยมมุมล่างขวา — ลากขยายกรอบ (ทุกอย่าง anchor ขอบกรอบอยู่แล้ว เลยยืดตาม)
+    frame:SetResizable(true)
+    frame:SetResizeBounds(560, 420)
+    local resize = CreateFrame("Button", nil, frame)
+    resize:SetSize(16, 16)
+    resize:SetPoint("BOTTOMRIGHT", -4, 4)
+    resize:SetNormalTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up")
+    resize:SetHighlightTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Highlight")
+    resize:SetPushedTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Down")
+    resize:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" then frame:StartSizing("BOTTOMRIGHT") end
+    end)
+    resize:SetScript("OnMouseUp", function(_, button)
+        if button == "LeftButton" then frame:StopMovingOrSizing() end
+    end)
+
     frame:SetScript("OnUpdate", (function()
         local acc = 0
         return function(_, dt)
