@@ -512,8 +512,29 @@ local function DumpListConfig(listFrame, label, out)
     local children = LayoutChildren(listFrame)
     if children then n = tostring(#children) end
     local okS, shown = Get(listFrame, "IsShown")
-    out[#out + 1] = ("    [%s] children=%s shown=%s")
-        :format(label, n, okS and SafeStr(shown) or "ERR")
+
+    -- คำถาม: "มีออร่าที่อยู่ใน data แต่ไม่ถูกวาดบน nameplate ไหม?"
+    -- ถ้ามี → NameplateAuraCheck ที่กรองแค่ spellID ~= nil จะส่งออร่าผีออกไป
+    -- (นับ "มี Aura" เกินจริง / "ไม่มี Aura" ขาด) — btn:IsShown() เป็น plain จึงนับได้
+    local nShown, nHiddenWithID, nNoID = 0, 0, 0
+    if children then
+        for _, btn in ipairs(children) do
+            local okB, vis = pcall(btn.IsShown, btn)
+            local isVis = (okB and vis == true)
+            if isVis then nShown = nShown + 1 end
+            if btn.spellID == nil then
+                nNoID = nNoID + 1
+            elseif not isVis then
+                nHiddenWithID = nHiddenWithID + 1
+            end
+        end
+    end
+
+    out[#out + 1] = ("    [%s] children=%s shown=%s  |  ปุ่มที่วาดจริง=%d  ไม่มี spellID=%d  %s")
+        :format(label, n, okS and SafeStr(shown) or "ERR", nShown, nNoID,
+            nHiddenWithID > 0
+                and ("|cffff5555ซ่อนแต่มี spellID=" .. nHiddenWithID .. " (ออร่าผี!)|r")
+                or "|cff44ff44ไม่มีปุ่มซ่อนที่ยังถือ spellID|r")
 
     -- field ที่ไม่ใช่ function/table ทั้งหมด = ตัวกรองที่ Blizzard ตั้งไว้
     local keys = {}
