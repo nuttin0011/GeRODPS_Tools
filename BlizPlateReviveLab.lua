@@ -37,7 +37,7 @@ local TOOL = GeRODPS_Tools
 local TITLE_H  = 28
 local SIDE_PAD = 12
 
-local frame, statusBox
+local frame, statusBox, npInfoFS
 local keepAlive = false
 local reviveCount = 0
 local logLines = {}
@@ -202,9 +202,32 @@ end
 -- ============================================================
 -- UI
 -- ============================================================
+--- แถบ NP1: Exists / Name / isTarget (เทียบเฟรม — UnitIsUnit เป็น secret boolean)
+local function NP1InfoText()
+    if not UnitExists("nameplate1") then
+        return "NP1: |cffff5555ไม่มี|r"
+    end
+    local name = tostring(UnitName("nameplate1"))
+    local isTgt = "|cff888888ไม่มี target|r"
+    if UnitExists("target") and C_NamePlate and C_NamePlate.GetNamePlateForUnit then
+        local pT = C_NamePlate.GetNamePlateForUnit("target")
+        local p1 = C_NamePlate.GetNamePlateForUnit("nameplate1")
+        if pT == nil or p1 == nil then
+            isTgt = "ไม่รู้ (plate หาย)"
+        elseif pT == p1 then
+            isTgt = "|cff44ff44ใช่|r"
+        else
+            isTgt = "|cffff9a9aไม่ใช่|r"
+        end
+    end
+    return ("NP1: |cff44ff44มี|r  ·  ชื่อ = |cffffd200%s|r  ·  คือ target = %s")
+        :format(name, isTgt)
+end
+
 local function Tick()
     if frame == nil or not frame:IsShown() then return end
     if keepAlive then ReviveOnce(false) end
+    if npInfoFS then npInfoFS:SetText(NP1InfoText()) end
 
     local out = {}
     for _, l in ipairs(logLines) do out[#out + 1] = l end
@@ -280,8 +303,15 @@ local function BuildFrame()
     btnOpt:SetText("Toggle Plater 'as blizzard' option")
     btnOpt:SetScript("OnClick", function() TogglePlaterOption(); Tick() end)
 
+    -- แถบดู NP1 — user เคาะ: จำกัดเฉพาะ nameplate1 เสมอ ขอแค่ Exists/isTarget/Name
+    npInfoFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    npInfoFS:SetPoint("TOPLEFT", btnEvents, "BOTTOMLEFT", 0, -8)
+    npInfoFS:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -SIDE_PAD, 0)
+    npInfoFS:SetJustifyH("LEFT")
+    npInfoFS:SetText("NP1: ...")
+
     local scroll = CreateFrame("ScrollFrame", "$parentScroll", frame, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", btnEvents, "BOTTOMLEFT", 0, -8)
+    scroll:SetPoint("TOPLEFT", npInfoFS, "BOTTOMLEFT", 0, -8)
     scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28, 12)
 
     statusBox = CreateFrame("EditBox", nil, scroll)
