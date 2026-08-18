@@ -1,6 +1,6 @@
 ## Interface: 120100, 120007
 ## Title: GeRODPS Tools
-## Notes: Runtime inspection tools — Dump Var, Watch Var, Aura List Helper, Alpha Stack Test, Item Range Check Test, Combat Log Event View, Secret API Check.
+## Notes: Runtime inspection tools — Dump Var, Watch Var, Aura List Helper, Alpha Stack Test, Item Range Check Test, Combat Log Event View, Secret API Check, Screen Ruler.
 ## Author: HeeMenDum
 ## Version: 1.0.0
 ## SavedVariables: GeRODPS_ToolsDB
@@ -55,3 +55,4 @@ DispelCurveTest.lua
 PlayerAuraProbe.lua
 TargetAuraProbe.lua
 AuraSensorLab.lua
+ScreenRuler.lua
