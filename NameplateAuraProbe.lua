@@ -499,6 +499,59 @@ end
 -- ⇒ อ่าน field ทั้งหมดออกมาดูก่อน จะได้รู้ว่ามีสวิตช์ให้เปิดไหม
 -- ห้ามเซ็ตค่ากลับ (เขียน = taint เฟรม Blizzard — บทเรียน CooldownManagerLab)
 
+--- ทางของ Plater สำหรับ nameplate ตัวนี้ — เดินเส้นทางเดียวกับ NameplateAuraCheck
+--- โชว์ในคอลัมน์ของ plate นั้นเลย ⇒ เห็นทันทีว่าติดขัดขั้นไหน (ไม่ต้องเลื่อนไปส่วน F)
+local function DumpPlaterForUnit(unit, out)
+    if _G.Plater == nil then return end
+    out[#out + 1] = "    -- Plater --"
+    local plate = C_NamePlate and C_NamePlate.GetNamePlateForUnit
+        and C_NamePlate.GetNamePlateForUnit(unit) or nil
+    if plate == nil then
+        out[#out + 1] = "      |cffff9a9aไม่มี plate|r"
+        return
+    end
+    local uf, how = plate.unitFrame, "plate.unitFrame"
+    if uf == nil then
+        local okN, nm = pcall(plate.GetName, plate)
+        if okN and type(nm) == "string" then
+            uf, how = _G[nm .. "PlaterUnitFrame"], "_G[" .. nm .. "PlaterUnitFrame]"
+        end
+    end
+    if uf == nil then
+        out[#out + 1] = "      |cffff9a9aหา Plater unitFrame ไม่เจอ (ทั้ง plate.unitFrame และชื่อ global)|r"
+        return
+    end
+
+    local P = _G.Plater
+    local sep = P and P.db and P.db.profile and P.db.profile.buffs_on_aura2
+    out[#out + 1] = ("      unitFrame via %s  ·  Separate Buffs = %s"):format(how, SafeStr(sep))
+
+    for _, key in ipairs({ "BuffFrame", "BuffFrame2" }) do
+        local bf = uf[key]
+        if bf == nil then
+            out[#out + 1] = ("      [%s] |cffff9a9aไม่มี|r"):format(key)
+        elseif type(bf.PlaterBuffList) ~= "table" then
+            out[#out + 1] = ("      [%s] |cffff9a9aไม่มี PlaterBuffList|r"):format(key)
+        else
+            local nAll, nLive = #bf.PlaterBuffList, 0
+            for _, icon in ipairs(bf.PlaterBuffList) do
+                local okS, shown = pcall(icon.IsShown, icon)
+                if icon.InUse == true and okS and shown == true and icon.SpellId ~= nil then
+                    nLive = nLive + 1
+                    if nLive <= 4 then
+                        out[#out + 1] = ("        icon#%d SpellId=%s Stacks=%s isBuff=%s Expiration=%s Duration=%s")
+                            :format(nLive, SafeStr(icon.SpellId), SafeStr(icon.Stacks),
+                                    SafeStr(icon.isBuff), SafeStr(icon.ExpirationTime),
+                                    SafeStr(icon.Duration))
+                    end
+                end
+            end
+            out[#out + 1] = ("      [%s] pool=%d  ใช้งานจริง(InUse+shown+SpellId)=%d")
+                :format(key, nAll, nLive)
+        end
+    end
+end
+
 local function DumpListConfig(listFrame, label, out)
     if listFrame == nil then
         out[#out + 1] = "    [" .. label .. "] |cffff9a9aไม่มี list frame|r"
@@ -940,6 +993,7 @@ function TOOL.RunNameplateAuraProbe(showAll)
                     end
                 end
                 for _, l in ipairs(lines) do blk[#blk + 1] = l end
+                DumpPlaterForUnit(unit, blk)
                 plateBlocks[#plateBlocks + 1] = { unit = unit, lines = blk }
             end
         end
