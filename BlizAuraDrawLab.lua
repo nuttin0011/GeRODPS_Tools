@@ -334,7 +334,24 @@ local function BuildLive()
     end
 
     local np = UnitExists("nameplate1") and tostring(UnitName("nameplate1")) or "(ไม่มี)"
-    out[#out + 1] = ("nameplate1 = %s   combat = %s"):format(np, tostring(InCombatLockdown()))
+
+    -- "NP1 คือ target ของเราไหม" — ⚠ UnitIsUnit คืน secret boolean บน 12.0.7
+    -- (if-test = throw) ⇒ เทียบ "ตัวเฟรม nameplate" แทน: unit เดียวกัน = เฟรมเดียวกัน
+    -- (ท่าเดียวกับ DispelNPScanChannel — plate == plateT)
+    local isTgt = "ไม่มี target"
+    if UnitExists("target") and C_NamePlate and C_NamePlate.GetNamePlateForUnit then
+        local pT = C_NamePlate.GetNamePlateForUnit("target")
+        local p1 = C_NamePlate.GetNamePlateForUnit("nameplate1")
+        if pT == nil or p1 == nil then
+            isTgt = "ไม่รู้ (plate หาย)"
+        elseif pT == p1 then
+            isTgt = "|cff44ff44ใช่|r"
+        else
+            isTgt = "|cffff9a9aไม่ใช่|r"
+        end
+    end
+    out[#out + 1] = ("nameplate1 = %s   คือ target = %s   combat = %s")
+        :format(np, isTgt, tostring(InCombatLockdown()))
 
     -- คำถามพ่วง: GetAuraGroupFrameCount เรียกได้ไหม (โดยเฉพาะใน combat)
     if container.GetAuraGroupFrameCount then
