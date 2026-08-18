@@ -549,6 +549,34 @@ local function DumpPlaterForUnit(unit, out)
             out[#out + 1] = ("      [%s] pool=%d  ใช้งานจริง(InUse+shown+SpellId)=%d")
                 :format(key, nAll, nLive)
         end
+
+        -- เส้นทางของ WoW 12.x: Plater สร้าง CustomAuraContainer ของ Blizzard
+        -- แล้วเก็บปุ่มที่มันสร้างไว้ใน .auraButtons (PlaterBuffList เป็น stub ว่าง)
+        -- คำถามที่ต้องตอบ: ปุ่มเหล่านี้มีอะไรให้อ่านได้บ้าง (โดยเฉพาะใน combat)
+        if bf ~= nil and type(bf.auraButtons) == "table" then
+            local nB, nVis = #bf.auraButtons, 0
+            for _, ab in ipairs(bf.auraButtons) do
+                local okV, vis = pcall(ab.IsVisible, ab)
+                if okV and vis == true then
+                    nVis = nVis + 1
+                    if nVis <= 3 then
+                        local okC, sMs, dMs = false, nil, nil
+                        if ab.Cooldown ~= nil and ab.Cooldown.GetCooldownTimes ~= nil then
+                            okC, sMs, dMs = pcall(ab.Cooldown.GetCooldownTimes, ab.Cooldown)
+                        end
+                        local okT, tex = false, nil
+                        if ab.Icon ~= nil then okT, tex = pcall(ab.Icon.GetTexture, ab.Icon) end
+                        out[#out + 1] = ("        auraBtn#%d  cooldown=%s/%s  icon=%s")
+                            :format(nVis,
+                                okC and SafeStr(sMs) or "ERR", okC and SafeStr(dMs) or "ERR",
+                                okT and SafeStr(tex) or "ERR")
+                        DumpScalarFields(ab, out, "          ", 12)
+                    end
+                end
+            end
+            out[#out + 1] = ("      [%s] auraButtons=%d  ที่มองเห็น=%d  |cffffcc55(เส้น CustomAuraContainer)|r")
+                :format(key, nB, nVis)
+        end
     end
 end
 
