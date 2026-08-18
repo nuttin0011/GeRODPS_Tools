@@ -256,14 +256,17 @@ local function DumpKeys(obj, label)
 end
 
 local function ProbeIcon1()
+    -- เจาะปุ่มแรกที่มี texture ถ้ามี · ไม่มีก็เจาะ btn#1 เลย (รอบก่อน return ทิ้ง
+    -- ทำให้ตอน "texture ว่างทั้งแผง" ไม่เห็นอะไรเลย — เคสนั้นแหละที่ต้องดูมากสุด)
     local target, idx
     for i, btn in ipairs(created) do
         local okT, tex = pcall(btn.Icon.GetTexture, btn.Icon)
         if okT and tex ~= nil then target, idx = btn, i; break end
     end
+    if target == nil and created[1] ~= nil then target, idx = created[1], 1 end
     Log("")
-    Log("== Probe icon (%s) · combat=%s · %s ==",
-        target and ("btn#" .. idx) or "ไม่มีปุ่มที่มี texture",
+    Log("== Probe icon (btn#%s%s) · combat=%s · %s ==",
+        tostring(idx or "-"), target and "" or " — ไม่มีปุ่มเลย",
         tostring(InCombatLockdown()), date("%H:%M:%S"))
 
     -- container เองก่อน — เผื่อ C ตั้ง field น่าสนใจ (ลิสต์ aura / unit / cache)
@@ -273,7 +276,35 @@ local function ProbeIcon1()
             local okU, u = pcall(container.GetUnit, container)
             Log("  GetUnit() = %s", okU and SafeStr(u) or ("ERR " .. tostring(u)))
         end
+        -- GetAuraGroupFrame — ยังไม่เคยลอง: อาจคืนเฟรมกลุ่มที่ C ถือลูกจริง ๆ ไว้
+        if container.GetAuraGroupFrame then
+            local okG, gf = pcall(container.GetAuraGroupFrame, container, "group1")
+            if not okG then
+                Log('  GetAuraGroupFrame("group1") ERR: %s', tostring(gf))
+            elseif gf == nil then
+                Log('  GetAuraGroupFrame("group1") = nil')
+            else
+                Log('  GetAuraGroupFrame("group1") = %s', tostring(gf))
+                local okN, nKids = pcall(gf.GetNumChildren, gf)
+                Log("    GetNumChildren = %s", okN and SafeStr(nKids) or "ERR")
+                DumpKeys(gf, "groupFrame")
+            end
+        end
     end
+
+    -- สรุปทุกปุ่มรายบรรทัด (แยกให้ออก: ไม่มีออร่าจริง vs อ่านถูกบังเป็น nil)
+    Log("-- ทุกปุ่ม (%d) --", #created)
+    for i, btn in ipairs(created) do
+        local okV, vis = pcall(btn.IsVisible, btn)
+        local okS, shn = pcall(btn.IsShown, btn)
+        local okT, tex = pcall(btn.Icon.GetTexture, btn.Icon)
+        local okD, sMs, dMs = pcall(btn.Cooldown.GetCooldownTimes, btn.Cooldown)
+        Log("  #%d shown=%s vis=%s tex=%s cd=%s/%s", i,
+            okS and SafeStr(shn) or "ERR", okV and SafeStr(vis) or "ERR",
+            okT and SafeStr(tex) or "ERR",
+            okD and SafeStr(sMs) or "ERR", okD and SafeStr(dMs) or "")
+    end
+
     if target == nil then return end
 
     -- 4) ทุก key บนปุ่ม — per-key pcall (ใน combat ปุ่มอาจ forbidden ทั้งใบ)
@@ -365,21 +396,25 @@ local function BuildLive()
     --   เพราะ "ปุ่มโชว์ไหม" = "unit มีออร่านี้ไหม" ⇒ ห้ามเทียบ/if-test เด็ดขาด
     --   การยืนยันว่า "วาดแล้ว" ใช้ 2 ทาง: ตาดูพื้นที่ดำ + texture ~= nil (nil-check
     --   บน secret ทำได้)
-    local nVisPlain, nVisSecret, nHasTex = 0, 0, 0
+    -- นับให้ครบ 4 ช่อง — รอบก่อนมีแค่ true/secret แล้วได้ 0/0 ทั้งคู่ อ่านไม่ออกเลยว่า
+    -- vis เป็น plain-false (ปุ่มไม่ถูกวาดจริง) หรือ pcall พัง (forbidden object)
+    local nT, nF, nS, nE, nHasTex = 0, 0, 0, 0, 0
     for _, btn in ipairs(created) do
         local ok, vis = pcall(btn.IsVisible, btn)
-        if ok then
-            if IsSecret(vis) then
-                nVisSecret = nVisSecret + 1
-            elseif vis == true then
-                nVisPlain = nVisPlain + 1
-            end
+        if not ok then
+            nE = nE + 1
+        elseif IsSecret(vis) then
+            nS = nS + 1
+        elseif vis == true then
+            nT = nT + 1
+        else
+            nF = nF + 1
         end
         local okT, tex = pcall(btn.Icon.GetTexture, btn.Icon)
         if okT and tex ~= nil then nHasTex = nHasTex + 1 end
     end
-    out[#out + 1] = ("ปุ่มที่ C สร้างผ่าน initializeFrame = %d  ·  vis:plain-true=%d secret=%d  ·  มี texture=%d")
-        :format(#created, nVisPlain, nVisSecret, nHasTex)
+    out[#out + 1] = ("ปุ่ม C สร้าง = %d  ·  vis: true=%d false=%d secret=%d ERR=%d  ·  มี texture=%d")
+        :format(#created, nT, nF, nS, nE, nHasTex)
 
     if nHasTex > 0 then
         out[#out + 1] = "|cff44ff44>>> C เขียน icon ลง widget ของเราแล้ว — ดูพื้นที่ดำประกอบ <<<|r"
