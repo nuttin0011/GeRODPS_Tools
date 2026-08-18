@@ -40,6 +40,7 @@ local SIDE_PAD = 12
 local frame, statusBox, npInfoFS, verdictFS
 local lastRecCount, lastChangeAt = -1, nil   -- จับการขยับของข้อมูล (นับเฉพาะค่า plain)
 local keepAlive = false
+local reviveAlpha = 1.0     -- user เคาะ 2026-08-18: ดูของจริงก่อน ค่อยสลับ 0.01 ตอนใช้จริง
 local reviveCount = 0
 local logLines = {}
 local lastText = nil
@@ -159,10 +160,10 @@ local function ReviveOnce(verbose)
         if verbose then Log("  re-parent UnitFrame กลับเข้า plate + SetPoint CENTER") end
     end
 
-    pcall(uf.SetAlpha, uf, 0.01)
+    pcall(uf.SetAlpha, uf, reviveAlpha)
     pcall(uf.Show, uf)          -- จะสะกิด hook ของ Plater — keep-alive สู้ต่อให้
     reviveCount = reviveCount + 1
-    if verbose then Log("  SetAlpha(0.01) + Show()  (ครั้งที่ %d)", reviveCount) end
+    if verbose then Log("  SetAlpha(%.2f) + Show()  (ครั้งที่ %d)", reviveAlpha, reviveCount) end
     return true
 end
 
@@ -331,6 +332,24 @@ local function BuildFrame()
     chkKeep:SetScript("OnClick", function(self)
         keepAlive = self:GetChecked() and true or false
     end)
+
+    -- alpha: 1.0 = เห็นเต็มตา (ซ้อนกับ plate ของ Plater — ตั้งใจ) · 0.01 = โปร่งใส
+    local aLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    aLabel:SetPoint("LEFT", chkKeep.text, "RIGHT", 16, 0)
+    aLabel:SetText("alpha:")
+    local aFull = CreateFrame("CheckButton", nil, frame, "UIRadioButtonTemplate")
+    aFull:SetPoint("LEFT", aLabel, "RIGHT", 6, 0)
+    aFull.text:SetText("1.0 (เห็นจริง)")
+    local aGhost = CreateFrame("CheckButton", nil, frame, "UIRadioButtonTemplate")
+    aGhost:SetPoint("LEFT", aFull.text, "RIGHT", 10, 0)
+    aGhost.text:SetText("0.01 (ซ่อน)")
+    local function syncAlpha()
+        aFull:SetChecked(reviveAlpha >= 0.5)
+        aGhost:SetChecked(reviveAlpha < 0.5)
+    end
+    aFull:SetScript("OnClick", function() reviveAlpha = 1.0; syncAlpha(); ReviveOnce(false) end)
+    aGhost:SetScript("OnClick", function() reviveAlpha = 0.01; syncAlpha(); ReviveOnce(false) end)
+    syncAlpha()
 
     local btnEvents = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btnEvents:SetSize(150, 24)
