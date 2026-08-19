@@ -21,6 +21,25 @@
                                        (สมมติฐาน user: "Blizzard ใส่มาแต่ปิดไว้")
       D. dump field ของปุ่ม           หา index / auraInstanceID / อะไรที่ยังไม่รู้จัก
       E. C_TooltipInfo                GetUnitDebuff / GetUnitBuff (data API ตรง ๆ)
+      G. **ข้อความใน tooltip ทั้งหมด**  TextLeft1..N + **TextRight1..N** + d.lines[]
+                                       ← ฝั่งขวาของบรรทัดแรกคือ **ชนิด dispel**
+                                       (Magic/Curse/Poison/Disease) · ต่อให้เป็น secret
+                                       ก็ยิงผ่านฟอนต์ PixelTinyLetters ให้ AHK เทียบได้
+                                       เหมือนที่ Aura Present V5 ทำกับ dt อยู่แล้ว
+      F. texture ของไอคอน             btn.Icon:GetTexture() — **ไม่ใช่ aura API**
+                                       ⇒ อาจไม่โดนบล็อก · ถ้า plain จับคู่ฝั่ง Lua ได้
+                                       ด้วย C_Spell.GetSpellTexture (spell API)
+
+    ── ผลวัดจริง 2026-08-19 (target ในดัน · in-combat) ───────────────────────
+      A  ใช้ได้ ไม่ throw · ไล่ index ถูก (HELPFUL #2 = Ragestorm ตรงกับปุ่ม)
+         **แต่ id ที่ได้เป็น SECRET** ⇒ เทียบใน Lua ไม่ได้
+      B  THROW: "Auras cannot be accessed when secret while tainted by 'GeRODPS_Tools'"
+         ⇒ คำตอบตรง ๆ ว่าทำไม Route B เป็นทางเดียว: **โค้ดที่ tainted อ่าน aura ที่เป็น
+           secret ไม่ได้ ไม่ว่าจะผ่านช่องไหน** (Blizzard วาดได้เพราะเป็นโค้ดของเกมเอง)
+      C  ปุ่มมี OnEnter/OnLeave/UpdateTooltip/RefreshTooltip ครบ และ mouse เปิดอยู่
+         (IsMouseMotionEnabled = true) — ที่ปิดคือ parent list frame
+      D  plain: layoutIndex · **unitToken** ("nameplate11") · useAuraDisplayTime
+         secret: auraInstanceID · isBuff · spellID
 
     ── กติกา secret (ต้องอ่านก่อนแก้ไฟล์นี้) ─────────────────────────────────
       · ทุก call ต้อง pcall — API ที่โดนบล็อกจะ throw ไม่ใช่คืน nil
@@ -44,6 +63,9 @@ local frame, rowsFS, headerFS, pageLabel, btnPrev, btnNext
 local lines = {}
 local page  = 1
 local lastUnit = "nameplate1"
+
+-- ผลชี้ขาดของแต่ละท่า — "ได้ค่ากลับมาแบบ plain ไหม" (ไม่ใช่แค่ "ไม่ throw")
+local verdict = {}
 
 -- ============================================================
 -- scanning tooltip ของเราเอง (ห้ามใช้ GameTooltip จริง = taint)
@@ -72,6 +94,16 @@ local function Tag(v)
         if ok and isSec == true then return "|cffff9a9aSECRET|r" end
     end
     return "|cff44ff44plain|r"
+end
+
+--- ค่านี้ plain ไหม (ตัวชี้ขาดว่าท่านั้น "ใช้ได้จริง")
+local function IsPlain(v)
+    if v == nil then return false end
+    if issecretvalue ~= nil then
+        local ok, isSec = pcall(issecretvalue, v)
+        if ok and isSec == true then return false end
+    end
+    return true
 end
 
 --- tostring ที่ไม่มีทาง throw (ค่า secret tostring ได้ แต่ metatable แปลก ๆ อาจพัง)
@@ -168,6 +200,9 @@ local function ProbeA(unit)
                 Add("  " .. filter .. " #" .. i .. "  |cff666666(ว่าง — หมด aura แล้ว)|r")
                 break
             end
+            if sid ~= nil and verdict.A ~= "plain" then
+                verdict.A = IsPlain(sid) and "plain" or "secret"
+            end
             Add("  " .. filter .. " #" .. i
                 .. "  id=" .. Str(sid) .. " [" .. Tag(sid) .. "]"
                 .. "  type=" .. Str(dtype)
@@ -205,6 +240,7 @@ local function ProbeB(unit)
                 tip[m](tip, unit, btn.auraInstanceID)
             end)
             if not okSet then
+                if verdict.B == nil then verdict.B = "throw" end
                 Add("  " .. m .. "  |cffff5555THROW|r  ", err)
             else
                 local sid
@@ -213,6 +249,9 @@ local function ProbeB(unit)
                     if okD and type(d) == "table" then sid = d.id end
                 end
                 pcall(function() tip:Hide() end)
+                if sid ~= nil and verdict.B ~= "plain" then
+                    verdict.B = IsPlain(sid) and "plain" or "secret"
+                end
                 Add("  " .. m .. "  id=" .. Str(sid) .. " [" .. Tag(sid) .. "]")
             end
         end
@@ -319,6 +358,185 @@ local function ProbeE(unit)
 end
 
 -- ============================================================
+-- F · texture ของไอคอน — ช่องสุดท้ายที่อาจเป็น plain
+-- ============================================================
+-- เหตุผล: texture **ไม่ใช่ aura API** — มันคือ asset ที่ถูกวาด ⇒ อาจไม่โดนกฎ secret
+-- ถ้า plain จริง เราจับคู่ฝั่ง Lua ได้: C_Spell.GetSpellTexture(spellID ที่ user เลือก)
+-- เป็น **spell API** จึงยังเรียกได้ปกติ ⇒ เทียบ iconID กันตรง ๆ
+-- ⚠ ข้อจำกัดที่ต้องรู้ล่วงหน้า: หลายเวทใช้ไอคอนเดียวกัน ⇒ ชนกันได้ (ต่างจาก spellID)
+local function ProbeF(unit)
+    Head("F · texture ของไอคอน — btn.Icon (ไม่ใช่ aura API ⇒ อาจไม่โดนบล็อก)")
+    local btn, listName = FirstButton(unit)
+    if btn == nil then
+        Add("  |cff666666ไม่มีปุ่ม aura บน nameplate นี้|r")
+        return
+    end
+    local icon = btn.Icon
+    if icon == nil then
+        Add("  |cff666666ปุ่มไม่มี .Icon|r")
+        return
+    end
+    Add("  ปุ่มจาก " .. Str(listName))
+    for _, m in ipairs({ "GetTexture", "GetTextureFileID", "GetAtlas" }) do
+        if icon[m] == nil then
+            Add("  Icon:" .. m .. "()  |cff666666ไม่มีเมธอดนี้|r")
+        else
+            local ok, v = pcall(icon[m], icon)
+            if not ok then
+                Add("  Icon:" .. m .. "()  |cffff5555THROW|r  ", v)
+            else
+                if v ~= nil and verdict.F ~= "plain" then
+                    verdict.F = IsPlain(v) and "plain" or "secret"
+                end
+                Add("  Icon:" .. m .. "() = " .. Str(v) .. " [" .. Tag(v) .. "]")
+            end
+        end
+    end
+    -- ฝั่งที่เราจะเอาไปเทียบ — spell API ต้องเรียกได้เสมอ (ไม่ใช่ aura API)
+    if C_Spell ~= nil and C_Spell.GetSpellTexture ~= nil then
+        local ok, t = pcall(C_Spell.GetSpellTexture, 382555)
+        if ok then
+            Add("  |cff888888อ้างอิง: C_Spell.GetSpellTexture(382555 Ragestorm) = |r"
+                .. Str(t) .. " [" .. Tag(t) .. "]")
+        else
+            Add("  |cff888888อ้างอิง: C_Spell.GetSpellTexture |cffff5555THROW|r")
+        end
+    end
+end
+
+-- ============================================================
+-- G · ข้อความใน tooltip ทั้งหมด (ซ้าย + **ขวา**)
+-- ============================================================
+-- ทำไมสำคัญ: ชนิด dispel (Magic/Curse/Poison/Disease) อยู่**ฝั่งขวาของบรรทัดแรก**
+-- ไม่ใช่ฝั่งซ้าย ⇒ probe รอบแรกที่อ่านแค่ TextLeft1 จึงมองไม่เห็น
+-- ต่อให้ข้อความเป็น secret ก็ยัง**ใช้ได้จริง** เพราะยิงผ่านฟอนต์ PixelTinyLetters
+-- ให้ AHK เทียบ code ได้ (Aura Present V5 ส่ง dt แบบนี้อยู่แล้ว — APV5_DispelCode)
+-- ⇒ ถ้าเจอที่นี่ V6 จะเลิกพึ่ง DispelAura pack ได้ = ได้ "Dispel by Name" จริง
+local TIP_LINES = 6
+
+local function DumpTipText()
+    local anyRight = false
+    for i = 1, TIP_LINES do
+        local L = _G[TIP_NAME .. "TextLeft" .. i]
+        local R = _G[TIP_NAME .. "TextRight" .. i]
+        local lt, rt
+        if L ~= nil and L.GetText ~= nil then
+            local ok, v = pcall(L.GetText, L); if ok then lt = v end
+        end
+        if R ~= nil and R.GetText ~= nil then
+            local ok, v = pcall(R.GetText, R); if ok then rt = v end
+        end
+        if lt ~= nil or rt ~= nil then
+            local line = "    L" .. i .. " = " .. Str(lt) .. " [" .. Tag(lt) .. "]"
+            if rt ~= nil then
+                anyRight = true
+                line = line .. "   |cffffd200R" .. i .. " = " .. Str(rt) .. "|r ["
+                    .. Tag(rt) .. "]  <-- ชนิด dispel อยู่ตรงนี้"
+                if verdict.G ~= "plain" then
+                    verdict.G = IsPlain(rt) and "plain" or "secret"
+                end
+            end
+            Add(line)
+        end
+    end
+    if not anyRight then
+        Add("    |cff666666(ไม่มีข้อความฝั่งขวาเลย — aura ตัวนี้ไม่มีชนิด dispel)|r")
+    end
+end
+
+--- dump จาก GetTooltipData() ด้วย — โครงสร้างต่างจาก FontString (มี type ต่อบรรทัด)
+local function DumpTipData(tip)
+    if tip.GetTooltipData == nil then return end
+    local ok, d = pcall(tip.GetTooltipData, tip)
+    if not ok or type(d) ~= "table" then return end
+    local okL, ln = pcall(function() return d.lines end)
+    if not okL or type(ln) ~= "table" then
+        Add("    |cff666666d.lines อ่านไม่ได้|r")
+        return
+    end
+    for i = 1, TIP_LINES do
+        local e = ln[i]
+        if e == nil then break end
+        local lt, rt, ty
+        pcall(function() lt, rt, ty = e.leftText, e.rightText, e.type end)
+        if lt ~= nil or rt ~= nil then
+            Add("    d.lines[" .. i .. "] type=" .. Str(ty)
+                .. "  left=" .. Str(lt) .. " [" .. Tag(lt) .. "]"
+                .. "  right=" .. Str(rt) .. " [" .. Tag(rt) .. "]")
+        end
+    end
+end
+
+local function ProbeG(unit)
+    Head("G · ข้อความใน tooltip ทั้งหมด — ซ้าย + **ขวา (ชนิด dispel อยู่ฝั่งขวา)**")
+    local tip = GetTip()
+    if tip == nil then
+        Add("  |cffff5555สร้าง scanning tooltip ไม่ได้|r")
+        return
+    end
+    local shown = 0
+    for _, filter in ipairs({ "HARMFUL", "HELPFUL" }) do
+        for i = 1, MAX_INDEX do
+            if shown >= 4 then break end
+            local okSet = pcall(function()
+                tip:SetOwner(UIParent, "ANCHOR_NONE")
+                tip:SetUnitAura(unit, i, filter)
+            end)
+            if not okSet then break end
+            local nm
+            local L1 = _G[TIP_NAME .. "TextLeft1"]
+            if L1 ~= nil and L1.GetText ~= nil then
+                local okT, v = pcall(L1.GetText, L1); if okT then nm = v end
+            end
+            if nm == nil then break end          -- หมด aura ของ filter นี้
+            shown = shown + 1
+            Add("  |cffffd200" .. filter .. " #" .. i .. "|r")
+            DumpTipText()
+            DumpTipData(tip)
+            pcall(function() tip:Hide() end)
+        end
+    end
+    if shown == 0 then
+        Add("  |cff666666ไม่มี aura ให้อ่านบน unit นี้|r")
+    end
+end
+
+-- ============================================================
+-- สรุปคำตอบ (แทรกไว้บนสุด — ไม่ต้องเลื่อนหา)
+-- ============================================================
+local function Verdict()
+    local function line(key, label)
+        local v = verdict[key]
+        local txt
+        if v == "plain" then
+            txt = "|cff44ff44PLAIN — ใช้ได้จริง|r"
+        elseif v == "secret" then
+            txt = "|cffff9a9aSECRET — เทียบใน Lua ไม่ได้|r"
+        elseif v == "throw" then
+            txt = "|cffff5555THROW — โดนบล็อก|r"
+        else
+            txt = "|cff666666ไม่มีข้อมูล (ไม่มี aura ให้ทดสอบ?)|r"
+        end
+        return "  " .. key .. " " .. label .. " : " .. txt
+    end
+    local out = {
+        "|cffffd200สรุป — ได้ spellID/ตัวระบุแบบ plain ไหม|r",
+        line("A", "scanning tooltip ตาม index"),
+        line("B", "auraInstanceID"),
+        line("F", "texture ของไอคอน       "),
+        line("G", "ข้อความฝั่งขวา (ชนิด dispel)"),
+        "  |cff888888G เป็น SECRET ก็ยัง**ใช้ได้** — ยิงผ่านฟอนต์ PixelTinyLetters"
+            .. " ให้ AHK เทียบ code (เหมือน dt ของ V5)|r",
+        "  |cff888888มี PLAIN สักท่า = เทียบฝั่ง Lua ได้ ⇒ เลิกยัด record ดิบลง STS ได้|r",
+        "  |cff888888ไม่มีเลย = ดีไซน์ปัจจุบัน (ส่งดิบให้ AHK match) ถูกแล้ว|r",
+        "",
+    }
+    for i = #out, 1, -1 do
+        table.insert(lines, 1, out[i])
+    end
+end
+
+-- ============================================================
 -- Run
 -- ============================================================
 
@@ -326,6 +544,7 @@ local function Run(unit)
     lastUnit = unit or "nameplate1"
     lines = {}
     page = 1
+    verdict = {}
 
     local exists = false
     local okE, v = pcall(UnitExists, lastUnit)
@@ -342,6 +561,9 @@ local function Run(unit)
     ProbeC(lastUnit)
     ProbeD(lastUnit)
     ProbeE(lastUnit)
+    ProbeF(lastUnit)
+    ProbeG(lastUnit)
+    Verdict()
 
     Add("")
     Add("|cff888888อ่านผลยังไง: ท่าไหนที่ id = ตัวเลข และป้ายเป็น |r|cff44ff44plain|r"
@@ -404,6 +626,9 @@ local function BuildFrame()
     end
     mkBtn("target", 62, function() Run("target"); Refresh() end)
     mkBtn("focus", 56, function() Run("focus"); Refresh() end)
+    -- player = ตัวอ้างอิงที่รู้ผลอยู่แล้ว (V5 ได้ plain + มี dispel name)
+    -- ⇒ เทียบกับ unit ศัตรูแล้วเห็นทันทีว่าอะไรต่างกัน
+    mkBtn("player (อ้างอิง)", 106, function() Run("player"); Refresh() end)
     mkBtn("Re-run", 66, function() Run(lastUnit); Refresh() end)
 
     rowsFS = {}
