@@ -46,14 +46,30 @@ local page = 1
 -- ⚠ หลัง fix ลิสต์จะเริ่มขยับเมื่อ aura ของ unit นั้น "เปลี่ยน" ครั้งถัดไป
 --   (ใส่ DoT ใหม่ / รอ tick) — ไม่ได้ populate ย้อนหลังทันที
 local platyFix = false
-local fixerFrame          -- รับ NAME_PLATE_UNIT_ADDED เพื่อ fix plate ใหม่ (หลัง Platynator)
+local fixCount = 0        -- จำนวน plate ที่สมัครคืนสำเร็จ (เฉพาะที่หายจริง)
+local fixerFrame          -- รับ NAME_PLATE_UNIT_ADDED เพื่อ fix plate ใหม่
+
+--- ตรวจว่าใช้ nameplate ของใครอยู่ — "Plater" / "Platynator" / "Blizzard"
+local function DetectNPUI()
+    if C_AddOns and C_AddOns.IsAddOnLoaded then
+        local okP, p = pcall(C_AddOns.IsAddOnLoaded, "Plater")
+        if okP and p then return "Plater" end
+        local okY, y = pcall(C_AddOns.IsAddOnLoaded, "Platynator")
+        if okY and y then return "Platynator" end
+    end
+    return "Blizzard"
+end
 
 local function FixUnitAuraEvents(unit)
     if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return end
     local plate = C_NamePlate.GetNamePlateForUnit(unit)
     local uf = plate and plate.UnitFrame
     if uf == nil then return end
-    pcall(uf.RegisterUnitEvent, uf, "UNIT_AURA", unit)
+    local okE, reg = pcall(uf.IsEventRegistered, uf, "UNIT_AURA")
+    if okE and reg == true then return end     -- สมัครอยู่แล้ว (Blizzard UI) = no-op
+    if pcall(uf.RegisterUnitEvent, uf, "UNIT_AURA", unit) then
+        fixCount = fixCount + 1
+    end
 end
 
 local function FixAllExisting()
@@ -159,18 +175,27 @@ local function UpdateStatus()
     local combat = InCombatLockdown()
     local parts = combat and "|cffff5555IN COMBAT|r" or "|cff44ff44out of combat|r"
 
-    -- Platynator: ถอน event ไม่มีเงื่อนไข ไม่มี option ⇒ ทางเดียวคือ fix ของเรา
-    if C_AddOns and C_AddOns.IsAddOnLoaded and select(2, pcall(C_AddOns.IsAddOnLoaded, "Platynator")) then
-        parts = parts .. "   ·   Platynator: มี (ถอน event ทุก plate — ไม่มี option)"
-            .. "  fix=" .. (platyFix and "|cff44ff44on|r" or "|cffff9a9aoff|r")
-        statusFS:SetText(parts)
+    -- บรรทัด detect — ตอบคำถาม "ใช้ UI ไหนอยู่ + fix ทำงานไหม"
+    local ui = DetectNPUI()
+    parts = parts .. "   ·   UI = |cffffd200" .. ui .. "|r"
+    if ui ~= "Blizzard" then
+        parts = parts .. "  · fix=" .. (platyFix and "|cff44ff44on|r" or "|cffff9a9aoff|r")
+        if fixCount > 0 then
+            parts = parts .. " |cff44ff44(ซ่อมแล้ว " .. fixCount .. " plate)|r"
+        end
+    end
+    if ui == "Platynator" then
+        statusFS:SetText(parts .. "   |cff888888(ถอน event ทุก plate — ไม่มี option ให้ตั้ง)|r")
+        return
+    end
+    if ui == "Blizzard" then
+        statusFS:SetText(parts .. "   |cff888888(อ่านได้ตามปกติ)|r")
         return
     end
 
     local P = _G.Plater
     local prof = P and P.db and P.db.profile
     if prof == nil then
-        parts = parts .. "   ·   Plater: ไม่ได้โหลด (Blizzard UI ล้วน)"
         statusFS:SetText(parts)
         return
     end
@@ -321,15 +346,24 @@ local function BuildFrame()
     pageLabel:SetPoint("LEFT", btnNext, "RIGHT", 12, 0)
     pageLabel:SetText("")
 
-    -- fix สำหรับ addon ที่ถอน event ทิ้งแบบไม่มี option (Platynator) — สมัคร UNIT_AURA คืน
-    local chkFix = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-    chkFix:SetPoint("LEFT", pageLabel, "RIGHT", 16, 0)
-    chkFix:SetSize(22, 22)
-    chkFix.text:SetText("Fix: สมัคร UNIT_AURA คืน (Platynator)")
-    chkFix:SetScript("OnClick", function(self)
-        SetPlatyFix(self:GetChecked())
+    -- ปุ่มเดียวจบ: detect ว่าใช้ UI ไหน + เปิด fix (สมัคร UNIT_AURA คืนทุก plate
+    -- ที่ถูกถอน — generic: Blizzard = no-op · Plater/Platynator = ซ่อม)
+    local btnFix = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnFix:SetSize(200, 22)
+    btnFix:SetPoint("LEFT", pageLabel, "RIGHT", 16, 0)
+    local function syncFixBtn()
+        if platyFix then
+            btnFix:SetText("Fix: ON — " .. DetectNPUI() .. " (กดปิด)")
+        else
+            btnFix:SetText("Auto Detect + Fix")
+        end
+    end
+    btnFix:SetScript("OnClick", function()
+        SetPlatyFix(not platyFix)
+        syncFixBtn()
         Tick()
     end)
+    syncFixBtn()
 
     for c = 1, COLS do
         local col = { rows = {} }
