@@ -31,6 +31,8 @@ local ROW_H    = 15
 local TICK_SEC = 0.3
 
 local frame, statusFS, pageLabel, btnPrev, btnNext
+local btnOverride, btnForce
+local lastAction = ""     -- ผลของปุ่มล่าสุด (โชว์บนจอ + print ลงแชต)
 local cols = {}           -- [c] = { header = FS, rows = {FS...} }
 local page = 1
 
@@ -99,6 +101,118 @@ local function SetPlatyFix(on)
         FixAllExisting()
     else
         fixerFrame:UnregisterEvent("NAME_PLATE_UNIT_ADDED")
+    end
+end
+
+-- ============================================================
+-- ทาง 2: ตั้ง option ของ Plater ให้เอง + บังคับให้ plate เกิดใหม่
+-- ============================================================
+-- ทำไมต้องมาทางนี้: auto-fix ของเรา (สมัคร UNIT_AURA คืน) **ใช้ไม่ได้** เพราะ Plater
+-- ทำ 2 อย่างตอนซ่อนเฟรม ([Plater.lua:4645-4661] Plater.OnRetailNamePlateShow):
+--     self:UnregisterAllEvents()               -- (A) ถอนการสมัคร event
+--     CompactUnitFrame_UnregisterEvents(self)  -- (B) ถอน **OnEvent handler**
+-- เราคืนแค่ (A) ⇒ event ยิงเข้ามาแล้วไม่มี handler ให้ทำงาน ⇒ ลิสต์ไม่ populate
+-- (คอมเมนต์ของ Plater เองบรรทัด 4647 เขียนไว้ว่า "only removes event handler functions")
+-- ทั้ง (A) และ (B) ถูก gate ด้วย option เดียวกัน ⇒ ตั้ง option = ไม่ถอดตั้งแต่แรก
+--
+-- ⚠ **นี่คือการเขียนทับ setting ใน addon ของคนอื่น** — จึงอยู่ใน Tools เป็นปุ่มที่ user
+--   กดเอง เท่านั้น · addon จริงยังไม่ทำอะไรทั้งสิ้นจนกว่าจะได้ผลวัดว่าคุมได้ 100%
+
+local function PlaterProfile()
+    local P = _G.Plater
+    if P == nil or P.db == nil then return nil end
+    return P.db.profile
+end
+
+local function GetCV(k)
+    if C_CVar and C_CVar.GetCVar then
+        local ok, v = pcall(C_CVar.GetCVar, k)
+        if ok then return v end
+    end
+    return nil
+end
+
+local function SetCV(k, v)
+    if C_CVar and C_CVar.SetCVar then return pcall(C_CVar.SetCVar, k, v) end
+    return false
+end
+
+--- ปุ่ม 1 — สลับค่า option ของ Plater แล้ว **อ่านกลับ** เพื่อยืนยันว่าเขียนติดจริง
+--- ไม่ทำอย่างอื่นเลย (ไม่ refresh ไม่ respawn) — จะได้รู้ว่าลำพังการเขียนพอไหม
+local function OverrideOption()
+    local prof = PlaterProfile()
+    if prof == nil then
+        lastAction = "|cffff5555Override: ไม่มี Plater / อ่าน profile ไม่ได้|r"
+        print("|cffffcc00[NP Aura Live]|r " .. lastAction)
+        return
+    end
+    local KEY = "aura_show_debuff_as_blizzard_does"
+    local before = prof[KEY]
+    local want = (before ~= true)
+    local okW = pcall(function() prof[KEY] = want end)
+    local after = prof[KEY]
+    -- Plater ตัดสินใจ strip จาก db **ตรง ๆ** (Plater.lua:4648) แต่ยังมี upvalue
+    -- DB_AURA_SHOW_AS_BLIZZARD ที่ใช้ที่อื่น (Plater_Auras.lua:4437) -> sync ให้ตรงกัน
+    local okR = false
+    if _G.Plater and _G.Plater.RefreshDBUpvalues then
+        okR = pcall(_G.Plater.RefreshDBUpvalues)
+    end
+    lastAction = "Override: " .. tostring(before) .. " -> " .. tostring(want)
+        .. "  · เขียน " .. (okW and "ok" or "|cffff5555ERR|r")
+        .. "  · อ่านกลับได้ " .. (after == want and "|cff44ff44ตรง|r" or "|cffff5555ไม่ตรง|r")
+        .. "  · RefreshDBUpvalues " .. (okR and "ok" or "ข้าม")
+    print("|cffffcc00[NP Aura Live]|r " .. lastAction)
+end
+
+--- ปุ่ม 2 — บังคับให้ plate ที่มีอยู่แล้ว "เกิดใหม่"
+--- user วัดแล้ว: เปลี่ยน option แล้วต้อง spawn nameplate ใหม่ถึงมีผล (กด V / เดินออก-เข้า / reload)
+--- ⇒ ลอง 2 ระดับแล้วรายงานทีละขั้น จะได้รู้ว่าอันไหนพอ
+---   1) Plater.UpdateAllPlates()  = สิ่งที่ปุ่ม option ของ Plater เองเรียก
+---      (ถ้าพอ user คงไม่ต้องกด V — แต่ user บอกว่าต้องกด ⇒ คาดว่าไม่พอ)
+---   2) สลับ CVar nameplateShowEnemies = สิ่งที่ปุ่ม V ทำจริง ⇒ plate ถูกสร้างใหม่ทั้งหมด
+local function ForceUpdateNP()
+    local msgs = {}
+    local P = _G.Plater
+    if P and P.RefreshDBUpvalues then
+        msgs[#msgs + 1] = "RefreshDBUpvalues " .. (pcall(P.RefreshDBUpvalues) and "ok" or "ERR")
+    end
+    if P and P.UpdateAllPlates then
+        msgs[#msgs + 1] = "UpdateAllPlates " .. (pcall(P.UpdateAllPlates) and "ok" or "ERR")
+    else
+        msgs[#msgs + 1] = "UpdateAllPlates ไม่มี"
+    end
+
+    local KEY = "nameplateShowEnemies"
+    local cur = GetCV(KEY)
+    if cur == nil then
+        msgs[#msgs + 1] = "|cffff9a9aอ่าน CVar ไม่ได้|r"
+    elseif InCombatLockdown() then
+        -- ไม่ลองใน combat — CVar บางตัวถูกบล็อก และถ้าพลาดคือ nameplate หายกลางไฟต์
+        msgs[#msgs + 1] = "|cffff9a9aCVar respawn ข้าม (in combat)|r"
+    else
+        local okOff = SetCV(KEY, "0")
+        C_Timer.After(0.3, function() SetCV(KEY, cur) end)
+        msgs[#msgs + 1] = "CVar respawn " .. (okOff and "ok" or "|cffff5555ERR|r")
+            .. " (คืนเป็น " .. tostring(cur) .. " ใน 0.3s)"
+    end
+
+    lastAction = "Force: " .. table.concat(msgs, " · ")
+    print("|cffffcc00[NP Aura Live]|r " .. lastAction)
+end
+
+local function SyncControlButtons()
+    if btnOverride == nil then return end
+    local prof = PlaterProfile()
+    if prof == nil then
+        btnOverride:SetText("Override: ไม่มี Plater")
+        btnOverride:SetEnabled(false)
+        return
+    end
+    btnOverride:SetEnabled(true)
+    if prof.aura_show_debuff_as_blizzard_does == true then
+        btnOverride:SetText("Plater Opt = ON  (กดเพื่อปิด)")
+    else
+        btnOverride:SetText("Plater Opt = OFF  (กดเพื่อเปิด)")
     end
 end
 
@@ -216,6 +330,7 @@ local function UpdateStatus()
         line = line .. "  " .. o.n .. "="
             .. (v == true and "|cff44ff44on|r" or "|cffff9a9a" .. tostring(v) .. "|r")
     end
+    if lastAction ~= "" then line = line .. "\n" .. lastAction end
     statusFS:SetText(parts .. "\n" .. line)
 end
 
@@ -274,6 +389,8 @@ end
 local function Tick()
     if frame == nil or not frame:IsShown() then return end
     UpdateStatus()
+    -- sync ทุก tick — user อาจไปสลับ option ที่แผงของ Plater เอง ป้ายบนปุ่มต้องตามทัน
+    SyncControlButtons()
 
     local units = ExistingUnits()
     local totalPages = math.ceil(#units / COLS)
@@ -294,13 +411,14 @@ end
 -- UI
 -- ============================================================
 local function LayoutColumns()
+    if btnOverride == nil then return end   -- ยังสร้างปุ่มไม่เสร็จ (BuildFrame ครั้งแรก)
     local w = frame:GetWidth() - SIDE_PAD * 2
     local colW = (w - 10) / COLS
     for c = 1, COLS do
         local x = SIDE_PAD + (c - 1) * (colW + 10)
         local col = cols[c]
         col.header:ClearAllPoints()
-        col.header:SetPoint("TOPLEFT", btnPrev, "BOTTOMLEFT", x - SIDE_PAD, -10)
+        col.header:SetPoint("TOPLEFT", btnOverride, "BOTTOMLEFT", x - SIDE_PAD, -10)
         col.header:SetWidth(colW)
         for i, fs in ipairs(col.rows) do
             fs:ClearAllPoints()
@@ -313,7 +431,7 @@ end
 local function BuildFrame()
     if frame then return frame end
     frame = CreateFrame("Frame", "GeRODPSToolsNPAuraLiveView", UIParent, "BasicFrameTemplateWithInset")
-    frame:SetSize(640, 420)
+    frame:SetSize(700, 460)
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -389,6 +507,24 @@ local function BuildFrame()
         end)
         probeBtns[c] = b
     end
+
+    -- แถวปุ่มที่ 2 — ทาง 2 (คุม Plater ตรง ๆ) · แยก 2 ปุ่มเพราะเป็นคนละคำถาม
+    btnOverride = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnOverride:SetSize(210, 22)
+    btnOverride:SetPoint("TOPLEFT", btnPrev, "BOTTOMLEFT", 0, -4)
+    btnOverride:SetText("Plater Opt")
+    btnOverride:SetScript("OnClick", function()
+        OverrideOption(); SyncControlButtons(); Tick()
+    end)
+
+    btnForce = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnForce:SetSize(190, 22)
+    btnForce:SetPoint("LEFT", btnOverride, "RIGHT", 6, 0)
+    btnForce:SetText("Force Update Nameplate")
+    btnForce:SetScript("OnClick", function()
+        ForceUpdateNP(); Tick()
+    end)
+    SyncControlButtons()
 
     for c = 1, COLS do
         local col = { rows = {} }
