@@ -35,6 +35,69 @@ local cols = {}           -- [c] = { header = FS, rows = {FS...} }
 local page = 1
 
 -- ============================================================
+-- Platynator fix — สมัคร UNIT_AURA คืนให้เฟรม Blizzard
+-- ============================================================
+-- ซอร์ส Platynator (Display/Initialize.lua:869): ทุก NAME_PLATE_UNIT_ADDED มัน
+--   SetParent(hiddenFrame) + UnitFrame:UnregisterAllEvents()  ← ไม่มีเงื่อนไข/ไม่มี option
+-- แต่ **ไม่มี hook Show / ไม่รื้อซ้ำ** (ต่างจาก Plater) ⇒ เราสมัคร event คืน
+-- ทีหลังได้เลย ไม่มีใครมาสู้ · เฟรมยังซ่อนอยู่ (parent เป็น hiddenFrame) ซึ่งดี:
+-- ไม่มีภาพซ้อน และเคส Plater พิสูจน์แล้วว่า "ซ่อน + event มา = ลิสต์ populate"
+-- ⚠ UnregisterAllEvents ถอนแค่การสมัคร ไม่แตะ OnEvent handler / self.unit
+-- ⚠ หลัง fix ลิสต์จะเริ่มขยับเมื่อ aura ของ unit นั้น "เปลี่ยน" ครั้งถัดไป
+--   (ใส่ DoT ใหม่ / รอ tick) — ไม่ได้ populate ย้อนหลังทันที
+local platyFix = false
+local fixerFrame          -- รับ NAME_PLATE_UNIT_ADDED เพื่อ fix plate ใหม่ (หลัง Platynator)
+
+local function FixUnitAuraEvents(unit)
+    if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return end
+    local plate = C_NamePlate.GetNamePlateForUnit(unit)
+    local uf = plate and plate.UnitFrame
+    if uf == nil then return end
+    pcall(uf.RegisterUnitEvent, uf, "UNIT_AURA", unit)
+end
+
+local function FixAllExisting()
+    for i = 1, 30 do
+        local u = "nameplate" .. i
+        if UnitExists(u) then FixUnitAuraEvents(u) end
+    end
+end
+
+local function EnsureFixer()
+    if fixerFrame then return end
+    fixerFrame = CreateFrame("Frame")
+    fixerFrame:SetScript("OnEvent", function(_, _, unit)
+        if not platyFix then return end
+        -- หน่วง 1 เฟรม — ให้ handler ของ Platynator (ตัวถอน) วิ่งจบก่อนเสมอ
+        C_Timer.After(0, function()
+            if platyFix and unit then FixUnitAuraEvents(unit) end
+        end)
+    end)
+end
+
+local function SetPlatyFix(on)
+    platyFix = on and true or false
+    EnsureFixer()
+    if platyFix then
+        fixerFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+        FixAllExisting()
+    else
+        fixerFrame:UnregisterEvent("NAME_PLATE_UNIT_ADDED")
+    end
+end
+
+--- event UNIT_AURA ของเฟรม Blizzard ยังสมัครอยู่ไหม (ตัวชี้วัดผลของ fix)
+local function UnitAuraEventOn(unit)
+    if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return nil end
+    local plate = C_NamePlate.GetNamePlateForUnit(unit)
+    local uf = plate and plate.UnitFrame
+    if uf == nil then return nil end
+    local ok, v = pcall(uf.IsEventRegistered, uf, "UNIT_AURA")
+    if not ok then return nil end
+    return v == true
+end
+
+-- ============================================================
 -- ข้อมูล
 -- ============================================================
 
@@ -96,6 +159,14 @@ local function UpdateStatus()
     local combat = InCombatLockdown()
     local parts = combat and "|cffff5555IN COMBAT|r" or "|cff44ff44out of combat|r"
 
+    -- Platynator: ถอน event ไม่มีเงื่อนไข ไม่มี option ⇒ ทางเดียวคือ fix ของเรา
+    if C_AddOns and C_AddOns.IsAddOnLoaded and select(2, pcall(C_AddOns.IsAddOnLoaded, "Platynator")) then
+        parts = parts .. "   ·   Platynator: มี (ถอน event ทุก plate — ไม่มี option)"
+            .. "  fix=" .. (platyFix and "|cff44ff44on|r" or "|cffff9a9aoff|r")
+        statusFS:SetText(parts)
+        return
+    end
+
     local P = _G.Plater
     local prof = P and P.db and P.db.profile
     if prof == nil then
@@ -143,8 +214,11 @@ local function UpdateColumn(c, unit)
         if n == "0" then return "|cffff9a9a0|r" end
         return "|cff44ff44" .. n .. "|r"
     end
-    col.header:SetText(("|cffffd200%s|r  %s%s\n  list: debuff %s · buff %s · cc %s")
-        :format(unit, name, tgtTxt, paint(lc.debuff), paint(lc.buff), paint(lc.cc)))
+    -- ev = UNIT_AURA ยังสมัครอยู่ไหม — ตัวบอกว่า addon nameplate ถอน event หรือ fix แล้ว
+    local ev = UnitAuraEventOn(unit)
+    local evTxt = (ev == true and "|cff44ff44on|r") or (ev == false and "|cffff5555off|r") or "|cff666666?|r"
+    col.header:SetText(("|cffffd200%s|r  %s%s\n  list: debuff %s · buff %s · cc %s · ev=%s")
+        :format(unit, name, tgtTxt, paint(lc.debuff), paint(lc.buff), paint(lc.cc), evTxt))
 
     local recs = {}
     if GeRODPS and GeRODPS.GetAllAuraFromSetOfNamePlate then
@@ -246,6 +320,16 @@ local function BuildFrame()
     pageLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     pageLabel:SetPoint("LEFT", btnNext, "RIGHT", 12, 0)
     pageLabel:SetText("")
+
+    -- fix สำหรับ addon ที่ถอน event ทิ้งแบบไม่มี option (Platynator) — สมัคร UNIT_AURA คืน
+    local chkFix = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    chkFix:SetPoint("LEFT", pageLabel, "RIGHT", 16, 0)
+    chkFix:SetSize(22, 22)
+    chkFix.text:SetText("Fix: สมัคร UNIT_AURA คืน (Platynator)")
+    chkFix:SetScript("OnClick", function(self)
+        SetPlatyFix(self:GetChecked())
+        Tick()
+    end)
 
     for c = 1, COLS do
         local col = { rows = {} }
