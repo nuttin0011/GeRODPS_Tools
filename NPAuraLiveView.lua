@@ -365,6 +365,31 @@ local function BuildFrame()
     end)
     syncFixBtn()
 
+    -- ยิง Tooltip Probe ใส่ unit ของคอลัมน์นั้นตรง ๆ (ตอบคำถาม "ดึง tooltip ของ
+    -- aura บน nameplate ได้ไหม / spellID ที่ได้เป็น plain หรือ secret")
+    -- ⚠ ต้องอ่าน unit **สดตอนคลิก** — user เปลี่ยนหน้าได้ตลอด ห้าม capture
+    local probeBtns = {}
+    for c = 1, COLS do
+        local b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        b:SetSize(112, 22)
+        if c == 1 then
+            b:SetPoint("LEFT", btnFix, "RIGHT", 10, 0)
+        else
+            b:SetPoint("LEFT", probeBtns[c - 1], "RIGHT", 4, 0)
+        end
+        b:SetText("Tooltip #" .. c)
+        b:SetScript("OnClick", function()
+            local units = ExistingUnits()
+            local u = units[(page - 1) * COLS + c]
+            if u == nil then
+                print("|cffffcc00[GeRODPS Tools]|r คอลัมน์ " .. c .. " ไม่มี nameplate")
+                return
+            end
+            if TOOL.ShowNPAuraTooltipProbe then TOOL.ShowNPAuraTooltipProbe(u) end
+        end)
+        probeBtns[c] = b
+    end
+
     for c = 1, COLS do
         local col = { rows = {} }
         col.header = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
