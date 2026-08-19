@@ -231,13 +231,30 @@ end
 -- ข้อมูล
 -- ============================================================
 
---- รายชื่อ nameplate ที่มีตัวตน (เรียง index) — จับคู่ลงหน้า ตามลำดับนี้
+--- รายชื่อ nameplate ที่มีตัวตน — **ตัวที่เรา target อยู่มาเป็นอันแรกเสมอ**
+--- ที่เหลือเรียงตาม index เดิม · จับคู่ลงหน้าตามลำดับนี้
+--- ⚠ หา "ตัวไหนคือ target" ด้วยการเทียบ **เฟรม** เท่านั้น (GetNamePlateForUnit("target"))
+---   ห้ามใช้ UnitIsUnit — คืน secret boolean ⇒ if-test ไม่ได้
 local function ExistingUnits()
-    local units = {}
+    local units, tgtUnit = {}, nil
+    local pT = nil
+    if C_NamePlate and C_NamePlate.GetNamePlateForUnit and UnitExists("target") then
+        local ok, v = pcall(C_NamePlate.GetNamePlateForUnit, "target")
+        if ok then pT = v end
+    end
     for i = 1, 30 do
         local u = "nameplate" .. i
-        if UnitExists(u) then units[#units + 1] = u end
+        if UnitExists(u) then
+            if tgtUnit == nil and pT ~= nil then
+                local ok, pU = pcall(C_NamePlate.GetNamePlateForUnit, u)
+                if ok and pU ~= nil and pU == pT then
+                    tgtUnit = u
+                end
+            end
+            if u ~= tgtUnit then units[#units + 1] = u end
+        end
     end
+    if tgtUnit ~= nil then table.insert(units, 1, tgtUnit) end
     return units
 end
 
