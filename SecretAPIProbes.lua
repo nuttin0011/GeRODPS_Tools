@@ -480,7 +480,7 @@ end, "[!!] แถวนี้ BLOCKED/ERR = ไม่ได้ table มาต�
    .. "จบตามทั้งหมด (ไม่ใช่ secret ทีละ field — เข้าไม่ถึงทั้งก้อน)")
 U(c5, "  .name", function(u) return HarmField(u, "name") end)
 U(c5, "  .spellId", function(u) return HarmField(u, "spellId") end,
-    "[!] เทียบกับลิสต์ Bleed / DispelAura / condition aura_present")
+    "[!] เทียบกับลิสต์ DispelAura / condition aura_present")
 U(c5, "  .applications", function(u) return HarmField(u, "applications") end,
     "[!] stack count — เทียบ >= N")
 U(c5, "  .expirationTime", function(u) return HarmField(u, "expirationTime") end,
@@ -548,7 +548,7 @@ end, "[!!] ทางหลักที่เหลือ · true = มี aura �
 -- isHarmful · isHelpful · isNameplateOnly
 U(c6, "  .name", function(u) return SpellAuraField(u, "name") end)
 U(c6, "  .spellId", function(u) return SpellAuraField(u, "spellId") end,
-    "[!] เทียบกับลิสต์ Bleed / DispelAura / condition aura_present")
+    "[!] เทียบกับลิสต์ DispelAura / condition aura_present")
 U(c6, "  .icon", function(u) return SpellAuraField(u, "icon") end)
 U(c6, "  .applications", function(u) return SpellAuraField(u, "applications") end,
     "[!] stack count — เทียบ >= N")
