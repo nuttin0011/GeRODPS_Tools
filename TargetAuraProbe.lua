@@ -771,6 +771,42 @@ local function ColMaxH()
     return h
 end
 
+--- คอลัมน์นี้ยังใส่ข้อความนี้ได้ไหม
+--- 🔴 กฎเหล็ก — `_lines[i]` เป็น **secret string ได้** (ค่า aura ที่ต่อด้วย `..`)
+---   ⇒ พอ SetText ลงไปแล้ว `GetStringHeight()` ของ FontString ตัวนั้นกลายเป็น
+---     **secret number** ตามไปด้วย ⇒ `h > maxH` = compare บน secret = **throw**
+---     (บั๊กชนิดเดียวกับ Rotation/ConditionPreview.lua ที่เจอ 2026-08-20 — error รัว
+---      ทุกเฟรม + ทำ scroll-range ของ Blizzard กลายเป็น secret ต่อ)
+---   ⇒ ต้องเทียบ **ข้างใน pcall** เสมอ · คืน nil = "วัดไม่ได้" ให้ caller ถอยไปนับบรรทัด
+--- @return boolean|nil  true ใส่ได้ · false เกิน · nil วัดไม่ได้
+local function FitsInColumn(fs, cand, maxH)
+    local ok, res = pcall(function()
+        fs:SetText(cand)
+        local h = fs:GetStringHeight()
+        if type(h) ~= "number" then return nil end
+        return h <= maxH
+    end)
+    if ok and type(res) == "boolean" then return res end
+    return nil
+end
+
+--- ความสูงต่อบรรทัดแบบ plain — ไม้วัดสำรองตอน GetStringHeight ใช้ไม่ได้
+local _plainLineH
+local function PlainLineH()
+    if _plainLineH then return _plainLineH end
+    local ok, h = pcall(function()
+        local p = UIParent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        p:SetAlpha(0)
+        p:SetText("ก")                       -- ไทยสูงกว่า ASCII → เผื่อไว้ก่อน
+        local h1 = p:GetStringHeight()
+        p:SetText("ก" .. NL .. "ก" .. NL .. "ก")
+        local h3 = p:GetStringHeight()
+        return (h3 - h1) / 2
+    end)
+    _plainLineH = (ok and type(h) == "number" and h >= 8) and h or 14
+    return _plainLineH
+end
+
 --- จัดเนื้อหาลงคอลัมน์โดยวัดความสูงจริงทีละบรรทัด (ใช้ colFS[1] เป็นไม้วัด —
 --- ความกว้างเท่ากันทุกคอลัมน์) · บรรทัดเดียวที่สูงเกินคอลัมน์ยังต้องใส่ (กัน loop ค้าง)
 --- ผลเก็บใน _colTexts — RenderPage แค่หยิบไปโชว์ ไม่ต้องวัดซ้ำ
@@ -778,14 +814,20 @@ local function ComputePages()
     _colTexts = {}
     if not colFS[1] or #_lines == 0 then return end
     local fs, maxH = colFS[1], ColMaxH()
+    -- โควตาบรรทัดสำรอง — ใช้เมื่อวัดความสูงจริงไม่ได้ (ข้อความมี secret)
+    local maxLines = math.max(1, math.floor(maxH / PlainLineH()))
     local i = 1
     while i <= #_lines do
-        local t, first = "", true
+        local t, first, nLines = "", true, 0
         while i <= #_lines do
             local cand = t .. _lines[i] .. NL   -- ต่อด้วย .. (secret string ได้)
-            fs:SetText(cand)
-            if fs:GetStringHeight() > maxH and not first then break end
+            local fits = FitsInColumn(fs, cand, maxH)
+            if fits == nil then
+                fits = (nLines + 1) <= maxLines   -- วัดไม่ได้ → นับบรรทัดแทน
+            end
+            if not fits and not first then break end
             t = cand
+            nLines = nLines + 1
             i = i + 1
             first = false
         end
